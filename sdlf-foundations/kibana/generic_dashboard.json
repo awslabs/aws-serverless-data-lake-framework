@@ -1,0 +1,18 @@
+[
+  {
+    "_id": "e4069440-fb2c-11e9-86fb-19c7ff919e3c",
+    "_type": "dashboard",
+    "_source": {
+      "title": "Generic Dashboard",
+      "hits": 0,
+      "description": "",
+      "panelsJSON": "[{\"panelIndex\":\"1\",\"gridData\":{\"x\":0,\"y\":0,\"w\":24,\"h\":15,\"i\":\"1\"},\"embeddableConfig\":{\"vis\":{\"legendOpen\":false}},\"id\":\"dec27710-fb2c-11e9-86fb-19c7ff919e3c\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"2\",\"gridData\":{\"x\":24,\"y\":0,\"w\":24,\"h\":15,\"i\":\"2\"},\"embeddableConfig\":{\"vis\":{\"colors\":{\"Count\":\"#E24D42\"},\"legendOpen\":false}},\"id\":\"26819f40-fb2d-11e9-b09b-8b893ba5891b\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"5\",\"gridData\":{\"x\":0,\"y\":42,\"w\":48,\"h\":14,\"i\":\"5\"},\"embeddableConfig\":{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":2,\"direction\":\"asc\"}}}},\"id\":\"60903910-fb2f-11e9-86fb-19c7ff919e3c\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"8\",\"gridData\":{\"x\":0,\"y\":15,\"w\":13,\"h\":12,\"i\":\"8\"},\"embeddableConfig\":{},\"id\":\"3c879b80-fbc5-11e9-86fb-19c7ff919e3c\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"9\",\"gridData\":{\"x\":37,\"y\":15,\"w\":11,\"h\":12,\"i\":\"9\"},\"embeddableConfig\":{\"vis\":{\"colors\":{\"/aws/lambda/f1-dl04-dev-activemq-process-a\":\"#EA6460\"},\"legendOpen\":false}},\"id\":\"945eca40-fbc5-11e9-b09b-8b893ba5891b\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"12\",\"gridData\":{\"x\":13,\"y\":15,\"w\":24,\"h\":12,\"i\":\"12\"},\"embeddableConfig\":{\"vis\":{\"colors\":{\"Count\":\"#5195CE\"},\"legendOpen\":false}},\"id\":\"131befe0-fbd3-11e9-b09b-8b893ba5891b\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"13\",\"gridData\":{\"x\":0,\"y\":27,\"w\":24,\"h\":15,\"i\":\"13\"},\"embeddableConfig\":{},\"id\":\"20f6a2e0-fbce-11e9-b09b-8b893ba5891b\",\"type\":\"visualization\",\"version\":\"6.3.1\"},{\"panelIndex\":\"15\",\"gridData\":{\"x\":24,\"y\":27,\"w\":24,\"h\":15,\"i\":\"15\"},\"version\":\"6.3.1\",\"type\":\"visualization\",\"id\":\"6506b6d0-1048-11ea-a53e-f38a7f594614\",\"embeddableConfig\":{}}]",
+      "optionsJSON": "{\"darkTheme\":false,\"hidePanelTitles\":false,\"useMargins\":true}",
+      "version": 1,
+      "timeRestore": false,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"query\":{\"language\":\"lucene\",\"query\":\"\"},\"filter\":[],\"highlightAll\":true,\"version\":true}"
+      }
+    }
+  }
+]

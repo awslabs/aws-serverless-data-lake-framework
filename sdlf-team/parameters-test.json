@@ -1,0 +1,22 @@
+[
+    {
+        "ParameterKey": "pTeamName",
+        "ParameterValue": "engineering"
+    },
+    {
+        "ParameterKey": "pDatalakeLibraryRepositoryName",
+        "ParameterValue": "sdlf-datalakeLibrary"
+    },
+    {
+        "ParameterKey": "pPipLibrariesRepositoryName",
+        "ParameterValue": "sdlf-pipLibrary"
+    },
+    {
+        "ParameterKey": "pLibrariesBranchName",
+        "ParameterValue": "test"
+    },
+    {
+        "ParameterKey": "pSNSNotificationsEmail",
+        "ParameterValue": "nobody@amazon.com"
+    }
+] 

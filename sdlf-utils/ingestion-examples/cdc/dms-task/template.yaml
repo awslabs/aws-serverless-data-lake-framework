@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DMS Task Resources
+
+Parameters:
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,12}"
+    Default: engineering
+  pDatasetName:
+    Description: The name of the dataset (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,14}"
+  pEnvironment:
+    Description: Environment name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pOrg
+  pApp:
+    Description: Name of the application
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pApp
+  pDBEngine:
+    Description: Choose the source DB engine to stream changes.
+    Type: String
+    Default: mysql
+    AllowedValues:
+      - mysql
+      - oracle
+      - postgres
+      - mariadb
+      - aurora
+      - aurora-postgresql
+      - db2
+      - sybase
+      - sqlserver
+  pDBPort:
+    Description: Port of the source DB.
+    Type: Number
+  pDBName:
+    Description: Name of the source DB.
+    Type: String
+  pDMSTableFilter:
+    Description: Choose the DMS table filter criteria.
+    Type: String
+    Default: "%"
+    AllowedPattern: ^[a-zA-Z0-9-_%]*$
+    ConstraintDescription: Must only contain upper/lower-case letters, numbers, -, _, or %.
+  pDMSSchemaFilter:
+    Description: Choose the DMS schema filter criteria.
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9_-]*$
+    ConstraintDescription: Must only contain upper/lower-case letters, numbers, -, or _.
+  pCentralBucket:
+    Description: The central bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CentralBucket
+  pStageBucket:
+    Description: The stage bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/StageBucket
+  pArtifactsBucket:
+    Description: The artifactory bucket used to store DMS scripts
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+
+Conditions:
+  IsDatabase:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - db2
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - azuredb
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - sqlserver
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - oracle
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - postgres
+      - Fn::Equals:
+          - Ref: pDBEngine
+          - sybase
+  CreateMultipleBuckets: !Not [!Equals [!Ref pCentralBucket, !Ref pStageBucket]]
+
+Resources:
+  DMSSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName:
+        Ref: pDBEngine
+      ServerName: !Sub "{{resolve:secretsmanager:/SDLF/RDS/${pTeamName}/${pDBName}:SecretString:server}}"
+      Port:
+        Ref: pDBPort
+      Username: !Sub "{{resolve:secretsmanager:/SDLF/RDS/${pTeamName}/${pDBName}:SecretString:username}}"
+      Password: !Sub "{{resolve:secretsmanager:/SDLF/RDS/${pTeamName}/${pDBName}:SecretString:password}}"
+      DatabaseName:
+        Fn::If:
+          - IsDatabase
+          - Ref: pDBName
+          - Ref: AWS::NoValue
+
+  DMSTargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: target
+      EngineName: s3
+      ExtraConnectionAttributes: "dataFormat=parquet;timestampColumnName=last_modified_at;parquetTimestampInMillisecond=true"
+      S3Settings:
+        BucketFolder:
+          !If [
+            CreateMultipleBuckets,
+            !Sub "${pTeamName}/${pDatasetName}/",
+            !Sub "raw/${pTeamName}/${pDatasetName}/",
+          ]
+        BucketName:
+          Ref: pCentralBucket
+        ServiceAccessRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+
+  DMSReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn: !Sub "{{resolve:ssm:/SDLF/DMS/${pTeamName}/DMSReplicationInstanceArn:1}}"
+      SourceEndpointArn:
+        Ref: DMSSourceEndpoint
+      TableMappings:
+        Fn::Sub:
+          - '{"rules": [{"rule-type": "selection", "rule-id": "1", "rule-action": "include", "object-locator": {"schema-name": "${schema}", "table-name": "${tables}"}, "rule-name": "1"}]}'
+          - { schema: !Ref pDMSSchemaFilter, tables: !Ref pDMSTableFilter }
+      TargetEndpointArn:
+        Ref: DMSTargetEndpoint
+      ReplicationTaskSettings: '{"Logging": {"EnableLogging": true }}'
+
+  InitDMS:
+    Type: Custom::InitDMS
+    Properties:
+      ServiceToken: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+      taskArn: !Ref DMSReplicationTask
+      sourceArn: !Ref DMSSourceEndpoint
+      targetArn: !Ref DMSTargetEndpoint
+      instanceArn: !Sub "{{resolve:ssm:/SDLF/DMS/${pTeamName}/DMSReplicationInstanceArn:1}}"
+      dmsBucket: !Ref pCentralBucket
+
+  InitController:
+    Type: Custom::InitController
+    DependsOn:
+      - InitDMS
+    Properties:
+      ServiceToken: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+      dmsBucket: !Ref pCentralBucket
+      dmsPath: !Sub
+        - "${prefix}/${schema}/"
+        - {
+            prefix:
+              !If [
+                CreateMultipleBuckets,
+                !Sub "${pTeamName}/${pDatasetName}",
+                !Sub "raw/${pTeamName}/${pDatasetName}",
+              ],
+            schema: !Ref pDMSSchemaFilter,
+          }
+      lakeBucket: !Ref pStageBucket
+      lakePath:
+        !If [
+          CreateMultipleBuckets,
+          !Sub "post-stage/${pTeamName}/${pDatasetName}/${pDMSSchemaFilter}/",
+          !Sub "post-stage/${pTeamName}/${pDatasetName}/${pDMSSchemaFilter}/",
+        ]
+      jobName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
+
+  ### Glue ###
+  rGlueJobLoadIncremental:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-load-incremental
+      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
+      ExecutionProperty:
+        MaxConcurrentRuns: 20
+      AllocatedCapacity: 3
+      GlueVersion: "2.0"
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadIncremental.py"
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--TempDir": !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/"
+        "--enable-metrics": ""
+        "--aws_region": !Sub ${AWS::Region}
+
+  rGlueJobLoadInitial:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-load-initial
+      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
+      ExecutionProperty:
+        MaxConcurrentRuns: 20
+      AllocatedCapacity: 3
+      GlueVersion: "2.0"
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadInitial.py"
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--TempDir": !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/"
+        "--enable-metrics": ""
+
+  rGlueJobController:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-controller
+      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      GlueVersion: "1.0"
+      Command:
+        Name: "pythonshell"
+        PythonVersion: "3"
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_Controller.py"
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--TempDir": !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/"
+        "--enable-metrics": ""
+        "--org": !Ref pOrg
+        "--app": !Ref pApp
+        "--env": !Ref pEnvironment
+        "--team": !Ref pTeamName
+        "--dataset": !Ref pDatasetName

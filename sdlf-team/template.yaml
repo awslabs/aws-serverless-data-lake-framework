@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Resources to be created to manage a team
+
+Parameters:
+  pApplicationName:
+    Description: Name of the application
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pApp
+  pAnalyticsBucket:
+    Description: The analytics bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AnalyticsBucket
+  pCentralBucket:
+    Description: The central bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CentralBucket
+  pCFNBucket:
+    Description: The CloudFormation bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+  pDataQualityStateMachine:
+    Description: The data quality state machine
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/SM/DataQualityStateMachine
+  pDatalakeLibraryRepositoryName:
+    Description: Name of the repository containing the code for the Datalake Library.
+    Type: String
+    Default: sdlf-datalakeLibrary
+  pDatalakeLibsLambdaLayerName:
+    Description: Name to give the Lambda Layer containing the Datalake Library.
+    Type: String
+    Default: datalake-lib-layer
+  pDefaultPipLibrariesLambdaLayerName:
+    Description: Name to give the Lambda Layer containing the libraries installed through Pip.
+    Type: String
+    Default: default-pip-libraries
+  pEnvironment:
+    Description: Environment name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pLibrariesBranchName:
+    Description: Name of the default branch for Python libraries
+    Type: String
+    Default: master
+  pMinTestCoverage:
+    Description: "[OPTIONAL] The minimum code coverage percentage that is required for the pipeline to proceed to the next stage. Specify only if `pEnforceCodeCoverage` is set to 'true'."
+    Type: String
+    Default: 80
+  pOrganizationName:
+    Description: Name of the organization owning the datalake
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pOrg
+  pPipLibrariesRepositoryName:
+    Description: The repository containing requirements.txt
+    Type: String
+    Default: sdlf-pipLibrary
+  pPipelineBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+  pRunCodeCoverage:
+    Description: "Creates code coverage reports from the unit tests included in `pDatalakeLibraryRepositoryName`. Enforces the minimum threshold specified in `pMinTestCoverage`"
+    Type: String
+    AllowedValues: ["false", "true"]
+    Default: "false"
+  pSNSNotificationsEmail:
+    Description: Email address for SNS notifications
+    Type: String
+    Default: nobody@amazon.com
+  pSharedDevOpsAccountId:
+    Description: Shared DevOps Account Id
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/DevOpsAccountId
+  pStageBucket:
+    Description: The stage bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/StageBucket
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,12}"
+
+Resources:
+  ######## KMS #########
+  rKMSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nested-stacks/template-kms.yaml
+      Parameters:
+        pEnvironment: !Ref pEnvironment
+        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
+        pTeamName: !Ref pTeamName
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}
+
+  ######## IAM #########
+  rIAMStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nested-stacks/template-iam.yaml
+      Parameters:
+        pAnalyticsBucket: !Ref pAnalyticsBucket
+        pApplicationName: !Ref pApplicationName
+        pCentralBucket: !Ref pCentralBucket
+        pCFNBucket: !Ref pCFNBucket
+        pDataQualityStateMachine: !Ref pDataQualityStateMachine
+        pEnvironment: !Ref pEnvironment
+        pKMSInfraKeyId: !GetAtt [rKMSStack, Outputs.oKMSInfraKeyId]
+        pKMSDataKeyId: !GetAtt [rKMSStack, Outputs.oKMSDataKeyId]
+        pOrganizationName: !Ref pOrganizationName
+        pPipelineBucket: !Ref pPipelineBucket
+        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
+        pStageBucket: !Ref pStageBucket
+        pTeamName: !Ref pTeamName
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}
+
+  ######## CICD #########
+  rCICDStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd.yaml
+      Parameters:
+        pAnalyticsBucket: !Ref pAnalyticsBucket
+        pApplicationName: !Ref pApplicationName
+        pCentralBucket: !Ref pCentralBucket
+        pCFNBucket: !Ref pCFNBucket
+        pCloudWatchRepositoryTriggerRoleArn:
+          !GetAtt [rIAMStack, Outputs.oCloudWatchRepositoryTriggerRoleArn]
+        pCodeBuildPublishLayerRoleArn:
+          !GetAtt [rIAMStack, Outputs.oCodeBuildPublishLayerRoleArn]
+        pCICDCodeBuildRoleArn:
+          !GetAtt [rIAMStack, Outputs.oCICDCodeBuildRoleArn]
+        pCodeBuildServiceRoleArn:
+          !GetAtt [rIAMStack, Outputs.oCodeBuildServiceRoleArn]
+        pCodePipelineRoleArn: !GetAtt [rIAMStack, Outputs.oCodePipelineRoleArn]
+        pDatalakeLibraryRepositoryName: !Ref pDatalakeLibraryRepositoryName
+        pDatalakeLibsLambdaLayerName: !Ref pDatalakeLibsLambdaLayerName
+        pDefaultPipLibrariesLambdaLayerName: !Ref pDefaultPipLibrariesLambdaLayerName
+        pEnvironment: !Ref pEnvironment
+        pKMSInfraKeyId: !GetAtt [rKMSStack, Outputs.oKMSInfraKeyId]
+        pLibrariesBranchName: !Ref pLibrariesBranchName
+        pMinimumTestCoverage: !Ref pMinTestCoverage
+        pOrganizationName: !Ref pOrganizationName
+        pPipelineBucket: !Ref pPipelineBucket
+        pPipLibrariesRepositoryName: !Ref pPipLibrariesRepositoryName
+        pRunCodeCoverage: !Ref pRunCodeCoverage
+        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
+        pStageBucket: !Ref pStageBucket
+        pSNSNotificationsEmail: !Ref pSNSNotificationsEmail
+        pTeamName: !Ref pTeamName
+        pTransformValidateRoleArn:
+          !GetAtt [rIAMStack, Outputs.oTransformValidateRoleArn]
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}

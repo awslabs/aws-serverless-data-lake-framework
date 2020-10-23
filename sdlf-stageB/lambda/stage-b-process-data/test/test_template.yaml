@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An AWS Serverless Specification template describing your function.
+
+Parameters:
+  pDynamoObjectMetadata:
+    Description: "DynamoDB object catalog"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/Dynamo/ObjectCatalog"
+  pDynamoTransformMapping:
+    Description: "DynamoDB transform mapping"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/Dynamo/TransformMapping"
+  pDynamoDataset:
+    Description: "DynamoDB dataset"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/Dynamo/Dataset"
+  pGlueDataCatalog:
+    Description: "Glue data catalog"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/Glue/DataCatalog"
+  pDatalakeLibraryLayer:
+    Description: "The ARN of the latest version of the Datalake Library layer"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/Lambda/LatestDatalakeLibraryLayer"
+  pDataEngineerRoleName:
+    Description: "The name of the Data Engineer role to attach permissions to"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/IAM/DataEngineerRole"
+  pDataScientistRoleName:
+    Description: "The name of the Data Scientist role to attach permissions to"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/IAM/DataScientistRole" 
+  pCloudWatchEventStateMachineRoleName:
+    Description: "The name of the CloudWatch Event role to attach permissions to"
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Default: "/SDLF/IAM/CloudWatchEventStateMachineRole"
+  pS3CentralBucket:
+    Description: "The dataset bucket"
+    Type: String
+
+Resources:
+  RequestsLayer:
+    Type: 'AWS::Serverless::LayerVersion'
+    Properties:
+      LayerName: datalake_library
+      CompatibleRuntimes:
+        - python3.6
+        - python3.7
+      ContentUri: ../../../../f1-dl/common-datalakeLibrary
+
+  # NOTE: Please ensure this Logical ID is alphanumeric and contains no symbols!
+  TransformA:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ../src
+      Environment:
+        Variables:
+          DYNAMO_OBJECT_CATALOG: !Ref pDynamoObjectMetadata
+          DYNAMO_TRANSFORM_MAPPING: !Ref pDynamoTransformMapping
+          DYNAMO_DATASET: !Ref pDynamoDataset
+          GLUE_DATA_CATALOG: !Ref pGlueDataCatalog
+          S3_BUCKET: !Ref pS3CentralBucket
+          TEST: True
+      Handler: lambda_function.lambda_handler
+      MemorySize: 512
+      Role: >-
+        arn:aws:iam::509480599834:role/service-role/qs-transform-object-phase-a-role
+      Runtime: python3.6
+      Timeout: 120
+      Layers: 
+        - !Ref RequestsLayer

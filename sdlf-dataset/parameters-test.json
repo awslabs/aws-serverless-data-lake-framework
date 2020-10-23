@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "pTeamName",
+        "ParameterValue": "engineering"
+    },
+    {
+        "ParameterKey": "pPipelineName",
+        "ParameterValue": "main"
+    },
+    {
+        "ParameterKey": "pDatasetName",
+        "ParameterValue": "legislators"
+    }
+]

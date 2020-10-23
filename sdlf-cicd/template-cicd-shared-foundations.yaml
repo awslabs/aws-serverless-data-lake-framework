@@ -1,0 +1,216 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Multi-environment CICD foundations resources in shared and child accounts
+
+Parameters:
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+    Default: dev
+  pChildAccountId:
+    Description: Child AWS account ID
+    Type: String
+    AllowedPattern: (\d{12}|^$)
+    ConstraintDescription: Must be an AWS account ID
+  pFoundationsRepository:
+    Type: String
+    Default: sdlf-foundations
+  pTeamFoundationsRepository:
+    Type: String
+    Default: sdlf-team
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
+
+Conditions:
+  CrossAccount: !Not [!Equals [!Ref pChildAccountId, !Ref "AWS::AccountId"]]
+
+Resources:
+  rKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS Key for Encryption of CodePipeline Artifacts in Child Account
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow child account use
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${pChildAccountId}:root
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+              - kms:List*
+              - kms:Describe*
+            Resource: "*"
+          - Sid: Allow child account grant
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${pChildAccountId}:root
+            Action:
+              - kms:CreateGrant
+              - kms:ListGrants
+              - kms:RevokeGrant
+            Resource: "*"
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: true
+
+  rKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/sdlf-cicd-kms-key-${pEnvironment}
+      TargetKeyId: !Ref rKMSKey
+
+  rCodeCommitRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Role assumed by CodePipeline in child AWS account
+      Path: /
+      RoleName: !Sub sdlf-cicd-foundations-codecommit-${pEnvironment}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${pChildAccountId}:root
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:CreateApprovalRuleTemplate
+                  - codecommit:DeleteApprovalRuleTemplate
+                  - codecommit:GetApprovalRuleTemplate
+                  - codecommit:ListApprovalRuleTemplates
+                  - codecommit:ListRepositories
+                  - codecommit:ListRepositoriesForApprovalRuleTemplate
+                  - codecommit:UpdateApprovalRuleTemplateContent
+                  - codecommit:UpdateApprovalRuleTemplateDescription
+                  - codecommit:UpdateApprovalRuleTemplateName
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:Describe*
+                  - codecommit:Get*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:GitPull
+                  - codecommit:List*
+                  - codecommit:UploadArchive
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:aws:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}
+                  - !Sub arn:aws:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !GetAtt rKMSKey.Arn
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-team-codecommit-*
+
+  rCodeCommitTriggerRule:
+    Condition: CrossAccount
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      State: ENABLED
+      Targets:
+        - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
+          Id: !Sub sdlf-cicd-foundations-codecommit-${pEnvironment}
+          RoleArn: !GetAtt rEventBusRole.Arn
+
+  rEventBusRole:
+    Condition: CrossAccount
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      RoleName: !Sub sdlf-cicd-foundations-eventbus-${pEnvironment}
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
+
+  rKMSKeySsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/KMS/${pEnvironment}/CICDKeyId
+      Type: String
+      Value: !GetAtt rKMSKey.Arn
+      Description: !Sub ${pEnvironment} environment CICD KMS key
+  rChildAccountIdSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Misc/${pEnvironment}/AccountId
+      Type: String
+      Value: !Ref pChildAccountId
+      Description: !Sub ${pEnvironment} environment Child Account Id
+
+Outputs:
+  oKMSKeyId:
+    Description: Arn of the CICD KMS key
+    Value: !GetAtt rKMSKey.Arn

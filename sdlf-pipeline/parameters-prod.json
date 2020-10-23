@@ -1,0 +1,26 @@
+[
+    {
+        "ParameterKey": "pTeamName",
+        "ParameterValue": "engineering"
+    },
+    {
+        "ParameterKey": "pPipelineName",
+        "ParameterValue": "main"
+    },
+    {
+        "ParameterKey": "pStageAStateMachineRepository",
+        "ParameterValue": "sdlf-stageA"
+    },
+    {
+        "ParameterKey": "pStageBStateMachineRepository",
+        "ParameterValue": "sdlf-stageB"
+    },
+    {
+        "ParameterKey": "pStageABranch",
+        "ParameterValue": "master"
+    },
+    {
+        "ParameterKey": "pStageBBranch",
+        "ParameterValue": "master"
+    }
+]

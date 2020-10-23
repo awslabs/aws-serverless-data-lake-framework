@@ -1,0 +1,12 @@
+[
+    {
+        "wrangler36": {
+            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/1.9.6/awswrangler-layer-1.9.6-py3.6.zip",
+            "runtimes": ["python3.6"]
+        },
+        "wrangler37": {
+            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/1.9.6/awswrangler-layer-1.9.6-py3.7.zip",
+            "runtimes": ["python3.7"]
+        }
+    }
+]

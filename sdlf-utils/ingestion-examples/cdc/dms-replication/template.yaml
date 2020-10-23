@@ -1,0 +1,330 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DMS Replication Resources
+
+Parameters:
+  pTeamName:
+    Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]*"
+  pEnvironment:
+    Description: Environment name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pOrg
+  pApp:
+    Description: Name of the application
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pApp
+
+Resources:
+  ### IAM ###
+  rDMSCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cloudwatch-logs-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - dms.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
+
+  rDMSVPCRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-vpc-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - dms.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
+
+  rExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - dms.amazonaws.com
+                - glue.amazonaws.com
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: DMSCDCExecutionPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dms:StartReplicationTask
+                  - dms:StopReplicationTask
+                  - dms:TestConnection
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:UpdateTable
+                  - iam:GetRole
+                  - iam:PassRole
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DMSCDC_Controller
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-ObjectMetadata-${pEnvironment}
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:endpoint:*
+                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:task:*
+                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:rep:*
+              - Effect: Allow
+                Action:
+                  - dms:DescribeConnections
+                  - dms:DescribeReplicationTasks
+                Resource: "*"
+
+  ### DMS ###
+  rDMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    DependsOn:
+      - rDMSVPCRole
+      - rDMSCloudWatchLogsRole
+    Properties:
+      ReplicationInstanceIdentifier: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-replication-instance
+      ReplicationInstanceClass: dms.c4.xlarge
+
+  ### Lambda ###
+  rLambdaFunctionInitController:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+      Description: Initiates the Init Controller Glue Job
+      Timeout: 600
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import time
+          import logging
+
+          logging.basicConfig()
+          logger = logging.getLogger(__name__)
+          logger.setLevel(logging.INFO)
+
+          glue = boto3.client('glue')
+
+          def testGlueJob(jobName, jobId, count, sec):
+            i = 0
+            while i < count:
+              response = glue.get_job_run(JobName=jobName, RunId=jobId)
+              status = response['JobRun']['JobRunState']
+              if (status == 'SUCCEEDED' or status == 'STARTING' or status == 'STOPPING'):
+                return 1
+              elif status == 'RUNNING' :
+                time.sleep(sec)
+                i+=1
+              else:
+                return 0
+            if i == count:
+                return 0
+
+          def handler(event, context):
+            logger.info(json.dumps(event))
+            if event['RequestType'] != 'Create':
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'NA'})
+            else:
+                try:
+                  jobName = event['ResourceProperties']['jobName']
+                  dmsBucket = event['ResourceProperties']['dmsBucket']
+                  dmsPath = event['ResourceProperties']['dmsPath']
+                  lakeBucket = event['ResourceProperties']['lakeBucket']
+                  lakePath = event['ResourceProperties']['lakePath']
+
+                  response = glue.start_job_run(
+                    JobName=jobName,
+                    Arguments={
+                      '--bucket':dmsBucket,
+                      '--prefix':dmsPath,
+                      '--out_bucket':lakeBucket,
+                      '--out_prefix':lakePath})
+
+                  if testGlueJob(jobName, response['JobRunId'], 20, 30) != 1:
+                    message = 'Error during Controller execution'
+                    logger.info(message)
+                    cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+                  else:
+                    message = 'Load Complete: https://console.aws.amazon.com/dynamodb/home?#tables:selected=DMSCDC_Controller;tab=items'
+                    logger.info(message)
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': message})
+                except Exception as e:
+                  message = 'Glue Job Issue: ' + e.message
+                  logger.info(message)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+      Handler: index.handler
+      Role:
+        Fn::GetAtt: [rExecutionRole, Arn]
+      Runtime: python3.7
+
+  rLambdaFunctionInitDMS:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+      Description: Initiates the DMS replication from source to target
+      Timeout: 600
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import time
+          import logging
+
+          logging.basicConfig()
+          logger = logging.getLogger(__name__)
+          logger.setLevel(logging.INFO)
+
+          dms = boto3.client('dms')
+          s3 = boto3.resource('s3')
+
+          def testConnection(endpointArn, count):
+            i = 0
+            while i < count:
+              connections = dms.describe_connections(Filters=[{'Name':'endpoint-arn','Values':[endpointArn]}])
+              for connection in connections['Connections']:
+                if connection['Status'] == 'successful':
+                  return 1
+                elif connection['Status'] == 'testing':
+                  time.sleep(30)
+                  i += 1
+                elif connection['Status'] == 'failed':
+                  return 0
+            if i == count:
+              return 0
+
+          def testRepTask(taskArn, count):
+            i = 0
+            while i < count:
+              replicationTasks = dms.describe_replication_tasks(Filters=[{'Name':'replication-task-arn','Values':[taskArn]}])
+              for replicationTask in replicationTasks['ReplicationTasks']:
+                if replicationTask['Status'] == 'running':
+                  return 1
+                elif replicationTask['Status'] == 'starting':
+                  time.sleep(30)
+                  i += 1
+                else:
+                  return 0
+            if i == count:
+              return 0
+
+          def handler(event, context):
+            logger.info(json.dumps(event))
+            taskArn = event['ResourceProperties']['taskArn']
+            sourceArn = event['ResourceProperties']['sourceArn']
+            targetArn = event['ResourceProperties']['targetArn']
+            instanceArn = event['ResourceProperties']['instanceArn']
+            dmsBucket = event['ResourceProperties']['dmsBucket']
+
+            if event['RequestType'] == 'Delete':
+                try:
+                  dms.stop_replication_task(ReplicationTaskArn=taskArn)
+                except Exception as e:
+                  message = 'Issue with Stopping Task or Emptying Bucket:' + e.message
+                  logger.error(message)
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'NA'})
+            else:
+                taskArn = event['ResourceProperties']['taskArn']
+                sourceArn = event['ResourceProperties']['sourceArn']
+                targetArn = event['ResourceProperties']['targetArn']
+                instanceArn = event['ResourceProperties']['instanceArn']
+
+                try:
+                  if testConnection(sourceArn, 1) != 1:
+                    dms.test_connection(
+                      ReplicationInstanceArn=instanceArn,
+                      EndpointArn=sourceArn
+                      )
+                    if testConnection(sourceArn,10) != 1:
+                      message = 'Source Endpoint Connection Failure'
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+                      return {'message': message}
+                  if testConnection(targetArn, 1) != 1:
+                    dms.test_connection(
+                      ReplicationInstanceArn=instanceArn,
+                      EndpointArn=targetArn
+                      )
+                    if testConnection(targetArn,10) != 1:
+                      message = 'Target Endpoint Connection Failure'
+                      logger.error(message)
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+
+                except Exception as e:
+                  message = 'DMS Endpoint Issue: ' + e.message
+                  logger.error(message)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+
+                try:
+                  if testRepTask(taskArn, 1) != 1:
+                    dms.start_replication_task(
+                      ReplicationTaskArn=taskArn,
+                      StartReplicationTaskType='start-replication')
+                    if testRepTask(taskArn, 10) != 1:
+                      message = 'Error during DMS execution'
+                      logger.error('message')
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+                    else:
+                      message = 'DMS Execution Successful'
+                      logger.info('message')
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': message})
+                except Exception as e:
+                  message = 'DMS Task Issue: ' + e.message
+                  logger.error('message')
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': message})
+      Handler: index.handler
+      Role:
+        Fn::GetAtt: [rExecutionRole, Arn]
+      Runtime: python3.7
+
+  ######## SSM #########
+  rReplicationInstanceSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/DMS/${pTeamName}/DMSReplicationInstanceArn
+      Type: String
+      Value: !Ref rDMSReplicationInstance
+      Description: Arn of the team-specific DMS replication instance
+
+  rExecutionRoleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/DMSExecutionRoleArn
+      Type: String
+      Value: !GetAtt rExecutionRole.Arn
+      Description: Arn of the DMS execution role

@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Glue Job Sample
+
+Parameters:
+  pDatasetName:
+    Description: The dataset name
+    Type: String
+    Default: legislators
+  pPipelineBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+  pTeamName:
+    Description: The team name
+    Type: String
+    Default: engineering
+
+Resources:
+  rGlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub AWSGlueServiceRole-${pDatasetName}-glue
+      Path: /service-role/
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pDatasetName}-glue-job
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
+                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId:1}}"
+
+  rGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub s3://${pPipelineBucket}/artifacts/${pDatasetName}-glue-job.py
+      DefaultArguments:
+        "--job-bookmark-option": job-bookmark-enable
+        "--enable-metrics": ""
+      ExecutionProperty:
+        MaxConcurrentRuns: 3
+      MaxRetries: 0
+      AllocatedCapacity: 2
+      GlueVersion: "2.0"
+      Name: !Sub sdlf-${pTeamName}-${pDatasetName}-glue-job
+      SecurityConfiguration: !Sub sdlf-${pTeamName}-glue-security-config
+      Role: !Ref rGlueRole

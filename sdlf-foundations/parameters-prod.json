@@ -1,0 +1,18 @@
+[
+    {
+        "ParameterKey": "pOrganizationName",
+        "ParameterValue": "forecourt"
+    },
+    {
+        "ParameterKey": "pApplicationName",
+        "ParameterValue": "datalake"
+    },
+    {
+        "ParameterKey": "pNumBuckets",
+        "ParameterValue": "3"
+    },
+    {
+        "ParameterKey": "pSNSNotificationsEmail",
+        "ParameterValue": "nobody@amazon.com"
+    }
+]

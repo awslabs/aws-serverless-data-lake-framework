@@ -1,0 +1,842 @@
+{
+    "model_version" : "2.11.00",
+    "last_updated_date" : "June 4th 2019",
+    "octagon_metadata" : [ {
+      "octagon_object" : "Datasets",
+      "fields_metadata" : [ {
+        "attribute" : "name",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "Long"
+      }, {
+        "attribute" : "owner",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "owner_contact",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "description",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "classification",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "status",
+        "type" : "String",
+        "java_type" : "ResourceStatus",
+        "mandatory" : true
+      }, {
+        "attribute" : "type",
+        "type" : "String",
+        "java_type" : "DatasetType",
+        "mandatory" : true
+      }, {
+        "attribute" : "data_lineage",
+        "type" : "SS",
+        "type_description" : "String Set",
+        "java_type" : "Set<String>"
+      }, {
+        "attribute" : "creation_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "derived_from",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "replaced_by",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "from_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "to_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "frequency",
+        "type" : "String",
+        "java_type" : "IngestionFrequency",
+        "mandatory" : true
+      }, {
+        "attribute" : "service_arn",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "location_pointer",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "schema_name",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "schema_location",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "tags",
+        "type" : "DS",
+        "type_description" : "Map Set",
+        "java_type" : "Set<Tag>"
+      }, {
+        "attribute" : "compliance",
+        "type" : "SS",
+        "type_description" : "String Set",
+        "java_type" : "Set<ComplianceType>"
+      }, {
+        "attribute" : "enforce_sla",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "sla_cron",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "encryption",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "encryption_type",
+        "type" : "String",
+        "java_type" : "S3EncryptionType"
+      }, {
+        "attribute" : "encryption_kms_id",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "cross_region_replication",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "config_crr",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "S3_logging_enabled",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "config_s3_logging",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "requestor_pays_enabled",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "password",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "retention",
+        "type" : "Numeric",
+        "java_type" : "int"
+      } ],
+      "index_metadata" : [ ]
+    }, {
+      "octagon_object" : "Artifacts",
+      "fields_metadata" : [ {
+        "attribute" : "id",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "dataset",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "pipeline",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate",
+        "generated" : true
+      }, {
+        "attribute" : "component",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "pipeline_and_target_type",
+        "type" : "String",
+        "java_type" : "String",
+        "composite" : true,
+        "generated" : true,
+        "composite_list" : [ "pipeline", "target_type" ]
+      }, {
+        "attribute" : "target_location_and_date",
+        "type" : "String",
+        "java_type" : "String",
+        "composite" : true,
+        "generated" : true,
+        "composite_list" : [ "target_location_pointer", "date" ]
+      }, {
+        "attribute" : "pipeline_execution_id",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "source_type",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "target_type",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "source_service_arn",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "target_service_arn",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "source_location_pointer",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "target_location_pointers",
+        "type" : "SS",
+        "type_description" : "String Set",
+        "java_type" : "String"
+      }, {
+        "attribute" : "comment",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "ttl",
+        "type" : "Numeric",
+        "java_type" : "long",
+        "generated" : true
+      } ],
+      "index_metadata" : [ {
+        "index_name" : "date-pipeline-artifact-type-index",
+        "hash_key" : "date",
+        "sort_key" : "pipeline_and_target_type",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "dataset-date-index",
+        "hash_key" : "dataset",
+        "sort_key" : "date",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "date-dataset-index",
+        "hash_key" : "date",
+        "sort_key" : "dataset",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "pipeline-date-index",
+        "hash_key" : "pipeline",
+        "sort_key" : "date",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "pipelineSessionId-index",
+        "hash_key" : "pipelineSessionId",
+        "GSI" : true,
+        "active" : true
+      } ]
+    }, {
+      "octagon_object" : "Metrics",
+      "fields_metadata" : [ {
+        "attribute" : "root",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "metric",
+        "type" : "String",
+        "sort_key" : true,
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "type",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "last_updated_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate",
+        "mandatory" : true
+      }, {
+        "attribute" : "creation_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_pipeline_execution_id",
+        "type" : "String",
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "value",
+        "type" : "Numeric",
+        "java_type" : "Number",
+        "mandatory" : true
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "int",
+        "mandatory" : true
+      }, {
+        "attribute" : "ttl",
+        "type" : "Numeric",
+        "java_type" : "long",
+        "generated" : true
+      }, {
+        "attribute" : "last_notification_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "notification_frequency",
+        "type" : "String",
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "notification_threshold",
+        "type" : "Numeric",
+        "java_type" : "Number",
+        "generated" : true
+      }, {
+        "attribute" : "notification_sns_topic_arn",
+        "type" : "String",
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "notification_sns_message_id",
+        "type" : "String",
+        "java_type" : "String",
+        "generated" : true
+      } ],
+      "index_metadata" : [ {
+        "index_name" : "last_updated_date-metric-index",
+        "hash_key" : "last_updated_date",
+        "sort_key" : "metric",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "type-metric-index",
+        "hash_key" : "type",
+        "sort_key" : "metric",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "root-last_updated_date-index",
+        "hash_key" : "root",
+        "sort_key" : "last_updated_date",
+        "GSI" : true,
+        "active" : true
+      } ]
+    }, {
+      "octagon_object" : "Configuration",
+      "fields_metadata" : [ {
+        "attribute" : "key",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String"
+      }, {
+        "attribute" : "type",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "data",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "creation_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "comment",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "int",
+        "generated" : true
+      }, {
+        "attribute" : "ttl",
+        "type" : "Numeric",
+        "java_type" : "long",
+        "generated" : true
+      } ],
+      "index_metadata" : [ {
+        "index_name" : "type-index",
+        "hash_key" : "type",
+        "GSI" : true,
+        "active" : true
+      } ]
+    }, {
+      "octagon_object" : "Pipelines",
+      "fields_metadata" : [ {
+        "attribute" : "name",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "Long"
+      }, {
+        "attribute" : "input_datasets",
+        "type" : "SS",
+        "type_description" : "String Set",
+        "java_type" : "List<String>"
+      }, {
+        "attribute" : "output_datasets",
+        "type" : "SS",
+        "type_description" : "String Set",
+        "java_type" : "List<String>"
+      }, {
+        "attribute" : "owner",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "owner_contact",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "description",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "status",
+        "type" : "String",
+        "java_type" : "ResourceStatus",
+        "mandatory" : true
+      }, {
+        "attribute" : "type",
+        "type" : "String",
+        "java_type" : "PipelineType",
+        "mandatory" : true
+      }, {
+        "attribute" : "ingestion_frequency",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "creation_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "derived_from",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "replaced_by",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "date_from",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "date_to",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "tags",
+        "type" : "DS",
+        "type_description" : "Map Set",
+        "java_type" : "Set<Tag>"
+      }, {
+        "attribute" : "enforce_sla",
+        "type" : "Boolean",
+        "java_type" : "boolean"
+      }, {
+        "attribute" : "sla_cron",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "modules",
+        "type" : "DS",
+        "type_description" : "Map Set",
+        "java_type" : "Set<SoftwareModule>"
+      }, {
+        "attribute" : "entry_point_arn",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "last_execution_id",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "last_execution_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "last_execution_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime"
+      }, {
+        "attribute" : "last_execution_status",
+        "type" : "String",
+        "java_type" : "PipelineProgressStatus"
+      }, {
+        "attribute" : "last_execution_duration_in_seconds",
+        "type" : "Numeric",
+        "java_type" : "float"
+      } ],
+      "index_metadata" : [ ]
+    }, {
+      "octagon_object" : "Events",
+      "fields_metadata" : [ {
+        "attribute" : "id",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "pipeline",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "pipeline_execution_id",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate",
+        "generated" : true
+      }, {
+        "attribute" : "reason",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "date_and_reason",
+        "type" : "String",
+        "java_type" : "String",
+        "composite" : true,
+        "generated" : true,
+        "composite_list" : [ "date", "reason" ]
+      }, {
+        "attribute" : "component",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "comment",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "details",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "ttl",
+        "type" : "Numeric",
+        "java_type" : "long",
+        "generated" : true
+      } ],
+      "index_metadata" : [ {
+        "index_name" : "date-reason-index",
+        "hash_key" : "date",
+        "sort_key" : "reason",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "pipeline-date_reason-index",
+        "hash_key" : "pipeline",
+        "sort_key" : "date_and_reason",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "reason-date-index",
+        "hash_key" : "reason",
+        "sort_key" : "date",
+        "GSI" : true,
+        "active" : true
+      } ]
+    }, {
+      "octagon_object" : "PipelineExecutionHistory",
+      "fields_metadata" : [ {
+        "attribute" : "id",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "generated" : true
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "Long"
+      }, {
+        "attribute" : "pipeline",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "execution_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate",
+        "generated" : true
+      }, {
+        "attribute" : "dataset_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate",
+        "mandatory" : true
+      }, {
+        "attribute" : "success",
+        "type" : "Boolean",
+        "java_type" : "boolean",
+        "generated" : true
+      }, {
+        "attribute" : "active",
+        "type" : "Boolean",
+        "java_type" : "boolean",
+        "generated" : true
+      }, {
+        "attribute" : "status",
+        "type" : "String",
+        "java_type" : "PipelineProgressStatus",
+        "mandatory" : true
+      }, {
+        "attribute" : "comment",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "start_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "end_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime"
+      }, {
+        "attribute" : "issue_comment",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "history",
+        "type" : "DS",
+        "type_description" : "Map Set",
+        "java_type" : "List<PipelineStateChangeEntry>"
+      }, {
+        "attribute" : "duration_in_seconds",
+        "type" : "Numeric",
+        "java_type" : "float",
+        "generated" : true
+      }, {
+        "attribute" : "ttl",
+        "type" : "Numeric",
+        "java_type" : "long",
+        "generated" : true
+      } ],
+      "index_metadata" : [ {
+        "index_name" : "pipeline-last-updated-index",
+        "hash_key" : "pipeline",
+        "sort_key" : "last_updated_timestamp",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "execution_date-status-index",
+        "hash_key" : "execution_date",
+        "sort_key" : "status",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "pipeline-execution_date-index",
+        "hash_key" : "pipeline",
+        "sort_key" : "execution_date",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "execution_date-last_updated-index",
+        "hash_key" : "execution_date",
+        "sort_key" : "last_updated_timestamp",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "status-last_updated-index",
+        "hash_key" : "status",
+        "sort_key" : "last_updated_timestamp",
+        "GSI" : true,
+        "active" : true
+      }, {
+        "index_name" : "pipeline-status_last_updated-index",
+        "hash_key" : "pipeline",
+        "sort_key" : "status_last_updated_timestamp",
+        "GSI" : true,
+        "active" : true
+      } ]
+    }, {
+      "octagon_object" : "DataSchemas",
+      "fields_metadata" : [ {
+        "attribute" : "name",
+        "type" : "String",
+        "partition_key" : true,
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "dataset",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "version",
+        "type" : "Numeric",
+        "java_type" : "Long"
+      }, {
+        "attribute" : "description",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "status",
+        "type" : "String",
+        "java_type" : "ResourceStatus",
+        "mandatory" : true
+      }, {
+        "attribute" : "glue_table",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "glue_database",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "creation_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "last_updated_timestamp",
+        "type" : "String",
+        "type_description" : "ISO-6801 full length",
+        "java_type" : "LocalDateTime",
+        "generated" : true
+      }, {
+        "attribute" : "derived_from",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "replaced_by",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "from_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "to_date",
+        "type" : "String",
+        "type_description" : "ISO8601 short version",
+        "java_type" : "LocalDate"
+      }, {
+        "attribute" : "format",
+        "type" : "String",
+        "java_type" : "String"
+      }, {
+        "attribute" : "compression",
+        "type" : "Bool",
+        "java_type" : "Boolean"
+      }, {
+        "attribute" : "schema_content",
+        "type" : "String",
+        "java_type" : "String",
+        "mandatory" : true
+      }, {
+        "attribute" : "schema_content_s3",
+        "type" : "String",
+        "java_type" : "String"
+      } ],
+      "index_metadata" : [ ]
+    } ]
+  }

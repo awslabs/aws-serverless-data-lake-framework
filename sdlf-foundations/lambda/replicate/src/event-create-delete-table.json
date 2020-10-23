@@ -1,0 +1,21 @@
+{
+  "version": "0",
+  "id": "0000000-0000-5328-220a-21c060f6c3f4",
+  "detail-type": "Glue Data Catalog Database State Change",
+  "source": "aws.glue",
+  "account": "123456789012",
+  "time": "2019-01-16T18:08:48Z",
+  "region": "us-east-1",
+  "resources": [
+    "arn:aws:glue:us-east-1:123456789012:table/forecourt_datalake_dev_engineering_legislators_db/history",
+    "arn:aws:glue:us-east-1:123456789012:table/forecourt_datalake_dev_engineering_legislators_db/organizations"    
+  ],
+  "detail": {
+    "databaseName": "forecourt_datalake_dev_engineering_legislators_db",
+    "typeOfChange": "CreateTable",
+    "changedTables": [
+      "history",
+      "organizations"
+    ]
+  }
+}

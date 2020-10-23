@@ -1,0 +1,30 @@
+[
+    {
+        "ParameterKey": "pTeamName",
+        "ParameterValue": "engineering"
+    },
+    {
+        "ParameterKey": "pDatasetName",
+        "ParameterValue": "datasetname"
+    },
+    {
+        "ParameterKey": "pDBEngine",
+        "ParameterValue": "mysql"
+    },
+    {
+        "ParameterKey": "pDBPort",
+        "ParameterValue": "8192"
+    },
+    {
+        "ParameterKey": "pDBName",
+        "ParameterValue": "dbname"
+    },
+    {
+        "ParameterKey": "pDMSTableFilter",
+        "ParameterValue": "%"
+    },
+    {
+        "ParameterKey": "pDMSSchemaFilter",
+        "ParameterValue": "schemafilter"
+    }
+] 

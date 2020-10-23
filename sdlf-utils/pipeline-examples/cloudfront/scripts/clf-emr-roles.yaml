@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EMR IAM Roles
+
+Resources:
+  rEMRDefaultRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EMR_DefaultRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - elasticmapreduce.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+
+  rEMREC2DefaultRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EMR_EC2_DefaultRole
+      Description: Allows EC2 instances in an EMR cluster to access other AWS services such as S3.
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+      Policies:
+        - PolicyName: kms-emr-security-config
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - "{{resolve:ssm:/SDLF/KMS/engineering/InfraKeyId:1}}"
+                  - "{{resolve:ssm:/SDLF/KMS/engineering/DataKeyId:1}}"
+
+  rEMREC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: EMR_EC2_DefaultRole
+      Path: /
+      Roles:
+        - !Ref rEMREC2DefaultRole

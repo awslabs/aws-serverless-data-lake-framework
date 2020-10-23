@@ -1,0 +1,356 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Multi-environment CICD team repos resources in shared DevOps account
+
+Parameters:
+  pTeamFoundationsRepository:
+    Type: String
+    Default: sdlf-team
+
+Resources:
+  ######## IAM #########
+  rTeamReposCodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:CreateRepository
+                  - codecommit:Get*
+                  - codecommit:Git*
+                  - codecommit:ListRepositories
+                  - codecommit:PutRepositoryTriggers
+                  - codecommit:UpdateRepositoryDescription
+                  - codecommit:UploadArchive
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+              - Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-crossaccount-role-*
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:UpdateStack
+              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/*
+                Effect: Allow
+                Action:
+                  - iam:ListRoles
+              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-*
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-team-codecommit-*
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PutRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+              - Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-cicd-team-codecommit-*"
+                Effect: "Allow"
+                Action:
+                  - events:DescribeRule
+                  - events:DeleteRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+              - Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+
+  ######## CODEBUILD #########
+  rTeamReposCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: sdlf-cicd-team-repos-codebuild
+      Artifacts:
+        Type: NO_ARTIFACTS
+      BadgeEnabled: false
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+      ServiceRole: !Ref rTeamReposCodeBuildRole
+      TimeoutInMinutes: 20
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.7
+            build:
+              commands:
+                - echo Configuring AWS credentials
+                - echo AWS_CONTAINER_CREDENTIALS_RELATIVE_URI $AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+                - curl -qL -o aws_credentials.json http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI > aws_credentials.json
+                - aws configure set aws_access_key_id `jq -r '.AccessKeyId' aws_credentials.json`
+                - aws configure set aws_secret_access_key `jq -r '.SecretAccessKey' aws_credentials.json`
+                - aws configure set aws_session_token `jq -r '.Token' aws_credentials.json`
+                - git config --global credential.helper '!aws codecommit credential-helper $@'
+                - git config --global credential.UseHttpPath true
+                - cd scripts && ./bootstrap_team.sh
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+
+  rLambdaTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !GetAtt rLambdaCodeBuildTrigger.Arn
+          Id: sdlf-cicd-team-repos
+
+  ######## LAMBDA #########
+  rLambdaCodeBuildTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                Sid: LogAccessPolicy
+              - Action:
+                  - codecommit:BatchGetCommits
+                  - codecommit:BatchGetCommits
+                  - codecommit:GetCommit
+                  - codecommit:GetCommitHistory
+                  - codecommit:GetDifferences
+                  - codecommit:GetObjectIdentifier
+                  - codecommit:GetReferences
+                  - codecommit:GetTree
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+                Sid: CodeCommitRead
+              - Action:
+                  - codebuild:StartBuild
+                Effect: Allow
+                Resource:
+                  - !GetAtt rTeamReposCodeBuildProject.Arn
+                Sid: CodeBuildStartPolicy
+
+  rPermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: rLambdaCodeBuildTrigger
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - rLambdaTriggerRule
+          - Arn
+
+  rLambdaCodeBuildTrigger:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Triggers team repos CodeBuild job based on commit
+      FunctionName: sdlf-team-repos-codebuild-trigger
+      Handler: index.lambda_handler
+      MemorySize: 512
+      Role: !GetAtt rLambdaCodeBuildTriggerRole.Arn
+      Runtime: python3.6
+      Timeout: 300
+      Environment:
+        Variables:
+          CODE_BUILD_PROJECT: !Ref rTeamReposCodeBuildProject
+      Code:
+        ZipFile: |
+          import os
+
+          import boto3
+          from botocore.exceptions import ClientError
+
+          CODE_BUILD_PROJECT = os.getenv('CODE_BUILD_PROJECT')
+
+          codecommit = boto3.client('codecommit')
+          cb = boto3.client('codebuild')
+
+
+          def getLastCommitLog(repository, commitId):
+              response = codecommit.get_commit(
+                  repositoryName=repository,
+                  commitId=commitId
+              )
+              return response['commit']
+
+
+          def getFileDifferences(repository_name, lastCommitID, previousCommitID):
+              response = None
+
+              if previousCommitID != None:
+                  response = codecommit.get_differences(
+                      repositoryName=repository_name,
+                      beforeCommitSpecifier=previousCommitID,
+                      afterCommitSpecifier=lastCommitID
+                  )
+              else:
+                  response = codecommit.get_differences(
+                      repositoryName=repository_name,
+                      afterCommitSpecifier=lastCommitID
+                  )
+
+              differences = []
+
+              if response == None:
+                  return differences
+
+              while "nextToken" in response:
+                  response = codecommit.get_differences(
+                      repositoryName=repository_name,
+                      beforeCommitSpecifier=previousCommitID,
+                      afterCommitSpecifier=lastCommitID,
+                      nextToken=response["nextToken"]
+                  )
+                  differences += response.get("differences", [])
+              else:
+                  differences += response["differences"]
+
+              return differences
+
+
+          def getLastCommitID(repository, branch="master"):
+              response = codecommit.get_branch(
+                  repositoryName=repository,
+                  branchName=branch
+              )
+              commitId = response['branch']['commitId']
+              return commitId
+
+
+          def lambda_handler(event, context):
+              fileNames_allowed = ["parameters.json"]
+              commit_hash = event['detail']['commitId']
+              region = event['region']
+              repo_name = event['detail']['repositoryName']
+              account_id = event['account']
+              branchName = event['detail']['referenceFullName']
+              doTriggerBuild = True
+
+              """ Uncomment if to be triggered for specific files only
+              if (commit_hash == None) or (commit_hash == '0000000000000000000000000000000000000000'):
+                  commit_hash = getLastCommitID(repo_name, branchName)
+
+              lastCommit = getLastCommitLog(repo_name, commit_hash)
+
+              previousCommitID = None
+              if len(lastCommit['parents']) > 0:
+                  previousCommitID = lastCommit['parents'][0]
+
+              print('lastCommitID: {0} previousCommitID: {1}'.format(
+                  commit_hash, previousCommitID))
+
+              differences = getFileDifferences(repo_name, commit_hash, previousCommitID)
+
+              doTriggerBuild = False
+              for diff in differences:
+                  root, extension = os.path.splitext(str(diff['afterBlob']['path']))
+                  fileName = os.path.basename(str(diff['afterBlob']['path']))
+                  if ((fileName in fileNames_allowed)):
+                      doTriggerBuild = True
+              """
+
+              if doTriggerBuild:
+                  env = branchName.split('/')[-1]
+                  if env == 'master':
+                      env = 'prod'
+                  build = {
+                      'projectName': CODE_BUILD_PROJECT,
+                      'sourceVersion': commit_hash,
+                      'sourceTypeOverride': 'CODECOMMIT',
+                      'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repo_name),
+                      'environmentVariablesOverride': [
+                          {
+                              'name': 'AWS_DEFAULT_REGION',
+                              'value': region,
+                              'type': 'PLAINTEXT'
+                          },
+                          {
+                              'name': 'AWS_ACCOUNT_ID',
+                              'value': account_id,
+                              'type': 'PLAINTEXT'
+                          },
+                          {
+                              'name': 'ENV',
+                              'value': env,
+                              'type': 'PLAINTEXT'
+                          }
+                      ]
+                  }
+                  cb.start_build(**build)
+              else:
+                  print('No change')
+              return 'Success'

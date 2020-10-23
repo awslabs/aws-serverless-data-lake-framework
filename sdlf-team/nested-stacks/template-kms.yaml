@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: KMS resources to manage a team
+
+Parameters:
+  pEnvironment:
+    Type: String
+  pSharedDevOpsAccountId:
+    Type: String
+  pTeamName:
+    Type: String
+
+Resources:
+  ######## KMS #########
+  rKMSInfraKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F76
+            reason: Full access is allowed to Key admin and some AWS services
+    Properties:
+      Description: !Sub ${pTeamName} Infrastructure KMS Key
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: !Sub sdlf-${pTeamName}-infra-key-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow CloudWatch alarms access
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service:
+                - !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+          - Sid: Allow SNS access
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref AWS::AccountId
+                kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+          - Sid: Allow Routing Lambda and Shared DevOps access
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-routing
+                - !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+            Action:
+              - kms:Decrypt
+              - kms:Describe*
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:List*
+              - kms:ReEncrypt*
+            Resource: "*"
+          - Sid: Allow DevOps account grant
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-routing
+                - !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+            Action:
+              - kms:CreateGrant
+              - kms:ListGrants
+              - kms:RevokeGrant
+            Resource: "*"
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: true
+
+  rKMSInfraKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/sdlf-${pTeamName}-kms-infra-key
+      TargetKeyId: !Ref rKMSInfraKey
+
+  rKMSDataKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    Properties:
+      Description: !Sub ${pTeamName} Data KMS Key
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: !Sub sdlf-${pTeamName}-data-key-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Action: kms:*
+            Effect: Allow
+            Principal:
+              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+            Resource: "*"
+          - Sid: Allow Lake Formation permissions
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Effect: Allow
+            Principal:
+              AWS:
+                [
+                  !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess",
+                ]
+            Resource: "*"
+
+  rKMSDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/sdlf-${pTeamName}-kms-data-key
+      TargetKeyId: !Ref rKMSDataKey
+
+  rGlueSecurityConfiguration:
+    Type: AWS::Glue::SecurityConfiguration
+    Properties:
+      Name: !Sub sdlf-${pTeamName}-glue-security-config
+      EncryptionConfiguration:
+        CloudWatchEncryption:
+          CloudWatchEncryptionMode: SSE-KMS
+          KmsKeyArn: !GetAtt rKMSInfraKey.Arn
+        JobBookmarksEncryption:
+          JobBookmarksEncryptionMode: CSE-KMS
+          KmsKeyArn: !GetAtt rKMSInfraKey.Arn
+        S3Encryptions:
+          - S3EncryptionMode: SSE-KMS
+            KmsKeyArn: !GetAtt rKMSDataKey.Arn
+
+  rEMRSecurityConfiguration:
+    Type: AWS::EMR::SecurityConfiguration
+    Properties:
+      Name: !Sub sdlf-${pTeamName}-emr-security-config
+      SecurityConfiguration: !Sub |
+        {
+          "EncryptionConfiguration": {
+            "EnableInTransitEncryption" : false,
+            "EnableAtRestEncryption" : true,
+            "AtRestEncryptionConfiguration" : {
+              "S3EncryptionConfiguration" : {
+                "EncryptionMode" : "SSE-KMS",
+                "AwsKmsKey": "${rKMSDataKey}"
+              },
+              "LocalDiskEncryptionConfiguration" : {
+                "EncryptionKeyProviderType" : "AwsKms",
+                "AwsKmsKey" : "${rKMSDataKey}"
+              }
+            }
+          }
+        }
+
+  ######## SSM #########
+  rKMSInfraKeySsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
+      Type: String
+      Value: !GetAtt rKMSInfraKey.Arn
+      Description: !Sub Arn of the ${pTeamName} KMS infrastructure key
+  rKMSDataKeySsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
+      Type: String
+      Value: !GetAtt rKMSDataKey.Arn
+      Description: !Sub Arn of the ${pTeamName} KMS data key
+
+Outputs:
+  oGlueSecurityConfiguration:
+    Description: Glue Security Configuration
+    Value: !Ref rGlueSecurityConfiguration
+  oKMSInfraKeyId:
+    Description: Arn of the KMS infrastructure key
+    Value: !GetAtt rKMSInfraKey.Arn
+  oKMSDataKeyId:
+    Description: Arn of the KMS infrastructure key
+    Value: !GetAtt rKMSDataKey.Arn
