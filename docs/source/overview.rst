@@ -11,7 +11,7 @@ Motivation
 ***********
 A data lake gives your organization agility. It provides a repository where consumers can quickly find the data they need and use it in their business projects. However, building a data lake can be complex; there's a lot to think about beyond the storage of files. For example, how do you catalog the data so you know what you've stored? What ingestion pipelines do you need? How do you manage data quality? How do you keep the code for your transformations under source control? How do you manage development, test and production environments? Building a solution that addresses these use cases can take many weeks and this time can be better spent innovating with data and achieving business goals.
 
-The SDLF is a collection of production-hardened, best practice tempates which accelerate your data lake implementation journey on AWS, so that you can focus on use cases that generate value for business. 
+The SDLF is a collection of production-hardened, best practice templates which accelerate your data lake implementation journey on AWS, so that you can focus on use cases that generate value for business. 
 
 A Working Backwards Approach
 *****************************

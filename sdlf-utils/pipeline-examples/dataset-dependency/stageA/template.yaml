@@ -321,7 +321,7 @@ Resources:
               },
               "Wait": {
                 "Type": "Wait",
-                "Seconds": 15,
+                "Seconds": 3600,
                 "Next": "Get transformation job Status"
               },
               "Get transformation job Status": {

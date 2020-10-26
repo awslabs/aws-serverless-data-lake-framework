@@ -1,9 +1,6 @@
 Architecture
 =============
 
-Step-by-step example
-********************
-
 .. image:: _static/sdlf-architecture.png
     :alt: SDLF Architecture
     :align: center

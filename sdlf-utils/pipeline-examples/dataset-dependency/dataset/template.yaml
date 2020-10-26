@@ -88,7 +88,7 @@ Resources:
                 "dataset": "${pDatasetName}",
                 "env": "${pEnvironment}",
                 "dependent_stage": "StageB",
-                "retry_count": 0
+                "retry_count": 2
               }
             }
           RoleArn: !GetAtt rTriggerStateMachineRole.Arn

@@ -6,7 +6,7 @@ The aim of this tutorial is two-fold:
 
 The final output is similar to the step function defined in this [AWS blog](https://aws.amazon.com/blogs/aws/new-using-step-functions-to-orchestrate-amazon-emr-workloads/):
 
-![EMR_StepFunctions](docs/EMR_StepFunctions.png)
+![EMR_StepFunctions](docs/_static/emr_stepfunction.png)
 
 ## Pre-requisites
 We assume that you have completed the main tutorial deploying the Serverless Data Lake Framework, that is the foundations and at least one team, pipeline and dataset are in place.

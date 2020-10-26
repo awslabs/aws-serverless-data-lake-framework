@@ -6,7 +6,7 @@ The aim of this tutorial is to:
 
 **ML Pipeline (Topic Model Step Function)**
 
-![research_stepfunctions_graph.png](docs/research_stepfunctions_graph.png)
+![research_stepfunctions_graph.png](docs/_static/research_stepfunction.png)
 
 ### Overview
 The data for this pipeline is collected from the 'metadata.csv' releases on the CORD-19 Public Dataset. For more details about the data please look [here](https://www.semanticscholar.org/cord19)
