@@ -434,6 +434,24 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
 
+  rDynamoTeamMetadata:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: team
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: "team"
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub "octagon-Teams-${pEnvironment}"
+      SSESpecification:
+        SSEEnabled: True
+        SSEType: KMS
+        KMSMasterKeyId: !Ref pKMSKeyId
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+
   rDynamoObjectMetadataSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -441,6 +459,7 @@ Resources:
       Type: String
       Value: !Ref rDynamoObjectMetadata
       Description: Name of the DynamoDB used to store metadata
+
   rDynamoTransformMappingSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -448,6 +467,14 @@ Resources:
       Type: String
       Value: !Sub octagon-Datasets-${pEnvironment}
       Description: Name of the DynamoDB used to store mappings to transformation
+
+  rDynamoTeamMetadataSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Dynamo/TeamMetadata
+      Type: String
+      Value: !Ref rDynamoTeamMetadata
+      Description: Name of the DynamoDB used to store team's metadata
 
 Outputs:
   oDynamoOctagonObjectMetadataStream:

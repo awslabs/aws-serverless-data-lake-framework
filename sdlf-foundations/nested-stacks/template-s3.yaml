@@ -15,8 +15,6 @@ Parameters:
     Type: String
   pOrganizationName:
     Type: String
-  pSNSNotificationsEmail:
-    Type: String
 
 Conditions:
   CreateMultipleBuckets: !Equals [!Ref pNumBuckets, "3"]
@@ -231,33 +229,6 @@ Resources:
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
 
-  ######## SNS #########
-  rSNSTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: sdlf-notifications
-      KmsMasterKeyId: !Ref pKMSKeyId
-      Subscription:
-        - Endpoint: !Ref pSNSNotificationsEmail
-          Protocol: email
-  rSNSTopicPolicy:
-    Type: AWS::SNS::TopicPolicy
-    Properties:
-      PolicyDocument:
-        Id: sdlf-notifications
-        Version: 2012-10-17
-        Statement:
-          - Sid: sdlf-notifications
-            Effect: Allow
-            Principal:
-              Service:
-                - cloudtrail.amazonaws.com
-                - cloudwatch.amazonaws.com
-            Action: sns:Publish
-            Resource: !Ref rSNSTopic
-      Topics:
-        - !Ref rSNSTopic
-
   ######## Lambda & SQS #########
   rQueueCatalog:
     Type: AWS::SQS::Queue
@@ -326,25 +297,6 @@ Resources:
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecution.Arn
 
-  rLambdaCatalogCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: sdlf-catalog
-      AlarmDescription: Catalog Lambda Alarm
-      AlarmActions:
-        - !Ref rSNSTopic
-      MetricName: Errors
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 10
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref rLambdaCatalog
-
   rLambdaRouting:
     Type: AWS::Serverless::Function
     Properties:
@@ -366,25 +318,6 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRouting}
-
-  rLambdaRoutingCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: sdlf-routing
-      AlarmDescription: Routing Lambda Alarm
-      AlarmActions:
-        - !Ref rSNSTopic
-      MetricName: Errors
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 10
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref rLambdaRouting
 
   rLambdaCatalogRedrive:
     Type: AWS::Serverless::Function
@@ -543,55 +476,6 @@ Resources:
                   - kms:ReEncrypt*
                 Resource: !Ref pKMSKeyId
 
-  ####### CICD Notifications #######
-  rCICDFoundationsPipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: sdlf-cicd-foundations-failure
-      Description: Notify data lake admins of foundations CICD pipeline failure
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-foundations
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: sdlf-cicd-foundations-failure
-          InputTransformer:
-            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-foundations"'
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
-  rCICDTeamPipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: sdlf-cicd-team-failure
-      Description: Notify data lake admins of team CICD pipeline failure
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-team
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: sdlf-cicd-team-failure
-          InputTransformer:
-            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-team"'
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
   ####### SSM #######
   rS3ArtifactBucketSsm:
     Type: AWS::SSM::Parameter
@@ -652,9 +536,6 @@ Resources:
       Description: URL of dead letter routing queue
 
 Outputs:
-  oSNSNotificationsTopic:
-    Value: !Ref rSNSTopic
-    Description: SNS Notifications Topic
   oLambdaCatalog:
     Value: !Ref rLambdaCatalog
     Description: Catalogs S3 Put/DeleteObject into ObjectMetadataCatalog DynamoDB table

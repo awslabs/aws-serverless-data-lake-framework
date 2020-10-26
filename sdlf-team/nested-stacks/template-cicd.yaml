@@ -2,12 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CICD Resources to manage a team
 
 Parameters:
-  pAnalyticsBucket:
-    Type: String
-  pApplicationName:
-    Type: String
-  pCentralBucket:
-    Type: String
   pCFNBucket:
     Type: String
   pCloudWatchRepositoryTriggerRoleArn:
@@ -39,20 +33,14 @@ Parameters:
     Type: String
   pMinimumTestCoverage:
     Type: String
-  pOrganizationName:
-    Type: String
-  pPipelineBucket:
-    Type: String
   pPipLibrariesRepositoryName:
     Type: String
   pRunCodeCoverage:
     Type: String
   pSharedDevOpsAccountId:
     Type: String
-  pStageBucket:
-    Type: String
   pSNSNotificationsEmail:
-    Type: String
+    Type: CommaDelimitedList
   pTeamName:
     Type: String
   pTransformValidateRoleArn:
@@ -82,9 +70,6 @@ Resources:
     Properties:
       TopicName: !Sub sdlf-${pTeamName}-notifications
       KmsMasterKeyId: !Ref pKMSInfraKeyId
-      Subscription:
-        - Endpoint: !Ref pSNSNotificationsEmail
-          Protocol: email
 
   rSNSTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -101,6 +86,15 @@ Resources:
             Resource: !Ref rSNSTopic
       Topics:
         - !Ref rSNSTopic
+
+  rSNSTopicSubscription:
+    Type: Custom::SNSSubscription
+    Properties:
+      ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
+      TeamName: !Sub ${pTeamName}
+      TopicArn: !Ref rSNSTopic
+      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
+      SubscriptionProtocol: 'email'
 
   ######## CODEBUILD JOBS #########
   rBuildDatasetMappings:

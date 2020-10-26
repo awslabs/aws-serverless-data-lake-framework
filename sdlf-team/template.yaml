@@ -123,9 +123,6 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-cicd.yaml
       Parameters:
-        pAnalyticsBucket: !Ref pAnalyticsBucket
-        pApplicationName: !Ref pApplicationName
-        pCentralBucket: !Ref pCentralBucket
         pCFNBucket: !Ref pCFNBucket
         pCloudWatchRepositoryTriggerRoleArn:
           !GetAtt [rIAMStack, Outputs.oCloudWatchRepositoryTriggerRoleArn]
@@ -143,12 +140,9 @@ Resources:
         pKMSInfraKeyId: !GetAtt [rKMSStack, Outputs.oKMSInfraKeyId]
         pLibrariesBranchName: !Ref pLibrariesBranchName
         pMinimumTestCoverage: !Ref pMinTestCoverage
-        pOrganizationName: !Ref pOrganizationName
-        pPipelineBucket: !Ref pPipelineBucket
         pPipLibrariesRepositoryName: !Ref pPipLibrariesRepositoryName
         pRunCodeCoverage: !Ref pRunCodeCoverage
         pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
-        pStageBucket: !Ref pStageBucket
         pSNSNotificationsEmail: !Ref pSNSNotificationsEmail
         pTeamName: !Ref pTeamName
         pTransformValidateRoleArn:
