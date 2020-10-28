@@ -482,7 +482,7 @@ Resources:
     Type: AWS::CodePipeline::Pipeline
     Condition: RunUnitTestingStage
     Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}
+      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-test
       RoleArn: !Ref pCodePipelineRoleArn
       Stages:
         - Name: Source
