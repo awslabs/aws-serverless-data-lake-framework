@@ -133,6 +133,9 @@ Resources:
                   - dynamodb:DeleteTable
                   - dynamodb:DescribeTable
                   - dynamodb:DescribeTimeToLive
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
                   - dynamodb:UpdateTable
                   - dynamodb:UpdateTimeToLive
               - Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*

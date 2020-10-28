@@ -5,7 +5,7 @@ Parameters:
   pApplicationName:
     Description: Name of the application (all lowercase, no symbols or spaces)
     Type: String
-    AllowedPattern: "[a-z0-9]{2,10}"
+    AllowedPattern: "[a-z0-9]{2,8}"
     Default: datalake
   pCloudTrailEnabled:
     Description: To Deploy CloudTrail, turn this parameter to true
@@ -17,7 +17,7 @@ Parameters:
     Type: String
     Default: nobody@amazon.com
   pCustomBucketPrefix:
-    Description: S3 Bucket Prefix if different from default. Must be a valid S3 prefix name
+    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
   pDataLakeAdminRoleArn:
@@ -46,7 +46,7 @@ Parameters:
   pOrganizationName:
     Description: Name of the organization (all lowercase, no symbols or spaces)
     Type: String
-    AllowedPattern: "[a-z0-9]{2,16}"
+    AllowedPattern: "[a-z0-9]{2,9}"
   pSNSNotificationsEmail:
     Description: Email address for SNS notifications
     Type: String

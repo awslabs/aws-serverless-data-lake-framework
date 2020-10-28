@@ -9,7 +9,7 @@ Parameters:
 
 Resources:
   ######## DYNAMODB #########
-  rDynamoObjectMetadata:
+  rDynamoOctagonObjectMetadata:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
@@ -439,19 +439,19 @@ Resources:
     Properties:
       Name: /SDLF/Dynamo/ObjectCatalog
       Type: String
-      Value: !Ref rDynamoObjectMetadata
+      Value: !Ref rDynamoOctagonObjectMetadata
       Description: Name of the DynamoDB used to store metadata
   rDynamoTransformMappingSsm:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/Dynamo/TransformMapping
       Type: String
-      Value: !Sub octagon-Datasets-${pEnvironment}
+      Value: !Ref rDynamoOctagonDatasets
       Description: Name of the DynamoDB used to store mappings to transformation
 
 Outputs:
   oDynamoOctagonObjectMetadataStream:
-    Value: !GetAtt rDynamoObjectMetadata.StreamArn
+    Value: !GetAtt rDynamoOctagonObjectMetadata.StreamArn
     Description: Stream Arn of the ObjectMetadata DynamoDB table
     Export:
       Name: octagon-ObjectMetadata-stream-arn

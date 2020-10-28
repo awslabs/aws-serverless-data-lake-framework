@@ -193,8 +193,8 @@ Resources:
       BucketName:
         !If [
           UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-data-quality",
-          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-data-quality",
+          !Sub "${pCustomBucketPrefix}-dataquality",
+          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-dataquality",
         ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -218,8 +218,8 @@ Resources:
       BucketName:
         !If [
           UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-athena-results",
-          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena-results",
+          !Sub "${pCustomBucketPrefix}-athena",
+          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
         ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
