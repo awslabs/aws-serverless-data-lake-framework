@@ -78,7 +78,6 @@ Resources:
         pKMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
         pNumBuckets: !Ref pNumBuckets
         pOrganizationName: !Ref pOrganizationName
-        pSNSNotificationsEmail: !Ref pSNSNotificationsEmail
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-foundations
@@ -109,6 +108,22 @@ Resources:
       Parameters:
         pEnvironment: !Ref pEnvironment
         pKMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-foundations
+
+  ######## SNS AND NOTIFICATIONS #########
+  rSNSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: rDynamoStack
+    Properties:
+      TemplateURL: ./nested-stacks/template-sns.yaml
+      Parameters:
+        pEnvironment: !Ref pEnvironment
+        pKMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
+        pLambdaCatalog: !GetAtt [rS3Stack, Outputs.oLambdaCatalog]
+        pLambdaRouting: !GetAtt [rS3Stack, Outputs.oLambdaRouting]
+        pSNSNotificationsEmail: !Ref pSNSNotificationsEmail
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-foundations

@@ -52,7 +52,7 @@ Parameters:
   pStageBucket:
     Type: String
   pSNSNotificationsEmail:
-    Type: String
+    Type: CommaDelimitedList
   pTeamName:
     Type: String
   pTransformValidateRoleArn:
@@ -82,9 +82,6 @@ Resources:
     Properties:
       TopicName: !Sub sdlf-${pTeamName}-notifications
       KmsMasterKeyId: !Ref pKMSInfraKeyId
-      Subscription:
-        - Endpoint: !Ref pSNSNotificationsEmail
-          Protocol: email
 
   rSNSTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -101,6 +98,15 @@ Resources:
             Resource: !Ref rSNSTopic
       Topics:
         - !Ref rSNSTopic
+
+  rSNSTopicSubscription:
+    Type: Custom::SNSSubscription
+    Properties:
+      ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
+      TeamName: !Sub ${pTeamName}
+      TopicArn: !Ref rSNSTopic
+      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
+      SubscriptionProtocol: email
 
   ######## CODEBUILD JOBS #########
   rBuildDatasetMappings:

@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: SNS resources (topic, subscription through custom resource) and alarms/notifications.
+
+Parameters:
+  pEnvironment:
+    Type: String
+  pKMSKeyId:
+    Type: String
+  pLambdaCatalog:
+    Type: String
+  pLambdaRouting:
+    Type: String
+  pSNSNotificationsEmail:
+    Type: CommaDelimitedList
+
+Globals:
+  Function:
+    Runtime: python3.7
+    Handler: lambda_function.lambda_handler
+    KmsKeyArn: !Ref pKMSKeyId
+
+Resources:
+  ######## LAMBDA #########
+  rSNSTopicSubscriptionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/topic/src
+      FunctionName: sdlf-cr-sns-topic-endpoints-subscription
+      Description: Subscribes multiple endpoints to an SNS topic.
+      Role: !GetAtt rSNSTopicSubscriptionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          TEAM_METADATA_TABLE_SSM_PARAM: /SDLF/Dynamo/TeamMetadata
+
+  ######## IAM #########
+  rSNSTopicSubscriptionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sdlf-cr-sns-topic-endpoints-subscription-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                Sid: LogAccessPolicy
+              - Action:
+                  - sns:Unsubscribe
+                  - sns:Subscribe
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
+                Sid: SNSSubscription
+              - Action:
+                  - ssm:GetParameter
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+                Sid: SSMGetParameter
+              - Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Teams-${pEnvironment}
+                Sid: DynamoDBControl
+            Version: 2012-10-17
+
+  ######## SNS #########
+  rSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: sdlf-notifications
+      KmsMasterKeyId: !Ref pKMSKeyId
+  rSNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Id: sdlf-notifications
+        Version: 2012-10-17
+        Statement:
+          - Sid: sdlf-notifications
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref rSNSTopic
+      Topics:
+        - !Ref rSNSTopic
+  rSNSTopicSubscription:
+    Type: Custom::SNSSubscription
+    Properties:
+      ServiceToken: !GetAtt rSNSTopicSubscriptionLambda.Arn
+      TeamName: admin
+      TopicArn: !Ref rSNSTopic
+      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
+      SubscriptionProtocol: email
+
+  ######## CLOUD WATCH #########
+  rLambdaCatalogCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sdlf-catalog
+      AlarmDescription: Catalog Lambda Alarm
+      AlarmActions:
+        - !Ref rSNSTopic
+      MetricName: Errors
+      EvaluationPeriods: 5
+      Period: 60
+      ComparisonOperator: GreaterThanThreshold
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Threshold: 10
+      Unit: Count
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref pLambdaCatalog
+
+  rLambdaRoutingCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sdlf-routing
+      AlarmDescription: Routing Lambda Alarm
+      AlarmActions:
+        - !Ref rSNSTopic
+      MetricName: Errors
+      EvaluationPeriods: 5
+      Period: 60
+      ComparisonOperator: GreaterThanThreshold
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Threshold: 10
+      Unit: Count
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref pLambdaRouting
+
+  ####### Event Rules #######
+  rCICDFoundationsPipelineFailedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: sdlf-cicd-foundations-failure
+      Description: Notify data lake admins of foundations CICD pipeline failure
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        detail:
+          state:
+            - FAILED
+          pipeline:
+            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-foundations
+      State: ENABLED
+      Targets:
+        - Arn: !Ref rSNSTopic
+          Id: sdlf-cicd-foundations-failure
+          InputTransformer:
+            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-foundations"'
+            InputPathsMap:
+              pipeline: $.detail.pipeline
+
+  rCICDTeamPipelineFailedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: sdlf-cicd-team-failure
+      Description: Notify data lake admins of team CICD pipeline failure
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        detail:
+          state:
+            - FAILED
+          pipeline:
+            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-team
+      State: ENABLED
+      Targets:
+        - Arn: !Ref rSNSTopic
+          Id: sdlf-cicd-team-failure
+          InputTransformer:
+            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-team"'
+            InputPathsMap:
+              pipeline: $.detail.pipeline
+
+Outputs:
+  osnsTopicSubscriptionLambdaArn:
+    Value: !GetAtt rSNSTopicSubscriptionLambda.Arn
+    Description: SNS Topic Subscription Lambda ARN.
+    Export:
+      Name: sdlf-sns-topic-subscription-lambda-arn
