@@ -230,7 +230,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep1LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaJobCheckStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -245,7 +245,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaJobCheckStepLogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep2LogGroup:
     Type: AWS::Logs::LogGroup
@@ -260,7 +260,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep2LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   ######## STEP FUNCTION #########
   rStateMachine:

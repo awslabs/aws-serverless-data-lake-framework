@@ -401,7 +401,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaRoutingStepLogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaRoutingStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -435,7 +435,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaRedriveStepLogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep1LogGroup:
     Type: AWS::Logs::LogGroup
@@ -450,7 +450,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep1LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaJobCheckStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -465,7 +465,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaJobCheckStepLogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep2LogGroup:
     Type: AWS::Logs::LogGroup
@@ -480,7 +480,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep2LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep3LogGroup:
     Type: AWS::Logs::LogGroup
@@ -495,7 +495,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep3LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -510,7 +510,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaErrorStepLogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: [log_type, log_timestamp, log_id, log_message]
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaErrorStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
