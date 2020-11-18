@@ -41,7 +41,7 @@ function bootstrap_team_repository()
   fi
 }
 
-declare -a REPOSITORIES=("common-pipeline" "common-dataset" "common-datalakeLibrary" "common-pipLibrary" "stageA" "stageB")
+declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
 create_approbal_rule ${TEAM_NAME}
 for REPOSITORY in "${REPOSITORIES[@]}"
 do
