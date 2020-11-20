@@ -129,6 +129,7 @@ Resources:
           Id: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
           RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
   rSNSTopic:
+    Condition: IsProduction
     Type: "AWS::SNS::Topic"
     Properties:
       TopicName: !Sub "sdlf-repo-notifications-${pEnvironment}-${pTeamName}"
@@ -136,6 +137,7 @@ Resources:
         - Endpoint: !Ref pSNSNotificationsEmail
           Protocol: "email"
   rSNSTopicPolicy:
+    Condition: IsProduction
     Type: "AWS::SNS::TopicPolicy"
     Properties:
       PolicyDocument:
