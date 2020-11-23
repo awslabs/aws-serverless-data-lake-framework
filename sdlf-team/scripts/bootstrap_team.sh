@@ -7,7 +7,7 @@ function create_approbal_rule()
   CA_OUT=$(aws codecommit create-approval-rule-template \
       --region ${AWS_REGION} \
       --approval-rule-template-name ${TEAM_NAME}-approval-to-production \
-      --approval-rule-template-content "{\"Version\": \"2018-11-08\",\"DestinationReferences\": [\"refs/heads/master\"],\"Statements\": [{\"Type\": \"Approvers\",\"NumberOfApprovalsNeeded\": 2}]}" 2>&1)
+      --approval-rule-template-content "{\"Version\": \"2018-11-08\",\"DestinationReferences\": [\"refs/heads/master\"],\"Statements\": [{\"Type\": \"Approvers\",\"NumberOfApprovalsNeeded\": 1}]}" 2>&1)
   CA_STATUS=$?
   if [ ${CA_STATUS} -ne 0 ] ; then
       if [[ ${CA_OUT} == *"An error occurred"* && ${CA_OUT} == *"already exists in your AWS account"* ]] ; then

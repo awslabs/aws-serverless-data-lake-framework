@@ -153,6 +153,7 @@ Resources:
       Topics:
         - !Ref rSNSTopic
   rSNSTopicSubscription:
+    Condition: IsProduction
     Type: Custom::SNSSubscription
     Properties:
       ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
