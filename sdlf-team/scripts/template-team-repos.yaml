@@ -15,6 +15,9 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pSNSNotificationsEmail:
+    Description: List of SNS Notification Email Endpoints
+    Type: CommaDelimitedList
 
 Mappings:
   pCodeCommitBranch:
@@ -133,9 +136,6 @@ Resources:
     Type: "AWS::SNS::Topic"
     Properties:
       TopicName: !Sub "sdlf-repo-notifications-${pEnvironment}-${pTeamName}"
-      Subscription:
-        - Endpoint: !Ref pSNSNotificationsEmail
-          Protocol: "email"
   rSNSTopicPolicy:
     Condition: IsProduction
     Type: "AWS::SNS::TopicPolicy"
@@ -152,6 +152,14 @@ Resources:
             Resource: !Ref rSNSTopic
       Topics:
         - !Ref rSNSTopic
+  rSNSTopicSubscription:
+    Type: Custom::SNSSubscription
+    Properties:
+      ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
+      TeamName: !Sub ${pTeamName}
+      TopicArn: !Ref rSNSTopic
+      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
+      SubscriptionProtocol: email
   rPullRequestCreated:
     Condition: IsProduction
     Type: AWS::Events::Rule

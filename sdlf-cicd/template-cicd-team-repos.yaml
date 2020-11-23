@@ -52,6 +52,10 @@ Resources:
                   - events:PutRule
                   - events:PutTargets
                   - events:RemoveTargets
+              - Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-cr-sns-topic-endpoints-subscription
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
               - Resource: "*"
                 Effect: Allow
                 Action:
