@@ -9,11 +9,11 @@
     },
     {
         "ParameterKey": "pStageAStateMachineRepository",
-        "ParameterValue": "sdlf-stageA"
+        "ParameterValue": "sdlf-engineering-stageA"
     },
     {
         "ParameterKey": "pStageBStateMachineRepository",
-        "ParameterValue": "sdlf-stageB"
+        "ParameterValue": "sdlf-engineering-stageB"
     },
     {
         "ParameterKey": "pStageABranch",

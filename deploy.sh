@@ -99,7 +99,7 @@ function deploy_sdlf_foundations()
 {
     git config --global credential.helper '!aws --profile '${DEVOPS_PROFILE}' codecommit credential-helper $@'
     git config --global credential.UseHttpPath true
-    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
         bootstrap_repository ${REPOSITORY}

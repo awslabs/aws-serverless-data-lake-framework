@@ -18,7 +18,7 @@ __pycache__/
 *.so
 
 # Misc
-automated-dev-deployment/
+automated-deployment/
 
 # Distribution / packaging
 output/
