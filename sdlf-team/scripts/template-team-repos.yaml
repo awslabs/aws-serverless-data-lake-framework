@@ -147,7 +147,7 @@ Resources:
           - Sid: !Sub "sdlf-${pTeamName}-notifications"
             Effect: Allow
             Principal:
-              Service: "cloudwatch.amazonaws.com"
+              Service: "events.amazonaws.com"
             Action: "sns:Publish"
             Resource: !Ref rSNSTopic
       Topics:

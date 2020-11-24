@@ -59,7 +59,7 @@ if ! aws cloudformation describe-stacks --stack-name ${STACK_NAME}; then
         ParameterKey=pChildAccountId,ParameterValue="${CHILD_ACCOUNT}" \
         ParameterKey=pEnvironment,ParameterValue="${ENV}" \
         ParameterKey=pTeamName,ParameterValue="${TEAM_NAME}" \
-        ParameterKey=pSNSNotificationsEmail,ParameterValue=\"${NOTIFICATION_EMAIL}\"
+        ParameterKey=pSNSNotificationsEmail,ParameterValue=\"${NOTIFICATION_EMAIL}\" \
     --template-body file://${DIRNAME}/template-team-repos.yaml \
     --tags file://${DIRNAME}/../tags.json \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND"
