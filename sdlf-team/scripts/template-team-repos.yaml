@@ -15,6 +15,9 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pSNSNotificationsEmail:
+    Description: List of SNS Notification Email Endpoints
+    Type: CommaDelimitedList
 
 Mappings:
   pCodeCommitBranch:
@@ -26,7 +29,8 @@ Mappings:
       branch: master
 
 Conditions:
-  CrossAccount: !Not [!Equals [ !Ref pChildAccountId, !Ref "AWS::AccountId" ]]
+  CrossAccount: !Not [!Equals [!Ref pChildAccountId, !Ref "AWS::AccountId"]]
+  IsProduction: !Equals [!Ref pEnvironment, "prod"]
 
 Resources:
   rCodeCommitRole:
@@ -127,3 +131,65 @@ Resources:
         - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
           Id: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
           RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
+  rSNSTopic:
+    Condition: IsProduction
+    Type: "AWS::SNS::Topic"
+    Properties:
+      TopicName: !Sub "sdlf-repo-notifications-${pEnvironment}-${pTeamName}"
+  rSNSTopicPolicy:
+    Condition: IsProduction
+    Type: "AWS::SNS::TopicPolicy"
+    Properties:
+      PolicyDocument:
+        Id: !Sub "sdlf-${pTeamName}-notifications"
+        Version: "2012-10-17"
+        Statement:
+          - Sid: !Sub "sdlf-${pTeamName}-notifications"
+            Effect: Allow
+            Principal:
+              Service: "events.amazonaws.com"
+            Action: "sns:Publish"
+            Resource: !Ref rSNSTopic
+      Topics:
+        - !Ref rSNSTopic
+  rSNSTopicSubscription:
+    Condition: IsProduction
+    Type: Custom::SNSSubscription
+    Properties:
+      ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
+      TeamName: !Sub ${pTeamName}
+      TopicArn: !Ref rSNSTopic
+      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
+      SubscriptionProtocol: email
+  rPullRequestCreated:
+    Condition: IsProduction
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "sdlf-pr-created-${pTeamName}"
+      Description: !Sub "Notify ${pTeamName} team of newly created pull request"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Pull Request State Change
+        resources:
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB
+        detail:
+          destinationReference:
+            - refs/heads/master
+            - master
+          event:
+            - pullRequestCreated
+      State: "ENABLED"
+      Targets:
+        - Arn: !Ref rSNSTopic
+          Id: !Sub "sdlf-${pTeamName}-pull-request-created"
+          InputTransformer:
+            InputTemplate: !Sub '"<notificationBody>"'
+            InputPathsMap:
+              notificationBody: $.detail.notificationBody
