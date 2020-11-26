@@ -131,27 +131,30 @@ Resources:
         - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
           Id: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
           RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
+
   rSNSTopic:
     Condition: IsProduction
-    Type: "AWS::SNS::Topic"
+    Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub "sdlf-repo-notifications-${pEnvironment}-${pTeamName}"
+      TopicName: !Sub sdlf-repo-notifications-${pEnvironment}-${pTeamName}
+
   rSNSTopicPolicy:
     Condition: IsProduction
-    Type: "AWS::SNS::TopicPolicy"
+    Type: AWS::SNS::TopicPolicy
     Properties:
       PolicyDocument:
-        Id: !Sub "sdlf-${pTeamName}-notifications"
-        Version: "2012-10-17"
+        Id: !Sub sdlf-${pTeamName}-repo-notifications
+        Version: 2012-10-17
         Statement:
-          - Sid: !Sub "sdlf-${pTeamName}-notifications"
+          - Sid: !Sub sdlf-${pTeamName}-repo-notifications
             Effect: Allow
             Principal:
-              Service: "events.amazonaws.com"
-            Action: "sns:Publish"
+              Service: events.amazonaws.com
+            Action: sns:Publish
             Resource: !Ref rSNSTopic
       Topics:
         - !Ref rSNSTopic
+
   rSNSTopicSubscription:
     Condition: IsProduction
     Type: Custom::SNSSubscription
@@ -161,12 +164,13 @@ Resources:
       TopicArn: !Ref rSNSTopic
       SubscriptionEndpoints: !Ref pSNSNotificationsEmail
       SubscriptionProtocol: email
+
   rPullRequestCreated:
     Condition: IsProduction
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "sdlf-pr-created-${pTeamName}"
-      Description: !Sub "Notify ${pTeamName} team of newly created pull request"
+      Name: !Sub sdlf-pr-created-${pTeamName}
+      Description: !Sub Notify ${pTeamName} team of newly created pull request
       EventPattern:
         source:
           - aws.codecommit
@@ -185,11 +189,11 @@ Resources:
             - master
           event:
             - pullRequestCreated
-      State: "ENABLED"
+      State: ENABLED
       Targets:
         - Arn: !Ref rSNSTopic
-          Id: !Sub "sdlf-${pTeamName}-pull-request-created"
+          Id: !Sub sdlf-${pTeamName}-pull-request-created
           InputTransformer:
-            InputTemplate: !Sub '"<notificationBody>"'
+            InputTemplate: '"<notificationBody>"'
             InputPathsMap:
               notificationBody: $.detail.notificationBody

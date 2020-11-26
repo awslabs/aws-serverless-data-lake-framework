@@ -27,7 +27,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonDatasets:
     Type: AWS::DynamoDB::Table
@@ -45,7 +45,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonArtifacts:
     Type: AWS::DynamoDB::Table
@@ -115,7 +115,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonMetrics:
     Type: AWS::DynamoDB::Table
@@ -169,7 +169,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonConfiguration:
     Type: AWS::DynamoDB::Table
@@ -196,7 +196,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonTeams:
     Type: AWS::DynamoDB::Table
@@ -214,7 +214,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonPipelines:
     Type: AWS::DynamoDB::Table
@@ -232,7 +232,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonEvents:
     Type: AWS::DynamoDB::Table
@@ -286,7 +286,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonExecutionHistory:
     Type: AWS::DynamoDB::Table
@@ -376,7 +376,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonSchemas:
     Type: AWS::DynamoDB::Table
@@ -396,7 +396,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonQualitySuggestions:
     Type: AWS::DynamoDB::Table
@@ -423,7 +423,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoOctagonQualityAnalysis:
     Type: AWS::DynamoDB::Table
@@ -450,7 +450,7 @@ Resources:
         SSEType: KMS
         KMSMasterKeyId: !Ref pKMSKeyId
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
 
   rDynamoObjectMetadataSsm:
     Type: AWS::SSM::Parameter
