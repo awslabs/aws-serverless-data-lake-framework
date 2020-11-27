@@ -23,10 +23,13 @@ Mappings:
   pCodeCommitBranch:
     dev:
       branch: dev
+      prefix: '{"prefix":"dev"}'
     test:
       branch: test
+      prefix: '{"prefix":"test"}'
     prod:
       branch: master
+      prefix: '{"prefix":"master"}'
 
 Conditions:
   CrossAccount: !Not [!Equals [!Ref pChildAccountId, !Ref "AWS::AccountId"]]
@@ -100,11 +103,11 @@ Resources:
                   ForAllValues:StringLike:
                     aws:PrincipalArn: !Sub "*${pTeamName}*"
 
-  rCodeCommitTriggerRule:
+  rCodeCommitCoreTriggerRule:
     Condition: CrossAccount
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+      Name: !Sub sdlf-cicd-team-codecommit-core-${pEnvironment}-${pTeamName}
       EventPattern:
         source:
           - aws.codecommit
@@ -115,9 +118,6 @@ Resources:
           - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset
           - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary
           - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC
         detail:
           event:
             - referenceCreated
@@ -129,7 +129,35 @@ Resources:
       State: ENABLED
       Targets:
         - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
-          Id: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+          Id: !Sub sdlf-cicd-team-codecommit-core-${pEnvironment}-${pTeamName}
+          RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
+
+  rCodeCommitStagesTriggerRule:
+    Condition: CrossAccount
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub sdlf-cicd-team-codecommit-stages-${pEnvironment}-${pTeamName}
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, prefix]
+      State: ENABLED
+      Targets:
+        - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
+          Id: !Sub sdlf-cicd-team-codecommit-stages-${pEnvironment}-${pTeamName}
           RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
 
   rSNSTopic:
