@@ -35,7 +35,9 @@ Resources:
           - Sid: Allow CloudWatch alarms access
             Effect: Allow
             Principal:
-              Service: cloudwatch.amazonaws.com
+              Service:
+                - cloudwatch.amazonaws.com
+                - events.amazonaws.com
             Action:
               - kms:Decrypt
               - kms:GenerateDataKey*
