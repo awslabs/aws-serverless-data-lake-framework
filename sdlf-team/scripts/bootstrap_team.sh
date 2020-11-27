@@ -1,7 +1,6 @@
 #!/bin/bash
 DIRNAME=$(pwd)
 TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' ${DIRNAME}/../parameters-${ENV}.json)")
-NOTIFICATION_EMAIL=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pSNSNotificationsEmail") | .ParameterValue' ${DIRNAME}/../parameters-${ENV}.json)")
 function create_approbal_rule()
 {
   CA_OUT=$(aws codecommit create-approval-rule-template \
@@ -59,7 +58,6 @@ if ! aws cloudformation describe-stacks --stack-name ${STACK_NAME}; then
         ParameterKey=pChildAccountId,ParameterValue="${CHILD_ACCOUNT}" \
         ParameterKey=pEnvironment,ParameterValue="${ENV}" \
         ParameterKey=pTeamName,ParameterValue="${TEAM_NAME}" \
-        ParameterKey=pSNSNotificationsEmail,ParameterValue=\"${NOTIFICATION_EMAIL}\" \
     --template-body file://${DIRNAME}/template-team-repos.yaml \
     --tags file://${DIRNAME}/../tags.json \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND"

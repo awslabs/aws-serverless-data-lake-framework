@@ -15,25 +15,18 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
-  pSNSNotificationsEmail:
-    Description: List of SNS Notification Email Endpoints
-    Type: CommaDelimitedList
 
 Mappings:
   pCodeCommitBranch:
     dev:
       branch: dev
-      prefix: '{"prefix":"dev"}'
     test:
       branch: test
-      prefix: '{"prefix":"test"}'
     prod:
       branch: master
-      prefix: '{"prefix":"master"}'
 
 Conditions:
   CrossAccount: !Not [!Equals [!Ref pChildAccountId, !Ref "AWS::AccountId"]]
-  IsProduction: !Equals [!Ref pEnvironment, "prod"]
 
 Resources:
   rCodeCommitRole:
@@ -103,125 +96,47 @@ Resources:
                   ForAllValues:StringLike:
                     aws:PrincipalArn: !Sub "*${pTeamName}*"
 
-  rCodeCommitCoreTriggerRule:
+  rCodeCommitTriggerRule:
     Condition: CrossAccount
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub sdlf-cicd-team-codecommit-core-${pEnvironment}-${pTeamName}
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Name: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+      EventPattern: !Sub
+        - |-
+          {
+            "detail-type": [
+              "CodeCommit Repository State Change"
+            ],
+            "resources": [
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB",
+              "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC"
+            ],
+            "source": [
+              "aws.codecommit"
+            ],
+            "detail": {
+              "referenceType": [
+                "branch"
+              ],
+              "event": [
+                "referenceCreated",
+                "referenceUpdated"
+              ],
+              "referenceName": [
+                {"prefix":"${cBranch}"}
+              ]
+            }
+          }
+        - {
+            cBranch: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+          }
       State: ENABLED
       Targets:
         - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
-          Id: !Sub sdlf-cicd-team-codecommit-core-${pEnvironment}-${pTeamName}
+          Id: !Sub sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
           RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
-
-  rCodeCommitStagesTriggerRule:
-    Condition: CrossAccount
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-cicd-team-codecommit-stages-${pEnvironment}-${pTeamName}
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, prefix]
-      State: ENABLED
-      Targets:
-        - Arn: !Sub arn:aws:events:${AWS::Region}:${pChildAccountId}:event-bus/default
-          Id: !Sub sdlf-cicd-team-codecommit-stages-${pEnvironment}-${pTeamName}
-          RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-${pEnvironment}
-
-  rSNSTopic:
-    Condition: IsProduction
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub sdlf-repo-notifications-${pEnvironment}-${pTeamName}
-
-  rSNSTopicPolicy:
-    Condition: IsProduction
-    Type: AWS::SNS::TopicPolicy
-    Properties:
-      PolicyDocument:
-        Id: !Sub sdlf-${pTeamName}-repo-notifications
-        Version: 2012-10-17
-        Statement:
-          - Sid: !Sub sdlf-${pTeamName}-repo-notifications
-            Effect: Allow
-            Principal:
-              Service: events.amazonaws.com
-            Action: sns:Publish
-            Resource: !Ref rSNSTopic
-      Topics:
-        - !Ref rSNSTopic
-
-  rSNSTopicSubscription:
-    Condition: IsProduction
-    Type: Custom::SNSSubscription
-    Properties:
-      ServiceToken: !ImportValue sdlf-sns-topic-subscription-lambda-arn
-      TeamName: !Sub ${pTeamName}
-      TopicArn: !Ref rSNSTopic
-      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
-      SubscriptionProtocol: email
-
-  rPullRequestCreated:
-    Condition: IsProduction
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-pr-created-${pTeamName}
-      Description: !Sub Notify ${pTeamName} team of newly created pull request
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Pull Request State Change
-        resources:
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB
-        detail:
-          destinationReference:
-            - refs/heads/master
-            - master
-          event:
-            - pullRequestCreated
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: !Sub sdlf-${pTeamName}-pull-request-created
-          InputTransformer:
-            InputTemplate: '"<notificationBody>"'
-            InputPathsMap:
-              notificationBody: $.detail.notificationBody
