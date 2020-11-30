@@ -817,166 +817,22 @@ Resources:
           Value: !Ref rLambdaErrorStep
 
   rStateMachine:
-    Type: AWS::StepFunctions::StateMachine
+    Type: AWS::Serverless::StateMachine
     Properties:
-      StateMachineName: !Sub sdlf-${pTeamName}-${pPipeline}-sm-b
-      DefinitionString: !Sub
-        - |-
-          {
-            "Comment": "Simple pseudo flow",
-            "StartAt": "Try",
-            "States": {
-              "Try": {
-                "Type": "Parallel",
-                "Branches": [
-                  {
-                    "StartAt": "Run Topic Model Job",
-                    "States":{
-                      "Run Topic Model Job": {
-                        "Type": "Task",
-                        "Resource": "${lStep1}",
-                        "Comment": "Run Topic Model Job",
-                        "ResultPath": "$.body.job",
-                        "Next": "Wait"
-                      },
-                      "Wait": {
-                          "Type": "Wait",
-                          "Seconds": 15,
-                          "Next": "Get Job status"
-                      },
-                      "Get Job status": {
-                          "Type": "Task",
-                          "Resource": "${lCheckJob}",
-                          "ResultPath": "$.body.job",
-                          "Next": "Did Job finish?"
-                      },
-                      "Did Job finish?": {
-                          "Type": "Choice",
-                          "Choices": [{
-                              "Variable": "$.body.job.jobDetails.jobStatus",
-                              "StringEquals": "COMPLETED",
-                              "Next": "Metadata Enrichment"
-                          },{
-                              "Variable": "$.body.job.jobDetails.jobStatus",
-                              "StringEquals": "FAILED",
-                              "Next": "Job Failed"
-                          }],
-                          "Default": "Wait"
-                      },
-                        "Job Failed": {
-                        "Type": "Fail",
-                        "Error": "Job Failed",
-                        "Cause": "Job failed, please check the logs"
-                      },
-                      "Metadata Enrichment": {
-                        "Type": "Task",
-                        "Resource": "${lStep4}",
-                        "Comment": "Metadata Enrichment",
-                        "ResultPath": "$.statusCode",
-                        "Next": "Add Kendra Data Source Metadata"
-                      },
-                      "Add Kendra Data Source Metadata": {
-                        "Type": "Task",
-                        "Resource": "${lStep5}",
-                        "Comment": "Add Data Source Metadata for Kendra",
-                        "ResultPath": "$.jobList",
-                        "Next": "Write JSON Metadata Files"
-                      },
-                      "Write JSON Metadata Files": {
-                        "Type": "Map",
-                        "ItemsPath": "$.jobList.jobList",
-                        "Comment": "Write JSON Metadata to S3",
-                        "MaxConcurrency": 0,
-                        "Iterator": {
-                          "StartAt": "Write Files",
-                          "States": {
-                            "Write Files": {
-                              "Type": "Task",
-                              "Resource": "${lStep6}",
-                              "End": true
-                            }
-                          }
-                        },
-                        "ResultPath": "$.statusCode",
-                        "Next": "Create Multi-Label Classifier"
-                      },
-                      "Create Multi-Label Classifier": {
-                        "Type": "Task",
-                        "Resource": "${lStep7}",
-                        "Comment": "Create Multi-Label Classifier from Topic Model Output",
-                        "ResultPath": "$.statusCode",
-                        "Next": "Run Glue Crawler"
-                      },
-                      "Run Glue Crawler": {
-                        "Type": "Task",
-                        "Resource": "${lStep2}",
-                        "Comment": "Run Glue Crawler",
-                        "ResultPath": "$.statusCode",
-                        "Next": "Post-update Comprehensive Catalogue"
-                      },
-                      "Post-update Comprehensive Catalogue": {
-                        "Type": "Task",
-                        "Resource": "${lStep3}",
-                        "Comment": "Post-update Comprehensive Catalogue",
-                        "ResultPath": "$.body.job.jobDetails.tables",
-                        "Next": "Data Quality"
-                      },
-                      "Data Quality": {
-                        "Type":"Task",
-                        "Resource":"arn:aws:states:::states:startExecution",
-                        "Parameters":{
-                            "StateMachineArn":"${smDataQuality}",
-                            "Input": {"body.$": "$.body"}
-                        },
-                        "Retry":[
-                          {
-                              "ErrorEquals":[
-                                "StepFunctions.ExecutionLimitExceeded"
-                              ]
-                          }
-                        ],
-                        "Comment": "Data Quality",
-                        "End": true
-                      }
-                    }
-                  }
-                ],
-                "Catch": [
-                  {
-                    "ErrorEquals": [ "States.ALL" ],
-                    "ResultPath": null,
-                    "Next": "Error"
-                  }
-                ],
-                "Next": "Done"
-              },
-              "Done": {
-                "Type": "Succeed"
-              },
-              "Error": {
-                "Type": "Task",
-                "Resource": "${lError}",
-                "Comment": "Send Original Payload to DLQ",
-                "Next": "Failed"
-              },
-              "Failed": {
-                "Type": "Fail"
-              }
-            }
-          }
-        - {
-            lStep1: !GetAtt rLambdaStep1.Arn,
-            lStep2: !GetAtt rLambdaStep2.Arn,
-            lStep3: !GetAtt rLambdaStep3.Arn,
-            lStep4: !GetAtt rLambdaStep4.Arn,
-            lStep5: !GetAtt rLambdaStep5.Arn,
-            lStep6: !GetAtt rLambdaStep6.Arn,
-            lStep7: !GetAtt rLambdaStep7.Arn,
-            lCheckJob: !GetAtt rLambdaJobCheckStep.Arn,
-            lError: !GetAtt rLambdaErrorStep.Arn,
-            smDataQuality: "{{resolve:ssm:/SDLF/SM/DataQualityStateMachine:1}}",
-          }
-      RoleArn: !Ref pStatesExecutionRole
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-b
+      DefinitionUri: ./state-machine/stage-b.asl.json
+      DefinitionSubstitutions:
+        lStep1: !GetAtt rLambdaStep1.Arn
+        lStep2: !GetAtt rLambdaStep2.Arn
+        lStep3: !GetAtt rLambdaStep3.Arn
+        lStep4: !GetAtt rLambdaStep4.Arn
+        lStep5: !GetAtt rLambdaStep5.Arn
+        lStep6: !GetAtt rLambdaStep6.Arn
+        lStep7: !GetAtt rLambdaStep7.Arn
+        lCheckJob: !GetAtt rLambdaJobCheckStep.Arn
+        lError: !GetAtt rLambdaErrorStep.Arn
+        smDataQuality: "{{resolve:ssm:/SDLF/SM/DataQualityStateMachine:1}}"        
+      Role: !Ref pStatesExecutionRole
 
   ######## SSM OUTPUTS #########
   rStateMachineSsm:
