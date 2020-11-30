@@ -54,7 +54,7 @@ if ! aws s3 ls $S3_BUCKET --profile $PROFILE; then
 fi
 
 mkdir $DIRNAME/output
-aws cloudformation package --profile $PROFILE --template-file $DIRNAME/template.yaml --s3-bucket $S3_BUCKET --s3-prefix foundations --output-template-file $DIRNAME/output/packaged-template.yaml
+sam package --profile $PROFILE --template-file $DIRNAME/template.yaml --s3-bucket $S3_BUCKET --s3-prefix foundations --output-template-file $DIRNAME/output/packaged-template.yaml
 
 echo "Checking if stack exists ..."
 if ! aws cloudformation describe-stacks --profile $PROFILE --stack-name $STACK_NAME; then

@@ -345,7 +345,7 @@ Resources:
                 python: 3.7
             build:
               commands:
-                - aws cloudformation package --template-file ./template.yaml --s3-bucket $ARTIFACTORY_BUCKET --s3-prefix $TEAM_NAME --output-template-file template.yaml
+                - sam package --template-file ./template.yaml --s3-bucket $ARTIFACTORY_BUCKET --s3-prefix $TEAM_NAME --output-template-file template.yaml
                 - aws cloudformation validate-template --template-body file://./template.yaml
           artifacts:
             files:

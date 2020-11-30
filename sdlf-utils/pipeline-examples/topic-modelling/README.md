@@ -63,7 +63,7 @@ We aim to ingest and transform one new dataset (```research```) and pipeline (``
     ```
 
 ### Creating 'ml' Pipeline
-1. We first update the template.yaml in StageA to add Pandas and LangDetect Python libraries to the process Lambda step so we can leverage these tools. Navigate to the ```sdlf-stageA``` repository and replace the CloudFormation ```template.yaml``` file in the ```sdlf-stageA``` repository with the one located in the local directory. You can run a ```git diff``` to see these changes. Push these changes by running:
+1. We first update the template.yaml in StageA to add Pandas and LangDetect Python libraries to the process Lambda step so we can leverage these tools. Navigate to the ```sdlf-stageA``` repository and replace the CloudFormation ```template.yaml``` and ```./state-machine/stage-a.asl.json``` files in the ```sdlf-stageA``` repository with the ones located in the local directory. You can run a ```git diff``` to see these changes. Push these changes by running:
     ```bash
     git commit -a -m "Add Pandas and LangDetect to StageA process lambda"
     git push
@@ -74,7 +74,7 @@ We aim to ingest and transform one new dataset (```research```) and pipeline (``
     # Run in sdlf-stageB repository
     git checkout -b ml
     ```
-    Then replace the CloudFormation ```template.yaml``` file in the ```sdlf-stageB``` repository with the one located in the local directory. This new CloudFormation template defines a step function which includes multiple ML steps. Moreover, add the additional lambdas from the local directory to ```sdlf-stageB``` repository and replace the postupdate lambda.
+    Then replace the CloudFormation ```template.yaml``` and ```./state-machine/stage-b.asl.json``` files in the ```sdlf-stageB``` repository with the ones located in the local directory. This new CloudFormation template and State Machine structure define a step function which includes multiple ML steps. Moreover, add the additional lambdas from the local directory to ```sdlf-stageB``` repository and replace the postupdate lambda.
     
     You can run a ```git diff``` to see these changes. We then push them to the repository:
     ```bash
