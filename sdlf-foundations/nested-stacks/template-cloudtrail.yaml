@@ -117,7 +117,7 @@ Resources:
               - !Sub arn:aws:s3:::${rTrailBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
 
   rTrailLogGroup:
     Type: AWS::Logs::LogGroup

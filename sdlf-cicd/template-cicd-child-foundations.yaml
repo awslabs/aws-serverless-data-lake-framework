@@ -92,7 +92,7 @@ Resources:
               - !Sub arn:aws:s3:::${rArtifactsBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
 
 
   ######## IAM #########

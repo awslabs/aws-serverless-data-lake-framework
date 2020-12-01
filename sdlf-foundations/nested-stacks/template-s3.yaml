@@ -63,7 +63,7 @@ Resources:
               - !Sub arn:aws:s3:::${rPipelineBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
@@ -110,7 +110,7 @@ Resources:
               - !Sub arn:aws:s3:::${rCentralBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   rCentralBucketLakeFormationS3Registration:
@@ -163,7 +163,7 @@ Resources:
               - !Sub arn:aws:s3:::${rRawBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   rRawBucketLakeFormationS3Registration:
@@ -216,7 +216,7 @@ Resources:
               - !Sub arn:aws:s3:::${rStageBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   rStageBucketLakeFormationS3Registration:
@@ -269,7 +269,7 @@ Resources:
               - !Sub arn:aws:s3:::${rAnalyticsBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   rAnalyticsBucketLakeFormationS3Registration:
@@ -313,7 +313,7 @@ Resources:
               - !Sub arn:aws:s3:::${rDataQualityBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   rDataQualityBucketLakeFormationS3Registration:
@@ -356,7 +356,7 @@ Resources:
               - !Sub arn:aws:s3:::${rAthenaBucket}
             Condition:
               Bool:
-                'aws:SecureTransport': 'False'
+                aws:SecureTransport: False
             Principal: "*"
 
   ######## Lambda & SQS #########
