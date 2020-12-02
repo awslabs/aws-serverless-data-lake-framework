@@ -108,6 +108,16 @@ Resources:
             Condition:
               StringEquals:
                 s3:x-amz-acl: bucket-owner-full-control
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${rTrailBucket}/*
+              - !Sub arn:aws:s3:::${rTrailBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
 
   rTrailLogGroup:
     Type: AWS::Logs::LogGroup

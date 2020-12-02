@@ -48,6 +48,24 @@ Resources:
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
 
+  rPipelineBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rPipelineBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rPipelineBucket}/*
+              - !Sub arn:aws:s3:::${rPipelineBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
   rCentralBucket:
     Type: AWS::S3::Bucket
@@ -75,6 +93,25 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+
+  rCentralBucketPolicy:
+    Condition: CreateSingleBucket
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rCentralBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rCentralBucket}/*
+              - !Sub arn:aws:s3:::${rCentralBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
 
   rCentralBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
@@ -110,6 +147,25 @@ Resources:
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
 
+  rRawBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateMultipleBuckets
+    Properties:
+      Bucket: !Ref rRawBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rRawBucket}/*
+              - !Sub arn:aws:s3:::${rRawBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   rRawBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
@@ -143,6 +199,25 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+
+  rStageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateMultipleBuckets
+    Properties:
+      Bucket: !Ref rStageBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rStageBucket}/*
+              - !Sub arn:aws:s3:::${rStageBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
 
   rStageBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
@@ -178,6 +253,25 @@ Resources:
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
 
+  rAnalyticsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateMultipleBuckets
+    Properties:
+      Bucket: !Ref rAnalyticsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rAnalyticsBucket}/*
+              - !Sub arn:aws:s3:::${rAnalyticsBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   rAnalyticsBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
@@ -204,6 +298,24 @@ Resources:
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
 
+  rDataQualityBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rDataQualityBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rDataQualityBucket}/*
+              - !Sub arn:aws:s3:::${rDataQualityBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   rDataQualityBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Properties:
@@ -228,6 +340,24 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+
+  rAthenaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rAthenaBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${rAthenaBucket}/*
+              - !Sub arn:aws:s3:::${rAthenaBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
 
   ######## Lambda & SQS #########
   rQueueCatalog:
