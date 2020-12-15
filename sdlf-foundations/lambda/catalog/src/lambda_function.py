@@ -57,7 +57,9 @@ def lambda_handler(event, context):
         logger.info('Received {} messages'.format(len(event['Records'])))
         for record in event['Records']:
             logger.info('Parsing S3 Event')
-            message = json.loads(record['body'])['Records'][0]
+            # Handling S3 Multipart Upload
+            message = json.loads(record['body'])['Records'][0] \
+                if 'eventName' not in event else record
             operation = message['eventName'].split(':')[-1]
 
             logger.info(f"Performing Dynamo {operation} operation")
