@@ -1,26 +1,26 @@
 [
   {
     "ParameterKey": "organization",
-    "ParameterValue": ""
+    "ParameterValue": "johanandreybaron0039"
   },
   {
     "ParameterKey": "project",
-    "ParameterValue": ""
+    "ParameterValue": "sdlf-project"
   },
   {
     "ParameterKey": "repository-prefix",
-    "ParameterValue": ""
+    "ParameterValue": "datalake"
   },
   {
     "ParameterKey": "aws-codecommit-user",
-    "ParameterValue": ""
+    "ParameterValue": "sdlf-az-cc"
   },
   {
     "ParameterKey": "service-connection-name",
-    "ParameterValue": ""
+    "ParameterValue": "aws-connection"
   },
   {
     "ParameterKey": "sdlf-aztoken",
-    "ParameterValue": ""
+    "ParameterValue": "65y4ll3gzgycro4j7rr3fquajkrq3d43dkbb7qnrpsc3r7r2fq2a"
   }
 ]

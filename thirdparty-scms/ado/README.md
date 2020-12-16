@@ -56,7 +56,7 @@ A PAT is necessary in order to allow the sdlf-team pipeline to create the team r
 
 ## Setup before deploy
 
-1. Go to the azure-setup directory
+1. Go to the thirdparty-scms/ado directory
 2. Modify the file parameters.json according to your Azure DevOps company configuration:
    
    - **organization**: The name of your organization
@@ -70,4 +70,4 @@ A PAT is necessary in order to allow the sdlf-team pipeline to create the team r
 
     Note: All the parameters are mandatory and can not be empty
 
-3. Execute the *deploy-azure.sh* from the root folder according to the SDLF installation instructions
+3. Execute the foundations *deploy.sh* script with the option extra option **-x ado** from the root folder according to the SDLF installation instructions

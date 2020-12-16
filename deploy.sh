@@ -7,6 +7,7 @@ dflag=false
 fflag=false
 oflag=false
 cflag=false
+xflag=false
 
 DIRNAME=$(pwd)
 
@@ -20,8 +21,9 @@ usage () { echo "
     -f -- Deploys SDLF Foundations
     -o -- Deploys Shared DevOps Account CICD Resources
     -c -- Deploys Child Account CICD Resources
+    -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket
 "; }
-options=':s:t:r:e:dfoch'
+options=':s:t:r:x:e:dfoch'
 while getopts $options option
 do
     case "$option" in
@@ -29,6 +31,7 @@ do
         t  ) tflag=true; CHILD_PROFILE=${OPTARG};;
         r  ) rflag=true; REGION=${OPTARG};;
         e  ) eflag=true; ENV=${OPTARG};;
+        x  ) xflag=true; SCM=${OPTARG};;
         d  ) dflag=true;;
         f  ) fflag=true;;
         o  ) oflag=true;;
@@ -39,6 +42,28 @@ do
         *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
     esac
 done
+
+# external SCMs config
+if $xflag
+then
+    if $dflag; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
+    declare -a SCMS=(ado bb github gitlab) # declare all the external SCMs supported
+    if [[ " ${SCMS[@]} " =~ " ${SCM} " ]]; then
+        case ${SCM} in
+            "ado" )
+                SCM_DIR=${DIRNAME}/thirdparty-scms/ado
+                source ${SCM_DIR}/functions.sh
+                ;;
+            # add as many as you've implemented
+            * )
+                echo "Unimplemented option: ${SCM}" && exit 1
+                ;;
+        esac
+    else
+        echo SCM git value not valid: ${SCM}. The allowed values are: ${SCMS[@]}
+        exit 1
+    fi
+fi
 
 if ! $sflag
 then
@@ -75,6 +100,7 @@ else
     echo y | sudo yum install jq
 fi
 
+
 DEVOPS_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile ${DEVOPS_PROFILE})
 CHILD_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile ${CHILD_PROFILE})
 
@@ -110,7 +136,12 @@ function deploy_sdlf_foundations()
 if $fflag
 then
     echo "Deploying SDLF foundational repositories..." >&2
-    deploy_sdlf_foundations
+    if $xflag ; then
+        echo "External SCM deployment detected: ${SCM}"
+        deploy_sdlf_foundations_scm
+    else
+        deploy_sdlf_foundations
+    fi
     STACK_NAME=sdlf-cicd-team-repos
     aws cloudformation create-stack \
         --stack-name ${STACK_NAME} \
