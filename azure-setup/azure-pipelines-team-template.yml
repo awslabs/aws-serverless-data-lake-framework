@@ -89,8 +89,7 @@ jobs:
           echo "Cloning base repository ${REPOSITORY}"
           git  -c http.extraHeader="Authorization: Basic ${TOKEN64}" clone $(System.CollectionUri)/$(System.TeamProject)/_git/${PREFIX}-${REPOSITORY}
           cd ${PREFIX}-${REPOSITORY}
-          sed -i "s/sdlf-${REPOSITORY}/sdlf-${TEAM}-${REPOSITORY}/g" azure-pipelines.yml
-          sed -i "s/sdlf-${REPOSITORY}/sdlf-${TEAM}-$(echo ${REPOSITORY} | cut -f 2 -d '-')/g" azure-pipelines.yml
+          sed -i "s/${REPOSITORY}/sdlf-${TEAM}-$(echo ${REPOSITORY} | cut -f 2 -d '-')/g" azure-pipelines.yml
           git add azure-pipelines.yml && git commit -m "SDLF - Team deployment"
           echo "Adding remote origen: ${PREFIX}-${TEAM}-${REPOSITORY}"
           git remote add ${REPOSITORY} $(System.CollectionUri)/$(System.TeamProject)/_git/${PREFIX}-${TEAM}-${REPOSITORY}
@@ -105,7 +104,7 @@ jobs:
             --repository "${PREFIX}-${TEAM}-${REPOSITORY}" --repository-type tfsgit --skip-first-run true > /dev/null
           echo "Running pipelines"
           for BRANCH in master dev test; do
-            az pipelines run --name ${PREFIX}-${TEAM}-${REPOSITORY} --branch ${BRANCH} --folder-path 'sdlf\'${TEAM}
+            az pipelines run --name ${PREFIX}-${TEAM}-${REPOSITORY} --branch ${BRANCH} --folder-path 'sdlf\'${TEAM} > /dev/null
           done
         done
       name: repos_azure_devops
