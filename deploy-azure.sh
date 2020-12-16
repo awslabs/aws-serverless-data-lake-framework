@@ -226,8 +226,6 @@ function deploy_sdlf_foundations() {
       bootstrap_repository $REPOSITORY
       echo "setup_azure_pipelines ${REPOSITORY}"
       setup_azure_pipelines $REPOSITORY
-      echo waiting key
-      read -n 1
     done
     cd "${DIRNAME}"
 }
