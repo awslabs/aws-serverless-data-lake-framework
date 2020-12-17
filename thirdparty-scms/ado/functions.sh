@@ -1,3 +1,4 @@
+#!/bin/bash
 
 function technical_requirements()
 {
@@ -7,16 +8,14 @@ function technical_requirements()
   else
       SED=$(which sed)
   fi
-
   $SED --version > /dev/null
-  if [[ $? -gt 0 ]]; then
-    echo "sed binnary is necessary to execute the deployment" && exit 1
+  if [[ $? -gt 0 ]]; then
+      echo "sed binnary is necessary to execute the deployment" && exit 1
   fi
   jq --version > /dev/null
-  if [[ $? -gt 0 ]]; then
-    echo "jq binnary is necessary to execute the deployment" && exit 1
+  if [[ $? -gt 0 ]]; then
+      echo "jq binnary is necessary to execute the deployment" && exit 1
   fi
-
   echo "Verifying if az cli is authenticated Azure"
   output=$(az account list 2>&1)
   if [[ "$output" == *"Please run"* ]]; then
@@ -24,7 +23,7 @@ function technical_requirements()
   fi
 }
 
-function bootstrap_repository()
+function bootstrap_repository_scm()
 {
     REPOSITORY=$1
     echo "Creating repository ${REPOSITORY} on AWS" && set +e
@@ -39,7 +38,7 @@ function bootstrap_repository()
     fi
     # copy azure pipeline
     cd "${DIRNAME}"
-    if [[ "${REPOSITORY}" == *"team"* ]]; then
+    if [[ "${REPOSITORY}" == "sdlf-team" ]]; then
       cp -f ${SCM_DIR}/azure-pipelines-team-template.yml ${SCM_DIR}/azure-pipelines.yml
     else
       cp -f ${SCM_DIR}/azure-pipelines-template.yml ${SCM_DIR}/azure-pipelines.yml
@@ -48,8 +47,8 @@ function bootstrap_repository()
     $SED -i "s/REGION/${REGION}/g" ${SCM_DIR}/azure-pipelines.yml
     $SED -i "s/SERVICE_CONNECTION/${SERVICE_CONNECTION}/g" ${SCM_DIR}/azure-pipelines.yml
     
-    cp -f ${SCM_DIR}/azure-pipelines.yml ./${REPOSITORY}/azure-pipelines.yml
-    cd ${REPOSITORY}/
+    cp -f ${SCM_DIR}/azure-pipelines.yml ${DIRNAME}/${REPOSITORY}/azure-pipelines.yml
+    cd ${DIRNAME}/${REPOSITORY}/
     /bin/test -d .git && rm -rf .git
     git init
     if [[ "${REPOSITORY}" == "sdlf-team" ]]; then #remove sdlf-team repositories creation
@@ -58,7 +57,7 @@ function bootstrap_repository()
     git add . 
     git commit -m "Initial Commit" > /dev/null
     # Azure mods
-    echo "Creating repository ${PREFIX}-${REPOSITORY} on Azure"
+    echo "Creating repository ${PREFIX}-${REPOSITORY} on Azure DevOps"
     set +e
     OUTPUT=$(az repos create --name ${PREFIX}-${REPOSITORY} 2>&1)
     STATUS=$? && set -e
@@ -98,12 +97,12 @@ function setup_azure_pipelines() {
     fi
     echo "Running pipelines"
     for BRANCH in master dev test; do
-      PIPELINE_ID=`az pipelines run --name ${PREFIX}-${REPOSITORY} --branch ${BRANCH} --folder-path "sdlf" | jq -r .id`
+      PIPELINE_ID=$(az pipelines run --name ${PREFIX}-${REPOSITORY} --branch ${BRANCH} --folder-path "sdlf" | jq -r .id)
       if [[ "${REPOSITORY}" == "sdlf-team" ||  "${REPOSITORY}" == "sdlf-foundations" ]]; then # these repositories must be populated synchronously
-        STATUS=`az pipelines runs show --id ${PIPELINE_ID} | jq -r .status`
+        STATUS=$(az pipelines runs show --id ${PIPELINE_ID} | jq -r .status)
         while [ "$STATUS" != "completed" ]; do
           echo "Waiting for the pipeline ${PREFIX}-${REPOSITORY} on branch ${BRANCH} to finish" && sleep 7
-          STATUS=`az pipelines runs show --id ${PIPELINE_ID} | jq -r .status`
+          STATUS=$(az pipelines runs show --id ${PIPELINE_ID} | jq -r .status)
         done
       fi
     done
@@ -123,32 +122,32 @@ function setup_azure_config() {
 
     az devops configure --defaults organization="https://dev.azure.com/$ORG" project="$PROJECT"
     echo "Creating service-connection \"${SERVICE_CONNECTION}\" on the project: \"${PROJECT}\""
-    SC_ID=`az devops service-endpoint create --service-endpoint-configuration \
-      ${SCM_DIR}/service-connection.json | jq -r .id`
+    SC_ID=$(az devops service-endpoint create --service-endpoint-configuration \
+      ${SCM_DIR}/service-connection.json | jq -r .id)
     az devops service-endpoint update --id ${SC_ID} --enable-for-all > /dev/null
 }
 
 function deploy_sdlf_foundations_scm() {
     technical_requirements
-
+    cd "${DIRNAME}"
     declare -a REPOSITORIES=("sdlf-team" "sdlf-foundations" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
     echo "Getting configuration parameters"
-    ORG=`jq -r '.[] | select(.ParameterKey=="organization") | .ParameterValue' ${SCM_DIR}/parameters.json`
-    PROJECT=`jq -r '.[] | select(.ParameterKey=="project") | .ParameterValue' ${SCM_DIR}/parameters.json`
-    PREFIX=`jq -r '.[] | select(.ParameterKey=="repository-prefix") | .ParameterValue' ${SCM_DIR}/parameters.json`
-    AWS_CC_USER=`jq -r '.[] | select(.ParameterKey=="aws-codecommit-user") | .ParameterValue' ${SCM_DIR}/parameters.json`
-    IAM_USER=`aws iam list-users --profile ${DEVOPS_PROFILE} | jq -r --arg USER "${AWS_CC_USER}" '.Users[] |select(.UserName==$USER) | .UserName'`
-    SERVICE_CONNECTION=`jq -r '.[] | select(.ParameterKey=="service-connection-name") | .ParameterValue' ${SCM_DIR}/parameters.json`
-    TOKEN=`jq -r '.[] | select(.ParameterKey=="sdlf-aztoken") | .ParameterValue' ${SCM_DIR}/parameters.json`
+    ORG=$(jq -r '.[] | select(.ParameterKey=="organization") | .ParameterValue' ${SCM_DIR}/parameters.json)
+    PROJECT=$(jq -r '.[] | select(.ParameterKey=="project") | .ParameterValue' ${SCM_DIR}/parameters.json)
+    PREFIX=$(jq -r '.[] | select(.ParameterKey=="repository-prefix") | .ParameterValue' ${SCM_DIR}/parameters.json)
+    AWS_CC_USER=$(jq -r '.[] | select(.ParameterKey=="aws-codecommit-user") | .ParameterValue' ${SCM_DIR}/parameters.json)
+    IAM_USER=$(aws iam list-users --profile ${DEVOPS_PROFILE} | jq -r --arg USER "${AWS_CC_USER}" '.Users[] |select(.UserName==$USER) | .UserName')
+    SERVICE_CONNECTION=$(jq -r '.[] | select(.ParameterKey=="service-connection-name") | .ParameterValue' ${SCM_DIR}/parameters.json)
+    TOKEN=$(jq -r '.[] | select(.ParameterKey=="sdlf-aztoken") | .ParameterValue' ${SCM_DIR}/parameters.json)
 
     if [[ "${IAM_USER}" == "" ]]; then
       echo "Creating CodeCommit User on AWS";
       aws iam create-user --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE} > /dev/null
-      cp -f ${SCM_DIR}/aws-codecommit-policy-template.json "$AZDIR"/aws-codecommit-policy.json
-      $SED -i "s/REGION/${REGION}/g" ${SCM_DIR}aws-codecommit-policy.json
+      cp -f ${SCM_DIR}/aws-codecommit-policy-template.json ${SCM_DIR}/aws-codecommit-policy.json
+      $SED -i "s/REGION/${REGION}/g" ${SCM_DIR}/aws-codecommit-policy.json
       $SED -i "s/ACCOUNT_ID/${DEVOPS_ACCOUNT}/g" ${SCM_DIR}/aws-codecommit-policy.json
-      POLICY_ARN=`aws iam create-policy --policy-name ${AWS_CC_USER}-policy --policy-document \
-        --profile ${DEVOPS_PROFILE} file://${SCM_DIR}/aws-codecommit-policy.json |jq -r '.Policy.Arn'`
+      POLICY_ARN=$(aws iam create-policy --policy-name ${AWS_CC_USER}-policy --policy-document --profile ${DEVOPS_PROFILE} \
+        file://${SCM_DIR}/aws-codecommit-policy.json |jq -r '.Policy.Arn')
       aws iam attach-user-policy --policy-arn ${POLICY_ARN} --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE}
       echo "Creating access_key on AWS";
       JSONRESPONSE=$(aws iam create-access-key --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE})
@@ -161,8 +160,8 @@ function deploy_sdlf_foundations_scm() {
     setup_azure_config
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
-      echo "bootstrap_repository ${REPOSITORY}..."
-      bootstrap_repository $REPOSITORY
+      echo "bootstrap_repository_scm ${REPOSITORY}..."
+      bootstrap_repository_scm $REPOSITORY
       echo "setup_azure_pipelines ${REPOSITORY}"
       setup_azure_pipelines $REPOSITORY
     done
