@@ -63,7 +63,7 @@ def lambda_handler(event, context):
             operation = message['eventName'].split(':')[-1]
 
             logger.info(f"Performing Dynamo {operation} operation")
-            if operation == 'Delete':
+            if operation == 'Delete' or operation == 'DeleteMarkerCreated':
                 id = 's3://{}/{}'.format(
                     message['s3']['bucket']['name'],
                     unquote_plus(message['s3']['object']['key'])
