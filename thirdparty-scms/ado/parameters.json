@@ -12,10 +12,6 @@
     "ParameterValue": ""
   },
   {
-    "ParameterKey": "aws-codecommit-user",
-    "ParameterValue": ""
-  },
-  {
     "ParameterKey": "service-connection-name",
     "ParameterValue": ""
   },

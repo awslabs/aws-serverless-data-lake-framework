@@ -36,7 +36,6 @@ function bootstrap_repository_scm()
         echo "Error: ${OUTPUT}" && exit ${STATUS}
       fi
     fi
-    # copy azure pipeline
     cd "${DIRNAME}"
     if [[ "${REPOSITORY}" == "sdlf-team" ]]; then
       cp -f ${SCM_DIR}/azure-pipelines-team-template.yml ${SCM_DIR}/azure-pipelines.yml
@@ -113,49 +112,19 @@ function setup_azure_pipelines() {
 } 
 
 function setup_azure_config() {
-    echo "Setting up Azure config and service-connection request"
-    cp -f ${SCM_DIR}/service-connection-template.json ${SCM_DIR}/service-connection.json
-    $SED -i "s|PROJECT|${PROJECT}|g" ${SCM_DIR}/service-connection.json
-    $SED -i "s|AWS_ACCESS_KEY|${AWS_ACCESS_KEY}|g" ${SCM_DIR}/service-connection.json
-    $SED -i "s|AWS_SECRET_KEY|${AWS_SECRET_KEY}|g" ${SCM_DIR}/service-connection.json
-    $SED -i "s|SERVICE_CONNECTION|${SERVICE_CONNECTION}|g" ${SCM_DIR}/service-connection.json
-
+    echo "Setting up Azure config"
     az devops configure --defaults organization="https://dev.azure.com/$ORG" project="$PROJECT"
-    echo "Creating service-connection \"${SERVICE_CONNECTION}\" on the project: \"${PROJECT}\""
-    SC_ID=$(az devops service-endpoint create --service-endpoint-configuration \
-      ${SCM_DIR}/service-connection.json | jq -r .id)
-    az devops service-endpoint update --id ${SC_ID} --enable-for-all > /dev/null
 }
 
 function deploy_sdlf_foundations_scm() {
     technical_requirements
     cd "${DIRNAME}"
-    declare -a REPOSITORIES=("sdlf-team" "sdlf-foundations" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
     echo "Getting configuration parameters"
     ORG=$(jq -r '.[] | select(.ParameterKey=="organization") | .ParameterValue' ${SCM_DIR}/parameters.json)
     PROJECT=$(jq -r '.[] | select(.ParameterKey=="project") | .ParameterValue' ${SCM_DIR}/parameters.json)
     PREFIX=$(jq -r '.[] | select(.ParameterKey=="repository-prefix") | .ParameterValue' ${SCM_DIR}/parameters.json)
-    AWS_CC_USER=$(jq -r '.[] | select(.ParameterKey=="aws-codecommit-user") | .ParameterValue' ${SCM_DIR}/parameters.json)
-    IAM_USER=$(aws iam list-users --profile ${DEVOPS_PROFILE} | jq -r --arg USER "${AWS_CC_USER}" '.Users[] |select(.UserName==$USER) | .UserName')
     SERVICE_CONNECTION=$(jq -r '.[] | select(.ParameterKey=="service-connection-name") | .ParameterValue' ${SCM_DIR}/parameters.json)
     TOKEN=$(jq -r '.[] | select(.ParameterKey=="sdlf-aztoken") | .ParameterValue' ${SCM_DIR}/parameters.json)
-
-    if [[ "${IAM_USER}" == "" ]]; then
-      echo "Creating CodeCommit User on AWS";
-      aws iam create-user --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE} > /dev/null
-      cp -f ${SCM_DIR}/aws-codecommit-policy-template.json ${SCM_DIR}/aws-codecommit-policy.json
-      $SED -i "s/REGION/${REGION}/g" ${SCM_DIR}/aws-codecommit-policy.json
-      $SED -i "s/ACCOUNT_ID/${DEVOPS_ACCOUNT}/g" ${SCM_DIR}/aws-codecommit-policy.json
-      POLICY_ARN=$(aws iam create-policy --policy-name ${AWS_CC_USER}-policy --policy-document --profile ${DEVOPS_PROFILE} \
-        file://${SCM_DIR}/aws-codecommit-policy.json |jq -r '.Policy.Arn')
-      aws iam attach-user-policy --policy-arn ${POLICY_ARN} --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE}
-      echo "Creating access_key on AWS";
-      JSONRESPONSE=$(aws iam create-access-key --user-name ${AWS_CC_USER} --profile ${DEVOPS_PROFILE})
-      AWS_ACCESS_KEY=$(echo ${JSONRESPONSE} |jq -r '.AccessKey.AccessKeyId')
-      AWS_SECRET_KEY=$(echo ${JSONRESPONSE} |jq -r '.AccessKey.SecretAccessKey')
-    else
-      echo "The user \"$AWS_CC_USER\" already exists. Aborting!!!" && exit 1
-    fi
 
     setup_azure_config
     for REPOSITORY in "${REPOSITORIES[@]}"
