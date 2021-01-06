@@ -1,18 +1,8 @@
 # Serverless Data Lake Framework (SDLF)
 
-An [AWS Professional Service](https://aws.amazon.com/professional-services/) open source initiative | aws-proserve-opensource@amazon.com
+## Azure DevOps
 
-The Serverless Data Lake Framework (SDLF) is a collection of reusable artifacts aimed at accelerating the delivery of enterprise data lakes on AWS, shortening the deployment time to production from several months to a few weeks. It can be used by AWS teams, partners and customers to implement the foundational structure of a data lake following best practices. It is used in production by more than thirty large organizations, including public references such as Embraer, Formula One, Hudl, and David Jones.
 
-## [Read The Docs](https://sdlf.readthedocs.io/en/latest/)
-
-- [**Overview**](https://sdlf.readthedocs.io/en/latest/overview.html)
-- [**Constructs**](https://sdlf.readthedocs.io/en/latest/constructs.html)
-- [**Architecture**](https://sdlf.readthedocs.io/en/latest/architecture.html)
-
-## Adaptation
-
-By default, the SDLF manages the source code layer in the AWS service CodeCommit which allow to manage the artifacts and the team creations in a very efficient way. Unfortunately, in some cases, enterprise clients that wish to adopt the good practices of the SDLF already use another Source Control Management system. This can become a disadvantage when this company tries to use the SDLF. As [AWS Professional Service](https://aws.amazon.com/professional-services/) our goal is to keep adapting, improving and evolving the best offering for any framework in AWS, this is why we offer this improvement in order to delegate the source code layer and team repositories creation to be handled from a pipeline from Azure DevOps.
 
 ![diagram](SDLF_AzureDevOps.jpg "Modification")
 
