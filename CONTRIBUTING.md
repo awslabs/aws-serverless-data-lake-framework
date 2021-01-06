@@ -58,8 +58,6 @@ If you discover a potential security issue in this project we ask that you notif
 
 See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
 
-We may ask you to sign a [Contributor License Agreement (CLA)](http://en.wikipedia.org/wiki/Contributor_License_Agreement) for larger changes.
-
 
 ## Testing
 We strongly recommend testing your feature changes by deploying the framework in an AWS account before opening a Pull Request. Below are suggestions of tests you can conduct depending on the nature of your code changes:
