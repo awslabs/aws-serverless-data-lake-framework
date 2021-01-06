@@ -2,8 +2,6 @@
 
 ## Azure DevOps
 
-
-
 ![diagram](SDLF_AzureDevOps.jpg "Modification")
 
 NOTE: For convenience, the Azure DevOps words will be replaced by ADO.
@@ -18,7 +16,7 @@ NOTE: For convenience, the Azure DevOps words will be replaced by ADO.
 
 NOTE: From now on, the script **bootstrap_team.sh** from the **sdlf-team** repository will not create any team repository.
 
-## Technical requirements:
+## Prerequisites:
 
 1. [Azure-cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) and an authenticated user with the capability to create repositories, password access tokens and pipelines.
 2. [Azure Personal access tokens](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=preview-page#create-a-pat) 
