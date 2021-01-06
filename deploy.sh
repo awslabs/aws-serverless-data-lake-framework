@@ -47,18 +47,12 @@ done
 if $xflag
 then
     if $dflag; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
-    declare -a SCMS=(ado bb github gitlab) # declare all the external SCMs supported
+    # declare all the external SCMs supported for example: bitbucket github gitlab
+    # each one of these should have its directory, config and custom functions
+    declare -a SCMS=(ado) 
     if [[ " ${SCMS[@]} " =~ " ${SCM} " ]]; then
-        case ${SCM} in
-            "ado" )
-                SCM_DIR=${DIRNAME}/thirdparty-scms/ado
-                source ${SCM_DIR}/functions.sh
-                ;;
-            # add as many as you've implemented
-            * )
-                echo "Unimplemented option: ${SCM}" && exit 1
-                ;;
-        esac
+        SCM_DIR=${DIRNAME}/thirdparty-scms/${SCM}
+        source ${SCM_DIR}/functions.sh
     else
         echo SCM git value not valid: ${SCM}. The allowed values are: ${SCMS[@]}
         exit 1
@@ -125,7 +119,6 @@ function deploy_sdlf_foundations()
 {
     git config --global credential.helper '!aws --profile '${DEVOPS_PROFILE}' codecommit credential-helper $@'
     git config --global credential.UseHttpPath true
-    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
         bootstrap_repository ${REPOSITORY}
@@ -136,6 +129,7 @@ function deploy_sdlf_foundations()
 if $fflag
 then
     echo "Deploying SDLF foundational repositories..." >&2
+    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
     if $xflag ; then
         echo "External SCM deployment detected: ${SCM}"
         deploy_sdlf_foundations_scm
