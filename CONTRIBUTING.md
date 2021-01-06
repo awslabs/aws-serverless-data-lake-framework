@@ -65,10 +65,10 @@ We strongly recommend testing your feature changes by deploying the framework in
 **DISCLAIMER:** Please note that running these tests in an AWS account will lead to charges
 
 ### Basic Deployment
-Ensure that you can complete the [Deploying SDLF](https://sdlf.workshop.aws/10-deployment.html) section of the workshop without issues.
+Ensure that you can complete the [Deploying SDLF](https://sdlf.workshop.aws/en/10-deployment.html) section of the workshop without issues.
 
 ### CICD
-If any of your code changes affect the CICD components of the framework (e.g. migrating from CodeStar to GitLab), ensure that you can complete the [Hitting Production](https://sdlf.workshop.aws/20-production.html) section of the workshop without issues.
+If any of your code changes affect the CICD components of the framework (e.g. migrating from CodeStar to GitLab), ensure that you can complete the [Hitting Production](https://sdlf.workshop.aws/en/20-production.html) section of the workshop without issues.
 
 
 ## Recommended Visual Studio Code Extensions
