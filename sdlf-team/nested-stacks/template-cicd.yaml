@@ -74,6 +74,9 @@ Conditions:
     - "true"
   NotRunUnitTestingStage: !Not
     - Condition: RunUnitTestingStage
+  IsProduction: !Equals
+    - !Ref pEnvironment
+    - "prod"
 
 Resources:
   ######## SNS #########
@@ -93,7 +96,9 @@ Resources:
           - Sid: !Sub sdlf-${pTeamName}-notifications
             Effect: Allow
             Principal:
-              Service: cloudwatch.amazonaws.com
+              Service:
+                - cloudwatch.amazonaws.com
+                - events.amazonaws.com
             Action: sns:Publish
             Resource: !Ref rSNSTopic
       Topics:
@@ -340,7 +345,7 @@ Resources:
                 python: 3.7
             build:
               commands:
-                - aws cloudformation package --template-file ./template.yaml --s3-bucket $ARTIFACTORY_BUCKET --s3-prefix $TEAM_NAME --output-template-file template.yaml
+                - sam package --template-file ./template.yaml --s3-bucket $ARTIFACTORY_BUCKET --s3-prefix $TEAM_NAME --output-template-file template.yaml
                 - aws cloudformation validate-template --template-body file://./template.yaml
           artifacts:
             files:
@@ -891,6 +896,50 @@ Resources:
             InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rDatasetCodePipeline}"'
             InputPathsMap:
               pipeline: $.detail.pipeline
+
+  rPullRequestCreated:
+    Condition: IsProduction
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub sdlf-pr-created-${pTeamName}
+      Description: !Sub Notify ${pTeamName} team of newly created pull request
+      EventPattern: !Sub
+        - |-
+          {
+            "detail-type": [
+              "CodeCommit Pull Request State Change"
+            ],
+            "resources": [
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-pipeline",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-dataset",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-datalakeLibrary",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-pipLibrary",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-stageA",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-stageB",
+              "arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-stageC"
+            ],
+            "source": [
+              "aws.codecommit"
+            ],
+            "detail": {
+              "destinationReference": [
+                {"prefix":"refs/heads/${cBranch}"},
+                {"prefix":"${cBranch}"}
+              ],
+              "event": [
+                "pullRequestCreated"
+              ]
+            }
+          }
+        - { cBranch: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch] }
+      State: ENABLED
+      Targets:
+        - Arn: !Ref rSNSTopic
+          Id: !Sub sdlf-${pTeamName}-pull-request-created
+          InputTransformer:
+            InputTemplate: '"<notificationBody>"'
+            InputPathsMap:
+              notificationBody: $.detail.notificationBody
 
   ######## SSM #########
   rSNSTopicSsm:

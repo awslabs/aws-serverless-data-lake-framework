@@ -34,6 +34,28 @@ Resources:
                   - codecommit:PutRepositoryTriggers
                   - codecommit:UpdateRepositoryDescription
                   - codecommit:UploadArchive
+                  - codecommit:AssociateApprovalRuleTemplateWithRepository
+                  - codecommit:CreateApprovalRuleTemplate
+              - Resource: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:sdlf-repo-notifications-*
+                Effect: Allow
+                Action:
+                  - SNS:GetTopicAttributes
+                  - SNS:CreateTopic
+                  - SNS:Subscribe
+                  - SNS:SetTopicAttributes
+                  - SNS:ListSubscriptionsByTopic
+              - Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-pr-created-*
+                Effect: Allow
+                Action:
+                  - events:DescribeRule
+                  - events:DeleteRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+              - Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-cr-sns-topic-endpoints-subscription
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
               - Resource: "*"
                 Effect: Allow
                 Action:

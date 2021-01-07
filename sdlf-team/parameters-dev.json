@@ -5,11 +5,11 @@
     },
     {
         "ParameterKey": "pDatalakeLibraryRepositoryName",
-        "ParameterValue": "sdlf-datalakeLibrary"
+        "ParameterValue": "sdlf-engineering-datalakeLibrary"
     },
     {
         "ParameterKey": "pPipLibrariesRepositoryName",
-        "ParameterValue": "sdlf-pipLibrary"
+        "ParameterValue": "sdlf-engineering-pipLibrary"
     },
     {
         "ParameterKey": "pLibrariesBranchName",

@@ -84,6 +84,16 @@ Resources:
               - s3:Put*
             Resource:
               - !Sub arn:aws:s3:::${rArtifactsBucket}/*
+          - Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${rArtifactsBucket}/*
+              - !Sub arn:aws:s3:::${rArtifactsBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+
 
   ######## IAM #########
   rCodeBuildRole:

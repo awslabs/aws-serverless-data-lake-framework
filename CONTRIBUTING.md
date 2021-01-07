@@ -11,7 +11,7 @@ information to effectively respond to your bug report or contribution.
 
 We welcome you to use the GitHub issue tracker to report bugs or suggest features.
 
-When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
+When filing an issue, please check existing [open](https://github.com/awslabs/aws-serverless-data-lake-framework/issues), or recently [closed](https://github.com/awslabs/aws-serverless-data-lake-framework/issues?q=is%3Aissue+is%3Aclosed), issues to make sure somebody else hasn't already
 reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
 
 * A reproducible test case or series of steps
@@ -58,4 +58,20 @@ If you discover a potential security issue in this project we ask that you notif
 
 See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
 
-We may ask you to sign a [Contributor License Agreement (CLA)](http://en.wikipedia.org/wiki/Contributor_License_Agreement) for larger changes.
+
+## Testing
+We strongly recommend testing your feature changes by deploying the framework in an AWS account before opening a Pull Request. Below are suggestions of tests you can conduct depending on the nature of your code changes:
+
+**DISCLAIMER:** Please note that running these tests in an AWS account will lead to charges
+
+### Basic Deployment
+Ensure that you can complete the [Deploying SDLF](https://sdlf.workshop.aws/en/10-deployment.html) section of the workshop without issues.
+
+### CICD
+If any of your code changes affect the CICD components of the framework (e.g. migrating from CodeStar to GitLab), ensure that you can complete the [Hitting Production](https://sdlf.workshop.aws/en/20-production.html) section of the workshop without issues.
+
+
+## Recommended Visual Studio Code Extensions
+To ensure code quality standards remain uniform across the codebase, we recommend adopting some of these extensions when developing code for the SDLF:
+- [cfn-nag](https://marketplace.visualstudio.com/items?itemName=eastman.vscode-cfn-nag)
+- [cfn-linter](https://marketplace.visualstudio.com/items?itemName=kddejong.vscode-cfn-lint)

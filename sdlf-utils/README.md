@@ -1,6 +1,6 @@
 This repository holds examples of ingestion and transformation pipelines to deploy in conjunction with SDLF:
-1. A basic example to ingest data and test the framework (See [Workshop Example](https://sdlf.workshop.aws/10-deployment/700-testing-framework.html)): [pipeline-examples/legislators](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/legislators)
+1. A basic example to ingest data and test the framework (See [Workshop Example](https://sdlf.workshop.aws/en/10-deployment/700-testing-framework.html)): [pipeline-examples/legislators](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/legislators)
 2. Change Data Capture (CDC) using AWS DMS: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/ingestion-examples/cdc/README.md)
 3. Deequ and EMR steps using Step Functions: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/cloudfront/README.md)
 4. Topic Modelling of unstructured data with AWS Comprehend: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/topic-modelling/README.md)
-5. Datasets Dependency Management: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/dataset-dependency)
+5. Datasets Dependency Management: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/dataset-dependency/README.md)

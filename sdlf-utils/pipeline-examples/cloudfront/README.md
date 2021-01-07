@@ -25,7 +25,7 @@ We aim to ingest and transform a new dataset named ```clf``` referring to [Cloud
     # Run in sdlf-stageB repository
     git checkout -b emr
     ```
-    Then replace the CloudFormation ```template.yaml``` file in the ```sdlf-stageB``` repository with the one located in the directory mentioned in the previous step. This new CloudFormation template defines a step function which includes multiple EMR steps. You can run a ```git diff``` to see these changes.
+    Then replace the CloudFormation ```template.yaml``` and ```./state-machine/stage-b.asl.json``` files in the ```sdlf-stageB``` repository with the ones located in the directory mentioned in the previous step. This new CloudFormation template and State Machine structure define a step function which includes multiple EMR steps. You can run a ```git diff``` to see these changes.
     
     We then push these new changes to the repository:
     ```bash
