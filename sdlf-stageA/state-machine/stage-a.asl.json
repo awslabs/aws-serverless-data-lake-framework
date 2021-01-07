@@ -1,0 +1,56 @@
+{
+  "Comment": "Simple pseudo flow",
+  "StartAt": "Try",
+  "States": {
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Pre-update Comprehensive Catalogue",
+          "States": {
+            "Pre-update Comprehensive Catalogue": {
+              "Type": "Task",
+              "Resource": "${lStep1}",
+              "Comment": "Pre-update Comprehensive Catalogue",
+              "Next": "Execute Light Transformation"
+            },
+            "Execute Light Transformation": {
+              "Type": "Task",
+              "Resource": "${lStep2}",
+              "Comment": "Execute Light Transformation",
+              "ResultPath": "$.body.processedKeys",
+              "Next": "Post-update comprehensive Catalogue"
+            },
+            "Post-update comprehensive Catalogue": {
+              "Type": "Task",
+              "Resource": "${lStep3}",
+              "Comment": "Post-update comprehensive Catalogue",
+              "ResultPath": "$.statusCode",
+              "End": true
+            }
+          }
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [ "States.ALL" ],
+          "ResultPath": null,
+          "Next": "Error"
+        }
+      ],
+      "Next": "Done"
+    },
+    "Done": {
+      "Type": "Succeed"
+    },
+    "Error": {
+      "Type": "Task",
+      "Resource": "${lError}",
+      "Comment": "Send Original Payload to DLQ",
+      "Next": "Failed"
+    },
+    "Failed": {
+      "Type": "Fail"
+    }
+  }
+}

@@ -264,102 +264,12 @@ Resources:
 
   ######## STEP FUNCTION #########
   rStateMachine:
-    Type: AWS::StepFunctions::StateMachine
+    Type: AWS::Serverless::StateMachine
     Properties:
-      StateMachineName: !Sub sdlf-${pTeamName}-${pPipeline}-sm-a
-      DefinitionString: !Sub
-        - |-
-          {
-            "Comment": "Dataset Dependency Check",
-            "StartAt": "Check Dataset Dependency Status",
-            "States": {
-              "Check Dataset Dependency Status": {
-                "Type": "Task",
-                "Resource": "${lStep1}",
-                "ResultPath": "$",
-                "Next": "Did dependent datasets finished processing?"
-              },
-              "Did dependent datasets finished processing?": {
-                "Type": "Choice",
-                "Choices": [
-                  {
-                    "Variable": "$.body.dependent_datasets_status",
-                    "StringEquals": "SUCCEEDED",
-                    "Next": "Execute Transformation"
-                  },
-                  {
-                    "And": [
-                      {
-                        "Variable": "$.body.dependent_datasets_status",
-                        "StringEquals": "FAILED"
-                      },
-                      {
-                        "Variable": "$.body.retry_count",
-                        "NumericLessThan": 3
-                      }
-                    ],
-                    "Next": "Retry after one hour"
-                  }
-                ],
-                "Default": "Retries finished"
-              },
-              "Retry after one hour": {
-                "Type": "Wait",
-                "Seconds": 3600,
-                "Next": "Check Dataset Dependency Status"
-              },
-              "Retries finished": {
-                "Type": "Fail",
-                "Error": "Dataset Dependency Status",
-                "Cause": "Number of retries exceeded"
-              },
-              "Execute Transformation": {
-                "Type": "Task",
-                "Resource": "${lStep2}",
-                "ResultPath": "$.body.job",
-                "Next": "Wait"
-              },
-              "Wait": {
-                "Type": "Wait",
-                "Seconds": 3600,
-                "Next": "Get transformation job Status"
-              },
-              "Get transformation job Status": {
-                "Type": "Task",
-                "Resource": "${lstep3}",
-                "ResultPath": "$.body.job",
-                "Next": "Did transformation job finish?"
-              },
-              "Did transformation job finish?": {
-                "Type": "Choice",
-                "Choices": [
-                  {
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "SUCCEEDED",
-                    "Next": "Job succeeded"
-                  },
-                  {
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "FAILED",
-                    "Next": "Job failed"
-                  }
-                ],
-                "Default": "Wait"
-              },
-              "Job failed": {
-                "Type": "Fail",
-                "Error": "Transformation job",
-                "Cause": "Transformation job failed, please check the logs"
-              },
-              "Job succeeded": {
-                "Type": "Pass",
-                "End": true
-              }
-            }
-          }
-        - {
-            lStep1: !GetAtt rLambdaStep1.Arn,
-            lStep2: !GetAtt rLambdaStep2.Arn,
-            lstep3: !GetAtt rLambdaJobCheckStep.Arn,
-          }
-      RoleArn: !Ref pStatesExecutionRole
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-a
+      DefinitionUri: ./state-machine/stage-a.asl.json
+      DefinitionSubstitutions:
+        lStep1: !GetAtt rLambdaStep1.Arn
+        lStep2: !GetAtt rLambdaStep2.Arn
+        lstep3: !GetAtt rLambdaJobCheckStep.Arn        
+      Role: !Ref pStatesExecutionRole
