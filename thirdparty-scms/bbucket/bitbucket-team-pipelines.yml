@@ -1,0 +1,23 @@
+image: atlassian/default-image:2
+
+pipelines:
+  default:
+    - step:
+        script:
+          - |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip -qq awscliv2.zip
+            ./aws/install
+          - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+          - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+          - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+          - echo AWS_DEFAULT_REGION=$SDLF_AWS_REGION
+          - |
+            if [ "$BITBUCKET_REPO_SLUG" == *" sdlf-team "* ]; then 
+              echo Team repository detected
+              #check Team
+              #create team
+            fi
+          - |
+            # mirror
+            echo aquí va el mirror
+            aws s3 ls

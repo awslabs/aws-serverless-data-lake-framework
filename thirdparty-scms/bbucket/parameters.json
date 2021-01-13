@@ -1,0 +1,42 @@
+[
+    {
+        "ParameterKey": "workspace",
+        "ParameterValue": "jabaralaws"
+    },
+    {
+        "ParameterKey": "bitbucketprojectkey",
+        "ParameterValue": "SDLFDAT"
+    },
+    {
+        "ParameterKey": "bitbucketuser",
+        "ParameterValue": "jabaralaws"
+    },
+    {
+        "ParameterKey": "app_password",
+        "ParameterValue": "jtKd7bzkhvykPXEFR8en"
+    },
+    {
+        "ParameterKey": "repository_prefix",
+        "ParameterValue": "nutresa"
+    },
+    {
+        "ParameterKey": "sdlf_aws_access_key_id",
+        "ParameterValue": "ASIAVGB4SSCSMMP6G2NP"
+    },
+    {
+        "ParameterKey": "sdlf_aws_secret_access_key",
+        "ParameterValue": "Pd/poyhafIfxINWJIAgtMrq2QghZHGl9dwZ6qtr+"
+    },
+    {
+        "ParameterKey": "sdlf_aws_session_token",
+        "ParameterValue": "IQoJb3JpZ2luX2VjEA4aCXVzLWVhc3QtMSJHMEUCIQCHfbMX/SJcCX27ltmViMQMbLMWaCKvH1HmnuT8FCzAcgIgINgP8mTWq0VFW0WN6ond/t9vH5xoj1Dsk4p0Sn7DrEIqpwII1///////////ARAAGgwzNTY2MDkzMzEzNjQiDAoACqpjjUQimi1OsSr7AcGMk8dLztPH0R0P7ROKEzLPehsePJBfa0I3iRI6Tnrwr34WSYJSRznFe+bQHTSeeT/FFzu76j+psaqk67bqX7VgjzFhil51UvgDcY32rBI9FemEQTOi8Q5rfLaAHv+fTwQ7ss9bDXpLagVOq3IFJdW7JQXwI5ZTm9XC3ghzYLTzS5eLADNDEvqxyy5Z2xRKt9CJUiMtoC7UKBRwLJPJuGB68cYpDRu9dBVIHSn/MQuPIBNVUxItY77cdXwaYqJz1agunaZHOegVMUusWsavruhzZUS1d56Df/xCM4iqbejSOxLLGQTAPk0U0hn8anopHY3Xn5lb20+fINtyMKz4+/8FOp0BGkEc+P2d5vzJ3tXMWgr9bu3KhkLD7sP01ayOqg9To1/A3qpusBBv5iGyIq66hSkVWApfv5dZCe9ic0buxhhhAxlgoHMyJuiiTI+X8Iv/0QjXWGSTatYqMZlP0OLN3777rtVpU8EZlSz4A8Xex67iwMSrEIq/HruB0+5Mg7WQYGYU7Fn6vWN/Vjk9Qde2OQrlrAJDwlv632JkHvuBcg=="
+    },
+    {
+        "ParameterKey": "sdlf_aws_role_to_assume_name",
+        "ParameterValue": "sdlf-codecommit"
+    },
+    {
+        "ParameterKey": "sdlf_aws_role_to_assume_arn",
+        "ParameterValue": "arn:aws:iam::356609331364:role/sdlf-codecommit"
+    }
+  ]

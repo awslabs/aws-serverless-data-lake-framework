@@ -7,7 +7,26 @@
 
 https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
 
-3. ssd
+3. app password: jtKd7bzkhvykPXEFR8en
+
+Params:
+- IAM user 
+Pipeline:
+- assume role
+- export AWS_*
+- git helper
+
+curl -X POST -H "Content-Type: application/json" -u jabaralaws:jtKd7bzkhvykPXEFR8en  -d '{
+    "scm": "git",
+    "project": {
+        "key": "SDLFTES"
+    }
+}' https://api.bitbucket.org/2.0/repositories/jabaralaws/mysuperrepo
+
+
+Clonar: git clone https://${bitbucketuser}:${app-password}@bitbucket.org/${workspace}/${REPOSITORY}.git
+
+
 
 ## Prerequisites:
 
@@ -27,15 +46,19 @@ https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
    
     - brew install gnu-sed
 
+project private, repos privates
+
 ## Setup before deploy
 
 1. Go to the thirdparty-scms/ado directory
 2. Modify the file parameters.json according to your Azure DevOps company configuration:
    
-   - **organization**: The name of your organization
-   - **project**: The name of the project where all the resources will be created
+   - **workspace**: The name of your organization
+   - **bitbucketuser**: The name of the project where all the resources will be created
+   - **app-password**: App passwords are substitute passwords for a user account which you can use for scripts and integrating tools to avoid putting your real password into configuration files. (more)[https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/]
    - **repository-prefix**: The prefix of the repositories for the SDLF project
-   - **service-connection-name**: The name of the service connection that will use the AWS Toolkit
-     to allow the interaction with the CodeCommit repositories. 
-   - **sdlf-aztoken**: The PAT string created in the Azure DevOps console (like shown on TPrerequisites, bullet number 2)  
+   - **aws-access-key-id**: The AWS access key ID for signing programmatic requests. Example: AKIAIOSFODNN7EXAMPLE. 
+   - **aws-secret-access-key**: The AWS secret access key for signing programmatic requests. Example: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+   - **session-token**: (Optional) The AWS session token for signing programmatic requests. Note: Only use this if you have an external rotation mechanism)
+   - **role-to-assume**: (Optional) The Amazon Resource Name (ARN) of the role to assume. If a role ARN is specified the access and secret keys configured in the endpoint will be used to generate temporary session credentials, scoped to the specified role, and used be used by the pipeline. 
 
