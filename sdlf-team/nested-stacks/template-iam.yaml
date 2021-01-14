@@ -64,49 +64,6 @@ Resources:
                 !Sub "arn:aws:s3:::${pStageBucket}",
                 !Sub "arn:aws:s3:::${pAnalyticsBucket}",
               ]
-            Condition:
-              StringEquals:
-                s3:Prefix:
-                  [
-                    "",
-                    artifacts/,
-                    raw/,
-                    stage/,
-                    pre-stage/,
-                    post-stage/,
-                    analytics/,
-                    !Sub "${pTeamName}",
-                    !Sub "artifacts/${pTeamName}",
-                    !Sub "raw/${pTeamName}",
-                    !Sub "stage/${pTeamName}",
-                    !Sub "pre-stage/${pTeamName}",
-                    !Sub "post-stage/${pTeamName}",
-                    !Sub "analytics/${pTeamName}",
-                  ]
-                s3:delimiter: ["/"]
-          - Sid: AllowTeamPrefixList
-            Effect: Allow
-            Action:
-              - s3:ListBucket
-            Resource:
-              [
-                !Sub "arn:aws:s3:::${pPipelineBucket}",
-                !Sub "arn:aws:s3:::${pCentralBucket}",
-                !Sub "arn:aws:s3:::${pStageBucket}",
-                !Sub "arn:aws:s3:::${pAnalyticsBucket}",
-              ]
-            Condition:
-              StringLike:
-                s3:Prefix:
-                  [
-                    !Sub "${pTeamName}/*",
-                    !Sub "artifacts/${pTeamName}/*",
-                    !Sub "raw/${pTeamName}/*",
-                    !Sub "stage/${pTeamName}/*",
-                    !Sub "pre-stage/${pTeamName}/*",
-                    !Sub "post-stage/${pTeamName}/*",
-                    !Sub "analytics/${pTeamName}/*",
-                  ]
           - Sid: AllowTeamPrefixActions
             Effect: Allow
             Action:
