@@ -81,25 +81,25 @@ pipelines:
             done
           fi
     - step:
-      name: Create repositories on Bitbucket
-      script:
-        - |
-          if [ $(cat team_validation) -eq 1 ]; then
-            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
-            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
-                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-            fi
+        name: Create repositories on Bitbucket
+        script:
+          - |
+            if [ $(cat team_validation) -eq 1 ]; then
+              declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+              if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                  TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+              fi
 
-            for REPO in $REPOSITORIES; do
-              REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
-              curl -X POST -H "Content-Type: application/json" -u $BBUSER:$APP_PASS  -d "{\"scm\": \"git\", \"is_private\": \"true\",\
-              \"project\": {\"key\": \"$BITBUCKET_PROJECT_KEY\"} }" https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB)
-              git clone --bare "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$REPO.git"
-              cd $PREFIX-$REPO.git
-              git push --mirror "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB.git"
-              cd ..
-            done
-          fi
+              for REPO in $REPOSITORIES; do
+                REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
+                curl -X POST -H "Content-Type: application/json" -u $BBUSER:$APP_PASS  -d "{\"scm\": \"git\", \"is_private\": \"true\",\
+                \"project\": {\"key\": \"$BITBUCKET_PROJECT_KEY\"} }" https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB)
+                git clone --bare "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$REPO.git"
+                cd $PREFIX-$REPO.git
+                git push --mirror "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB.git"
+                cd ..
+              done
+            fi
     - step:
         name: Create pipelines on Bitbucket
         script:
