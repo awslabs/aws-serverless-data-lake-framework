@@ -101,29 +101,29 @@ pipelines:
             done
           fi
     - step:
-      name: Create pipelines on Bitbucket
-      script:
-        - |
-          if [ $(cat team_validation) -eq 1 ]; then
-            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
-            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
-                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-            fi
+        name: Create pipelines on Bitbucket
+        script:
+          - |
+            if [ $(cat team_validation) -eq 1 ]; then
+              declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+              if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                  TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+              fi
 
-            for REPO in $REPOSITORIES; do
-              REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
-              REMOTE_REPO=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
-              curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
-              https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-${REPO_BB}/pipelines_config
-              curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\",\
-               \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" \
-               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
+              for REPO in $REPOSITORIES; do
+                REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
+                REMOTE_REPO=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
+                curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
+                https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-${REPO_BB}/pipelines_config
+                curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\",\
+                \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" \
+                https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
 
-              for branch in master test dev ; do
-                curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
-                 \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
-                 https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPOSITORY/pipelines/
+                for branch in master test dev ; do
+                  curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
+                  \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
+                  https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPOSITORY/pipelines/
+                done
+
               done
-
-            done
-          fi
+            fi
