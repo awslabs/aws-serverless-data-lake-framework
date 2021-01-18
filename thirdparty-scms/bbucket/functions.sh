@@ -31,7 +31,6 @@ function bootstrap_repository_scm()
         echo "Error: ${OUTPUT}" && exit ${STATUS}
       fi
     fi
-
     # Bitbucket mods
     cd ${DIRNAME}/${REPOSITORY}/
     /bin/test -d .git && rm -rf .git
@@ -74,8 +73,17 @@ function setup_bitbucket_pipelines() {
     echo "Enabling pipeline ${PREFIX}-${REPOSITORY}"
     REPOSITORY=$(echo $REPOSITORY | awk '{print tolower($0)}' )
     curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config
-    echo Creating REMOTE_REPO var
+    echo "Creating REMOTE_REPO var"
     curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\", \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config/variables/
+    if [[ "${REPOSITORY}" == "sdlf-team" ]]; then #remove sdlf-team repositories creation
+      echo "Creating BBUSER & APP_PASS parameters for the ${PREFIX}-${REPOSITORY} repository"
+      curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"APP_PASS\", \"value\": \"$APP_PASS\", \"secured\": \"true\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config/variables/
+      curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"BBUSER\", \"value\": \"$BBUSER\", \"secured\": \"true\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config/variables/
+      echo "Creating PREFIX parameter"
+      curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"PREFIX\", \"value\": \"$PREFIX\", \"secured\": \"false\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config/variables/
+      #echo "Creating first execution parameter"
+      #curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "type": "pipeline_variable","key": "FIRST_EXECUTION", "value": "1", "secured": "false" }' https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${REPOSITORY}/pipelines_config/variables/
+    fi
     for branch in master test dev ; do
       echo Executing pipeline for $branch
       curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\", \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/$PREFIX-$REPOSITORY/pipelines/

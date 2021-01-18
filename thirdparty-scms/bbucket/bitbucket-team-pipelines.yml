@@ -1,23 +1,129 @@
-image: atlassian/default-image:2
-
+image: atlassian/pipelines-awscli:latest
 pipelines:
   default:
+    - parallel:
+      - step:
+          name: Mirror to AWS
+          script:
+            - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+            - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+            - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+            - export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
+            - |
+              if [ ${#SDLF_AWS_ROLE_TO_ASSUME_NAME} -gt 0 ]; then
+                echo Assuming role: $SDLF_AWS_ROLE_TO_ASSUME_NAME
+                aws sts assume-role --role-arn $SDLF_AWS_ROLE_TO_ASSUME_ARN  --role-session-name $SDLF_AWS_ROLE_TO_ASSUME_NAME > tmp.json
+                export AWS_ACCESS_KEY_ID=$(jq -r .Credentials.AccessKeyId tmp.json)
+                export AWS_SECRET_ACCESS_KEY=$(jq -r .Credentials.SecretAccessKey tmp.json)
+                export AWS_SESSION_TOKEN=$(jq -r .Credentials.SessionToken tmp.json)              
+                rm tmp.json
+              fi
+            - |
+              git config --global credential.helper '!aws codecommit credential-helper $@'
+              git config --global credential.UseHttpPath true
+              git push https://git-codecommit.${SDLF_AWS_REGION}.amazonaws.com/v1/repos/$REMOTE_REPO --all
+      - step:
+          name: Team Validation
+          script:
+            - |
+              
+              #FIRST_EXECUTION=$(curl -H "Content-Type: application/json" -u $BBUSER:$APP_PASS \
+              #https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$BITBUCKET_REPO_SLUG/pipelines_config/variables/ \
+              #| jq -r '.values | .[] | select(.key=="FIRST_EXECUTION") | .value) )
+
+              if [ $BITBUCKET_BUILD_NUMBER -eq 1 ]; then
+                echo "First execution. The team will not be created"
+                echo -n 0 > team_validation
+                exit 0
+              fi
+
+              if [[ " master test dev " =~ " $BITBUCKET_BRANCH " ]]
+                if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+                TEST_REPO=$PREFIX-$TEAM-sdlf-pipeline
+                curl -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} https://api.bitbucket.org/2.0/repositories/$WORKSPACE/$TEST_REPO
+                EXIT_ST=$?
+                if [ $EXIT_ST -eq 1 ]
+                  echo "Team does not exist on Bitbucket"
+                  echo -n 1 > team_validation
+                  exit 0
+                fi
+              else
+                echo "Branch not supported"
+                echo -n 0 > team_validation
+              fi
+          artifacts:
+            - team_validation
     - step:
-        script:
-          - |
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip -qq awscliv2.zip
-            ./aws/install
-          - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
-          - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
-          - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
-          - echo AWS_DEFAULT_REGION=$SDLF_AWS_REGION
-          - |
-            if [ "$BITBUCKET_REPO_SLUG" == *" sdlf-team "* ]; then 
-              echo Team repository detected
-              #check Team
-              #create team
+      name: Create repositories on AWS
+      script:
+        - |
+          if [ $(cat team_validation) -eq 1 ]; then
+            export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+            export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+            export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
+            if [ ${#SDLF_AWS_ROLE_TO_ASSUME_NAME} -gt 0 ]; then
+              echo Assuming role: $SDLF_AWS_ROLE_TO_ASSUME_NAME
+              aws sts assume-role --role-arn $SDLF_AWS_ROLE_TO_ASSUME_ARN  --role-session-name $SDLF_AWS_ROLE_TO_ASSUME_NAME > tmp.json
+              export AWS_ACCESS_KEY_ID=$(jq -r .Credentials.AccessKeyId tmp.json)
+              export AWS_SECRET_ACCESS_KEY=$(jq -r .Credentials.SecretAccessKey tmp.json)
+              export AWS_SESSION_TOKEN=$(jq -r .Credentials.SessionToken tmp.json)              
+              rm tmp.json
             fi
-          - |
-            # mirror
-            echo aquí va el mirror
-            aws s3 ls
+            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+            fi
+            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+            for REPO in $REPOSITORIES; do
+             TEAM_REPOSITORY=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${TEMPLATE_REPOSITORY})
+             aws codecommit create-repository --repository-name $TEAM_REPOSITORY
+            done
+          fi
+    - step:
+      name: Create repositories on Bitbucket
+      script:
+        - |
+          if [ $(cat team_validation) -eq 1 ]; then
+            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+            fi
+
+            for REPO in $REPOSITORIES; do
+              REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
+              curl -X POST -H "Content-Type: application/json" -u $BBUSER:$APP_PASS  -d "{\"scm\": \"git\", \"is_private\": \"true\",\
+              \"project\": {\"key\": \"$BITBUCKET_PROJECT_KEY\"} }" https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB)
+              git clone --bare "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$REPO.git"
+              cd $PREFIX-$REPO.git
+              git push --mirror "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB.git"
+              cd ..
+            done
+          fi
+    - step:
+      name: Create pipelines on Bitbucket
+      script:
+        - |
+          if [ $(cat team_validation) -eq 1 ]; then
+            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+            fi
+
+            for REPO in $REPOSITORIES; do
+              REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
+              REMOTE_REPO=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
+              curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
+              https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-${REPO_BB}/pipelines_config
+              curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\",\
+               \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" \
+               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
+
+              for branch in master test dev ; do
+                curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
+                 \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
+                 https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPOSITORY/pipelines/
+              done
+
+            done
+          fi

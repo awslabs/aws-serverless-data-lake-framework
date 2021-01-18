@@ -2,8 +2,8 @@ image: atlassian/pipelines-awscli:latest
 pipelines:
   default:
     - step:
+        name: Mirror to AWS
         script:
-          - # Mirror stage
           - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
           - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
           - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
