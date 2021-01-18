@@ -113,9 +113,9 @@ pipelines:
               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
 
               for branch in master test dev ; do
+                if [ "$branch" != "master" ]; then sleep 10; fi
                 curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
                 \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
-                https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPOSITORY/pipelines/
-                sleep 5
+                https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB/pipelines/
               done
             done
