@@ -31,17 +31,19 @@ pipelines:
                 echo -n 0 > team_validation
                 exit 0
               fi
-
-              if [[ " master test dev " =~ " $BITBUCKET_BRANCH " ]]
-                if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+            - |
+              if [[ " master test dev " =~ " $BITBUCKET_BRANCH " ]]; then
+                if [[ "master" ==  "$BITBUCKET_BRANCH" ]]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
                 TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-                TEST_REPO=$PREFIX-$TEAM-sdlf-pipeline
-                curl -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} https://api.bitbucket.org/2.0/repositories/$WORKSPACE/$TEST_REPO
-                EXIT_ST=$?
-                if [ $EXIT_ST -eq 1 ]
+                TEST_REPO=$PREFIX-$TEAM-sdlf-stageb
+                apk add curl 2>&1
+                OUTPUT=$(curl -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$TEST_REPO 2>&1 )
+                if [[ "$OUTPUT" == *"not found"* ]]; then
                   echo "Team does not exist on Bitbucket"
                   echo -n 1 > team_validation
-                  exit 0
+                else
+                  echo "Team already exists on BitBucket"
+                  echo -n 0 > team_validation
                 fi
               else
                 echo "Branch not supported"
@@ -53,11 +55,12 @@ pipelines:
         name: Create repositories on AWS
         script:
           - if [ $(cat team_validation) -eq 0 ]; then echo "Repository not created"; exit 0; fi
+          - if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+          - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+          - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+          - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+          - export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
           - |
-            export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
-            export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
-            export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
-            export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
             if [ ${#SDLF_AWS_ROLE_TO_ASSUME_NAME} -gt 0 ]; then
               echo Assuming role: $SDLF_AWS_ROLE_TO_ASSUME_NAME
               aws sts assume-role --role-arn $SDLF_AWS_ROLE_TO_ASSUME_ARN  --role-session-name $SDLF_AWS_ROLE_TO_ASSUME_NAME > tmp.json
@@ -66,54 +69,51 @@ pipelines:
               export AWS_SESSION_TOKEN=$(jq -r .Credentials.SessionToken tmp.json)              
               rm tmp.json
             fi
-            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
-                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-            fi
-            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
-            for REPO in $REPOSITORIES; do
-              TEAM_REPOSITORY=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${TEMPLATE_REPOSITORY})
+          - TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+          - declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+          - |
+            for REPO in "${REPOSITORIES[@]}"; do
+              TEAM_REPOSITORY=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
               aws codecommit create-repository --repository-name $TEAM_REPOSITORY
             done
     - step:
         name: Create repositories on Bitbucket
         script:
           - if [ $(cat team_validation) -eq 0 ]; then echo "Repository not created"; exit 0; fi
+          - if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+          - declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakelibrary" "sdlf-piplibrary" "sdlf-stagea" "sdlf-stageb")
+          - TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
           - |
-            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
-            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
-                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-            fi
-
-            for REPO in $REPOSITORIES; do
-              REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
+            for REPO in "${REPOSITORIES[@]}"; do
               curl -X POST -H "Content-Type: application/json" -u $BBUSER:$APP_PASS  -d "{\"scm\": \"git\", \"is_private\": \"true\",\
-              \"project\": {\"key\": \"$BITBUCKET_PROJECT_KEY\"} }" https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB)
+              \"project\": {\"key\": \"$BITBUCKET_PROJECT_KEY\"} }" https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO
               git clone --bare "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$REPO.git"
               cd $PREFIX-$REPO.git
-              git push --mirror "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB.git"
+              git push --mirror "https://$BBUSER:$APP_PASS@bitbucket.org/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO.git"
               cd ..
             done
+          - ls -ltr
     - step:
         name: Create pipelines on Bitbucket
         script:
           - if [ $(cat team_validation) -eq 0 ]; then echo "Repository not created"; exit 0; fi
+          - declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+          - if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
+          - TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
           - |
-            declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
-            if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
-                TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
-            fi
-
-            for REPO in $REPOSITORIES; do
+            for REPO in "${REPOSITORIES[@]}"; do
               REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
               REMOTE_REPO=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
+              echo "Enabling pipelines"
               curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
-              https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-${REPO_BB}/pipelines_config
+              https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config
+              echo "Creating pipeline variable REMOTE_REPO"
               curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\",\
               \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" \
               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
-
+              echo "Running pipelines"
               for branch in master test dev ; do
-                if [ "$branch" != "master" ]; then sleep 10; fi
+                if [[ "$branch" == "test" ]]; then sleep 10; fi
                 curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
                 \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
                 https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB/pipelines/
