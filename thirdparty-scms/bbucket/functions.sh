@@ -8,11 +8,11 @@ function technical_requirements()
   else
       SED=$(which sed)
   fi
-  $SED --version 2>&1
+  $SED --version > /dev/null 2>&1
   if [[ $? -gt 0 ]]; then
       echo "sed binnary is necessary to execute the deployment" && exit 1
   fi
-  jq --version 2>&1
+  jq --version > /dev/null 2>&1
   if [[ $? -gt 0 ]]; then
       echo "jq binnary is necessary to execute the deployment" && exit 1
   fi
@@ -57,12 +57,12 @@ function bootstrap_repository_scm()
         echo "Error. Verify the OUTPUT: ${OUTPUT}" && exit ${STATUS}
       fi
     else
-      git remote add origin "https://$BBUSER@bitbucket.org/$WORKSPACE/$PREFIX-$BB_REPO.git"
-      echo $APP_PASS | git push --set-upstream origin master
+      git remote add origin "https://$BBUSER:$APP_PASS@bitbucket.org/$WORKSPACE/$PREFIX-$BB_REPO.git"
+      git push --set-upstream origin master
       git checkout -b test
-      echo $APP_PASS | git push --set-upstream origin test
+      git push --set-upstream origin test
       git checkout -b dev
-      echo $APP_PASS | git push --set-upstream origin dev
+      git push --set-upstream origin dev
     fi
 }
 
