@@ -36,7 +36,7 @@ pipelines:
                 if [[ "master" ==  "$BITBUCKET_BRANCH" ]]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
                 TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
                 TEST_REPO=$PREFIX-$TEAM-sdlf-stageb
-                apk add curl 2>&1
+                apk add curl
                 OUTPUT=$(curl -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$TEST_REPO 2>&1 )
                 if [[ "$OUTPUT" == *"not found"* ]]; then
                   echo "Team does not exist on Bitbucket"
@@ -83,6 +83,7 @@ pipelines:
           - if [ "master" ==  "$BITBUCKET_BRANCH" ]; then ENV="prod"; else ENV="$BITBUCKET_BRANCH"; fi
           - declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakelibrary" "sdlf-piplibrary" "sdlf-stagea" "sdlf-stageb")
           - TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json)
+          - apk add curl
           - |
             for REPO in "${REPOSITORIES[@]}"; do
               curl -X POST -H "Content-Type: application/json" -u $BBUSER:$APP_PASS  -d "{\"scm\": \"git\", \"is_private\": \"true\",\
@@ -104,6 +105,7 @@ pipelines:
             for REPO in "${REPOSITORIES[@]}"; do
               REPO_BB=$(echo $REPO | awk '{print tolower($0)}' )
               REMOTE_REPO=sdlf-${TEAM}-$(cut -d'-' -f2 <<<${REPO})
+              apk add curl
               echo "Enabling pipelines"
               curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config
