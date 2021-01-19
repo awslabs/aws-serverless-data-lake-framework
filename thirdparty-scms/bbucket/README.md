@@ -7,7 +7,9 @@
 
 https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
 
-3. app password: jtKd7bzkhvykPXEFR8en
+3. app password with the permissions:
+- Repositories: Read, Write, Admin
+- Pipelines: Read, Write, Edit variables
 
 Params:
 - IAM user 
@@ -15,17 +17,6 @@ Pipeline:
 - assume role
 - export AWS_*
 - git helper
-
-curl -X POST -H "Content-Type: application/json" -u jabaralaws:jtKd7bzkhvykPXEFR8en  -d '{
-    "scm": "git",
-    "project": {
-        "key": "SDLFTES"
-    }
-}' https://api.bitbucket.org/2.0/repositories/jabaralaws/mysuperrepo
-
-
-Clonar: git clone https://${bitbucketuser}:${app-password}@bitbucket.org/${workspace}/${REPOSITORY}.git
-
 
 
 ## Prerequisites:
