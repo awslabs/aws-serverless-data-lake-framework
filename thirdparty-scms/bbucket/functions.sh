@@ -64,7 +64,6 @@ function bootstrap_repository_scm()
       git checkout -b dev
       echo $APP_PASS | git push --set-upstream origin dev
     fi
-    
 }
 
 function setup_bitbucket_pipelines() {
@@ -74,7 +73,7 @@ function setup_bitbucket_pipelines() {
     BB_REPO=$(echo $REPOSITORY | awk '{print tolower($0)}' )
     curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${BB_REPO}/pipelines_config 2>&1
     echo "Creating REMOTE_REPO var"
-    curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\", \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${BB_REPO}/pipelines_config/variables/ > 2>&1
+    curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\", \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${BB_REPO}/pipelines_config/variables/ 2>&1
     if [[ "${REPOSITORY}" == "sdlf-team" ]]; then #remove sdlf-team repositories creation
       echo "Creating BBUSER & APP_PASS parameters for the ${PREFIX}-${BB_REPO} repository"
       curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"APP_PASS\", \"value\": \"$APP_PASS\", \"secured\": \"true\" }" https://api.bitbucket.org/2.0/repositories/$WORKSPACE/${PREFIX}-${BB_REPO}/pipelines_config/variables/ 2>&1
