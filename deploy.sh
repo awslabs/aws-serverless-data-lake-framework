@@ -129,7 +129,7 @@ function deploy_sdlf_foundations()
 if $fflag
 then
     echo "Deploying SDLF foundational repositories..." >&2
-    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
     if $xflag ; then
         echo "External SCM deployment detected: ${SCM}"
         deploy_sdlf_foundations_scm
