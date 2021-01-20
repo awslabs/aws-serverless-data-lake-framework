@@ -2,7 +2,7 @@
 
 ## BitBucket
 
-![diagram](SDLF_AzureDevOps.jpg "Modification")
+![diagram](SDLF+BitBucket.jpg "Modification")
 
 
 https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
@@ -22,6 +22,8 @@ Pipeline:
 ## Prerequisites:
 
 1. https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
+
+2. Pipelines feature should be [enabled](https://support.atlassian.com/bitbucket-cloud/docs/get-started-with-bitbucket-pipelines/)
 
 2. JQ: If you're using the linux subsystem, you can install it with:
    
