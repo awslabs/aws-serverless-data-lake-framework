@@ -109,15 +109,16 @@ pipelines:
               echo "Enabling pipelines"
               curl -X PUT -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d '{ "enabled": "true" }' \
               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config
-              echo "Creating pipeline variable REMOTE_REPO"
+              echo "Creating pipeline variables"
               curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{ \"type\": \"pipeline_variable\",\"key\": \"REMOTE_REPO\",\
               \"value\": \"$REMOTE_REPO\", \"secured\": \"false\" }" \
               https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/${PREFIX}-$TEAM-${REPO_BB}/pipelines_config/variables/
               echo "Running pipelines"
               for branch in master test dev ; do
-                if [[ "$branch" == "test" ]]; then sleep 10; fi
-                curl -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
+                echo "Executing pipeline in branch $branch"
+                curl -sS -X POST -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} -d "{\"target\": { \"ref_type\": \"branch\",\
                 \"type\": \"pipeline_ref_target\", \"ref_name\": \"$branch\" } }" \
                 https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$PREFIX-$TEAM-$REPO_BB/pipelines/
+                echo "Waiting execution" && sleep 15
               done
             done
