@@ -8,11 +8,13 @@
 2. The git mirroring, and the team repositories creation is delegated to BitBucket using the next features:
     1. An user and an [app-password](https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/): This allows to use a dedicated access from the pipelines to allow the team and pipelines repositories creation and execution.
     2. An AWS credentials access key and secret key (with the option to assume a specific role). This allows to create the repositories and commit by demand.
-  These feature are triggered from the file bitbucket-pipelines.yml.
+  These feature are triggered from the file bitbucket-pipelines.yml
+3. The **app_password** and **bitbucketuser** parameters are stored as pipeline variables for the  prefix-sdlf-team repository.
+4. The **sdlf_\*** parameters are stored in the Workspace Variables ([source](https://support.atlassian.com/bitbucket-cloud/docs/variables-and-secrets/) section *Workspace Variables*) from Bitbucket, in order to be avalaible for the pipelines in a secured way.
 
 ## Prerequisites:
 
-1. An [app-password](https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/) with the next permssions:
+1. An [app-password](https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/) with the next permissions:
     - Repositories: Read, Write, Admin
     - Pipelines: Read, Write, Edit variables
 2. The pipelines feature should be [enabled](https://support.atlassian.com/bitbucket-cloud/docs/get-started-with-bitbucket-pipelines/) in Bitbucket
