@@ -49,7 +49,7 @@ then
     if $dflag; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
     # declare all the external SCMs supported for example: bitbucket github gitlab
     # each one of these should have its directory, config and custom functions
-    declare -a SCMS=(ado) 
+    declare -a SCMS=(ado bbucket) 
     if [[ " ${SCMS[@]} " =~ " ${SCM} " ]]; then
         SCM_DIR=${DIRNAME}/thirdparty-scms/${SCM}
         source ${SCM_DIR}/functions.sh

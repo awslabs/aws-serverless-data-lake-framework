@@ -1,0 +1,23 @@
+image: atlassian/pipelines-awscli:latest
+pipelines:
+  default:
+    - step:
+        name: Mirror to AWS
+        script:
+          - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+          - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+          - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+          - export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
+          - |
+            if [ ${#SDLF_AWS_ROLE_TO_ASSUME_NAME} -gt 0 ]; then
+              echo Assuming role: $SDLF_AWS_ROLE_TO_ASSUME_NAME
+              aws sts assume-role --role-arn $SDLF_AWS_ROLE_TO_ASSUME_ARN  --role-session-name $SDLF_AWS_ROLE_TO_ASSUME_NAME > tmp.json
+              export AWS_ACCESS_KEY_ID=$(jq -r .Credentials.AccessKeyId tmp.json)
+              export AWS_SECRET_ACCESS_KEY=$(jq -r .Credentials.SecretAccessKey tmp.json)
+              export AWS_SESSION_TOKEN=$(jq -r .Credentials.SessionToken tmp.json)              
+              rm tmp.json
+            fi
+          - |
+            git config --global credential.helper '!aws codecommit credential-helper $@'
+            git config --global credential.UseHttpPath true
+            git push https://git-codecommit.${SDLF_AWS_REGION}.amazonaws.com/v1/repos/$REMOTE_REPO --all
