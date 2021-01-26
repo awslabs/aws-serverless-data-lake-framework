@@ -18,3 +18,5 @@ It's important to understand that this is just `one example` used to illustrate 
 4. Every 5 minutes (customizable), a CloudWatch Event rule fires a Lambda which checks if there are messages in the queue sent from the previous stage. If so it triggers the second Step Function (StageB)
 
 5. This time a heavy transformation is applied on a batch of files. This heavy transformation can be an API call to an Analytical AWS service (Glue Job, Fargate Task, EMR Step, SageMaker Notebook…) and the code is again provided by the data engineer. The state machine waits for the job to reach a SUCCEEDED state before the output is crawled to update the Glue Metadata Catalog (i.e. Tables metadata). A data quality step leveraging Deequ can also be run
+
+.. warning:: We strongly recommend that customers conduct a `Well Architected Review <https://aws.amazon.com/architecture/well-architected/>`_ of their SDLF Implementation
