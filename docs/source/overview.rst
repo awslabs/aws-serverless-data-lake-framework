@@ -8,6 +8,11 @@ A data lake gives your organization agility. It provides a repository where cons
 
 The SDLF is a collection of production-hardened, best practice templates which accelerate your data lake implementation journey on AWS, so that you can focus on use cases that generate value for business. 
 
+Public References
+******************
+.. image:: _static/public-references.png
+    :alt: SDLF Public References
+
 A Working Backwards Approach
 *****************************
 The below tenets, listed in decreasing order of importance, were used as working backwards guiding principles in the design:
