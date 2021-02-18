@@ -666,6 +666,15 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource: !GetAtt CognitoESAccessRole.Arn
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource: !Ref KMSKeyId
 
   #
   # Primer Elasticsearch resources

@@ -51,7 +51,7 @@ Resources:
       CompatibleRuntimes:
         - python3.6
         - python3.7
-      ContentUri: ../../../../f1-dl/common-datalakeLibrary
+      ContentUri: ../../../../dl/common-datalakeLibrary
 
   # NOTE: Please ensure this Logical ID is alphanumeric and contains no symbols!
   TransformA:
