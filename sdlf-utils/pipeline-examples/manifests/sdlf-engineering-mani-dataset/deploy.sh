@@ -98,12 +98,12 @@ then
                 --arg mfr "$MANIFEST_FILEREGEX" \
                 --arg mto "$MANIFEST_TIMEOUT" \
                 --arg mdo "$MANIFEST_DATATIMEOUT" \
-                '{"name": {"S": $dn}, "pipeline": {"S": $pn}, "transforms": { "M": {"stage_a_transform": {"S": "light_transform_blueprint"}, "stage_b_transform": {"S": "heavy_transform_blueprint"}}}, "max_items_process": { "M": {"stage_b": {"N": "100"}, "stage_c": {"N": "100"}}}, "min_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "1"}}},'manifest_enabled':{"S":$mf} , "manifest_details": { "M": { "manifest_file_name":{"S":$mfn}, "manifest_file_extension" : {"S":$mfe},"regex_pattern" : {"S":$mfr},"manifest_timeout":{"N":$mto},"manifest_data_timeout" :{"N":$mdo} }},"version": {"N": "1"}}' )
+                '{"name": {"S": $dn}, "pipeline": {"S": $pn}, "transforms": { "M": {"stage_a_transform": {"S": "light_transform_manifest"}, "stage_b_transform": {"S": "heavy_transform_manifest"}}}, "max_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "100"}}}, "min_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "1"}}},'manifest_enabled':{"S":$mf} , "manifest_details": { "M": { "manifest_file_name":{"S":$mfn}, "manifest_file_extension" : {"S":$mfe},"regex_pattern" : {"S":$mfr},"manifest_timeout":{"N":$mto},"manifest_data_timeout" :{"N":$mdo} }},"version": {"N": "1"}}' )
 else
   DATASET_JSON=$( jq -n \
                 --arg dn "$TEAM_NAME-$DATASET_NAME" \
                 --arg pn "$PIPELINE_NAME" \
-                '{"name": {"S": $dn}, "pipeline": {"S": $pn}, "transforms": { "M": {"stage_a_transform": {"S": "light_transform_blueprint"}, "stage_b_transform": {"S": "heavy_transform_blueprint"}}}, "max_items_process": { "M": {"stage_b": {"N": "100"}, "stage_c": {"N": "100"}}}, "min_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "1"}}}, "version": {"N": "1"}}' )
+                '{"name": {"S": $dn}, "pipeline": {"S": $pn}, "transforms": { "M": {"stage_a_transform": {"S": "light_transform_manifest"}, "stage_b_transform": {"S": "heavy_transform_manifest"}}}, "max_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "100"}}}, "min_items_process": { "M": {"stage_b": {"N": "1"}, "stage_c": {"N": "1"}}}, "version": {"N": "1"}}' )
 fi
 ### End changes for Manifest ###
   aws dynamodb put-item --profile $PROFILE \
