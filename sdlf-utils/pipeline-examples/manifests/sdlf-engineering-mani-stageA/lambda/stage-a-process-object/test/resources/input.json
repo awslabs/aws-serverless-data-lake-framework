@@ -1,0 +1,7 @@
+{
+  "body":
+  {
+      "bucket": "cfn-trial-01-sampledataset",
+      "key": "RAW/my-dataset/input_1.json"
+  }
+}
