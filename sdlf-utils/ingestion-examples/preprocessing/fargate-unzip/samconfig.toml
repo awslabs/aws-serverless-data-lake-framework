@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "sdlf-dev-unzip-fargate"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "pTaskName=\"ingestion\" pEnv=\"dev\" pS3LandingBucketName=\"landing-bucket-for-tpt\" pS3LandingPrefix=\"views/\" pS3LandingExt=\".txt.gz\" pS3RawBucketName=\"raw-bucket-for-tpt\" pEcrUnzipDockerImage=\"264552010219.dkr.ecr.us-east-1.amazonaws.com/unzip-shell:latest\" pFargateTaskCPU=\"512\" pFargateTaskMemory=\"2048\" pSubnetId=\"subnet-aef8a9e3\" pAthenaBucketName=\"athena-test-results-bucket-emmgrci\""
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1uyhdahbj2s93"
+s3_prefix = "sdlf-dev-unzip-fargate"
+profile = "emma_dev"
