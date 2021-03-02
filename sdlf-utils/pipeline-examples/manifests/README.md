@@ -61,12 +61,27 @@ In this stage the manifest file is processed to identify the datafiles that need
     # sdlf-utils repository
     sdlf-utils/pipeline-examples/manifests/
     ```
-2. Execute the following command in the manifest directory:
+
+2. Copy the following directories with their content to the root location:-
+    * stageA
+    * stageB
+    * pipeline
+    * dataset
+
+3. The name of the directories that need to be created in the step below can begin with the following:-
+    >sdlf-team-pipeline-dirname
+
+    In this case we will use "sdlf-engineering-mani"
+
+4. Execute the following command in the manifests directory:
     ```bash
     ### Copy Manifest Folders to root location
-    cp -R sdlf-engineering-mani* ./../../
+    cp -R stageA ../../../sdlf-engineering-mani-stageA/
+    cp -R stageB ../../../sdlf-engineering-mani-stageB/
+    cp -R dataset ../../../sdlf-engineering-mani-dataset/
+    cp -R pipeline ../../../sdlf-engineering-manifest-pipeline/
     ```
-3. Create the codecommit repositories for Stage A , Stage B and Pipeline 
+5. Create the codecommit repositories for Stage A , Stage B and Pipeline 
     >Replace ${REGION} and ${PROFILE} values
     ```bash 
     ### Create the Stage A Repository
@@ -112,7 +127,7 @@ In this stage the manifest file is processed to identify the datafiles that need
     git push --set-upstream origin dev
     ```
 
-4. Take a look at the ```parameters-dev.json``` in the ```sdlf-engineering-mani-dataset``` folder: 
+6. Take a look at the ```parameters-dev.json``` in the ```sdlf-engineering-mani-dataset``` folder: 
     ```bash
     cd ../sdlf-engineering-mani-dataset
     ```
@@ -159,7 +174,7 @@ In this stage the manifest file is processed to identify the datafiles that need
 
 The **pRegexPattern** tells the pipeline the manifest file it should be looking for. The regex pattern should be python regex for the pipeline to be able to match the incoming manifest file name.
 
-5. Create the dataset repository
+7. Create the dataset repository
     >Replace ${REGION} and ${PROFILE} values
 
     ```bash
@@ -176,14 +191,14 @@ The **pRegexPattern** tells the pipeline the manifest file it should be looking 
     git checkout -b dev
     git push --set-upstream origin dev
     ```
-6. Copy the light tranform, heavy transform and the dataset mappings.
+8. Copy the light tranform, heavy transform and the dataset mappings.
     ```bash
     cd ../sdlf-engineering-datalakeLibrary/python/datalake_library/transforms
     cp ../../../../sdlf-utils/pipeline-examples/manifests/dataset_mappings.json .
     cp ../../../../sdlf-utils/pipeline-examples/manifests/transforms/light_transform_manifest.py ./stage_a_transforms/
     cp ../../../../sdlf-utils/pipeline-examples/manifests/transforms/heavy_transform_manifest.py ./stage_b_transforms/
     ```
-7. Take a look at the dataset_mappings.json file 
+9. Take a look at the dataset_mappings.json file 
     ```bash
     [
     {
@@ -196,7 +211,7 @@ The **pRegexPattern** tells the pipeline the manifest file it should be looking 
     ]
     ```
     This maps the light and heavy transform that you just copied over from the utils folder.
-8. Push the changes in datalake library so that the transforms can be mapped.
+10. Push the changes in datalake library so that the transforms can be mapped.
     ```bash
     cd ../../../
     git add .
@@ -204,7 +219,7 @@ The **pRegexPattern** tells the pipeline the manifest file it should be looking 
     git push
     ```
 
-9. Once the deployment completes, move to the following directory
+11. Once the deployment completes, move to the following directory
     ```bash
     # sdlf-utils repository
     sdlf-utils/pipeline-examples/manifests/
@@ -216,6 +231,6 @@ The **pRegexPattern** tells the pipeline the manifest file it should be looking 
     ```
     This will execute a cloud formation template to deploy the glue job. 
 
-10. Once both Stage A and Stage statemachines have completed exection, you can check the DynamoDB control table for the files that were processed.
+12. Once both Stage A and Stage statemachines have completed exection, you can check the DynamoDB control table for the files that were processed.
 
 ![Manifests_Control_table.png](docs/_static/Manifests_Control_table.png)
