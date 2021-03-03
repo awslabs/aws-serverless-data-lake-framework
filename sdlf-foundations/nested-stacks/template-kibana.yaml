@@ -18,13 +18,13 @@ Parameters:
   # Email address for the Elasticsearch domain admin
   DomainAdminEmail:
     Type: String
-    AllowedPattern: '^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$'
+    AllowedPattern: '^\w+([\+\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$'
     Description: E-mail address of the Elasticsearch admin
 
   # Email address for Cognito Admin user
   CognitoAdminEmail:
     Type: String
-    AllowedPattern: '^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$'
+    AllowedPattern: '^\w+([\+\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$'
     Description: E-mail address of the Cognito admin
 
   # ES cluster size
