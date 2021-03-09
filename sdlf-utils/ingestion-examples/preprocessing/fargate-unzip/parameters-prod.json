@@ -4,20 +4,8 @@
         "ParameterValue": "ingestion"
     },
     {
-        "ParameterKey": "pEnv",
-        "ParameterValue": "prod"
-    },
-    {
         "ParameterKey": "pS3LandingBucketName",
         "ParameterValue": "<landing_bucket_name>"
-    },
-    {
-        "ParameterKey": "pS3RawBucketName",
-        "ParameterValue": "<sdlf_raw_bucket_name>"
-    },
-    {
-        "ParameterKey": "pAthenaBucketName",
-        "ParameterValue": "<athena_results_bucket>"
     },
     {
         "ParameterKey": "pEcrUnzipDockerImage",

@@ -21,12 +21,9 @@ Parameters:
     Default: "unzipping"
     AllowedPattern: "[a-z0-9]+?-?[a-z0-9]+?"
   pEnv:
-    Type: String
-    Description: "Environment to deploy"
-    AllowedValues:
-      - dev
-      - test
-      - prod
+    Description: SDLF Environment to be used
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
   pS3LandingBucketName:
     Type: String
     Description: "Landing bucket with the untreated files."
@@ -39,11 +36,12 @@ Parameters:
     Description: "File extension of the files to be treated"
     Default: ".txt.gz"
   pS3RawBucketName:
-    Type: String
-    Description: "RAW bucket for SDLF, this bucket MUST ALREADY EXISTS"
+    Description: SDLF Raw bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CentralBucket
   pEcrUnzipDockerImage:
     Type: String
-    Description: "ECR Image URL with the docker that will perform treating steps in the form: repository-url/image:tag"
+    Description: "ECR Image URL in the form: repository-url/image:tag"
   pFargateTaskCPU:
     Type: String
     Description: "Number of cpu units used by the task"
@@ -72,10 +70,16 @@ Parameters:
     Default: 8192
   pSubnetId:
     Type: String
-    Description: "The name of the Subnet Id"
+    Description: "Subnet ID where fargate tasks will be deployed"
   pAthenaBucketName:
-    Type: String
-    Description: "Name of the Athena Bucket"
+    Description: SDLF Athena bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AthenaBucket
+  pKMSKeyId:
+    Description: Queue encryption key
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/KeyArn
+
 
 Resources:
   ServiceLogGroup:
@@ -115,27 +119,51 @@ Resources:
                   - Name: Suffix
                     Value: !Ref pS3LandingExt
 
+  rLandingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rS3LandingBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${pS3LandingBucketName}/*
+              - !Sub arn:aws:s3:::${pS3LandingBucketName}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   #################### SQS ####################
   rLandingSQSDeadLetterQueue:
     Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: sdlf-landing-dlq-queue
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 300
+      KmsMasterKeyId: !Ref pKMSKeyId
 
   rLandingSQSQueue:
     Type: "AWS::SQS::Queue"
     UpdateReplacePolicy: "Delete"
     DeletionPolicy: "Delete"
     Properties:
-      QueueName: !Sub "${AWS::StackName}-raw-queue"
+      QueueName: sdlf-landing-queue
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt "rLandingSQSDeadLetterQueue.Arn"
-        maxReceiveCount: 5
+        maxReceiveCount: 1
       VisibilityTimeout: 300
+      KmsMasterKeyId: !Ref pKMSKeyId
 
   rLandingSQSQueuePolicy:
     Type: "AWS::SQS::QueuePolicy"
     Properties:
       PolicyDocument:
         Version: "2012-10-17"
-        Id: !Sub "${AWS::StackName}-unzip-queue-policy"
+        Id: sdlf-landing-queue-policy
         Statement:
           - Effect: "Allow"
             Principal:
@@ -192,6 +220,11 @@ Resources:
                 Resource:
                   - !GetAtt rUnzipTaskExecutionRole.Arn
                   - !GetAtt rUnzipTaskRole.Arn
+              - Effect: "Allow"
+                Action:
+                  - "kms:Decrypt"
+                Resource:
+                  - !Ref pKMSKeyId
 
   rUnzipLambda:
     Type: "AWS::Serverless::Function"

@@ -12,7 +12,7 @@ DIRNAME=$(pwd)
 
 usage () { echo "
     -h -- Opens up this help message
-    -p -- Name of the AWS profile to use for the Child Account
+    -p -- Name of the AWS profile to be used for the Child Account
     -r -- AWS Region to deploy to (e.g. eu-west-1)
     -e -- Environment to deploy to (dev, test or prod)
     -c -- Create resources
@@ -69,12 +69,12 @@ for row in $(jq -c '.[]' parameters-${ENV}.json); do
     KEY=$(echo "${row}" | jq -r '.ParameterKey')
     VAL=$(echo "${row}" | jq -r '.ParameterValue')
     KEY_VAL="${KEY}=\\\"${VAL}\\\" "
-    PARAMENTER_OVERRIDES="${PARAMENTER_OVERRIDES}${KEY_VAL}"
+    PARAMETER_OVERRIDES="${PARAMETER_OVERRIDES}${KEY_VAL}"
     if [ "${KEY}" == "pTeamName" ]; then
         TEAM_NAME="${VAL}"
     fi
 done
-PARAMENTER_OVERRIDES="${PARAMENTER_OVERRIDES}"
+PARAMETER_OVERRIDES="${PARAMETER_OVERRIDES}"
 
 CHILD_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile ${CHILD_PROFILE})
 STACK_NAME="sdlf-${ENV}-unzip-fargate"
@@ -93,7 +93,7 @@ elif command -v pip &> /dev/null
 then
     pip install -q --upgrade aws-sam-cli
 else
-    echo "Por favor confirme que pip o pip3 estén correctamente instalados!"
+    echo "pip: command not found. Please install it"
     exit 1
 fi
 
@@ -104,25 +104,25 @@ echo "REGION: ${REGION}"
 echo "STACK_NAME: ${STACK_NAME}"
 
 
-read -n 1 -s -r -p "Check paramters and press any key to continue..."
+read -n 1 -s -r -p "Check parameters and press any key to continue..."
 
 echo ""
 if $cflag
 then
     echo "============================================================="
-    echo "Creando Cloudformation stack con los permisos requeridos para la integración de Infraestructura de UnZip with Fargate"
+    echo "Creating Cloudformation stack with required permissions"
     echo "============================================================="
     if ! $dflag
     then
-        echo "Validando template de SAM"
+        echo "Validating SAM template"
         sam validate --template template.yaml --profile "${CHILD_PROFILE}"
 
-        echo "Haciendo el build..."
+        echo "Building SAM..."
         sam build \
             --template-file template.yaml \
             --build-dir "${APPLICATION_BUILD_OUTPUT_DIRECTORY}"
 
-        echo "Haciendo archivo de configuracion de SAM"
+        echo "Creating samconfig.toml file"
         rm -f samconfig.toml
         cat <<EOF > samconfig.toml
 version = 0.1
@@ -133,16 +133,16 @@ stack_name = "${STACK_NAME}"
 region = "${REGION}"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
-parameter_overrides = "${PARAMENTER_OVERRIDES}"
+parameter_overrides = "${PARAMETER_OVERRIDES}"
 EOF
 
 
-        echo "Haciendo el despliegue..."
+        echo "Deploying SAM template..."
         sam deploy \
             --guided \
             --profile "${CHILD_PROFILE}"
     else
-        echo "<<DEMO>>: Creando Cloudformation stack con los permisos requeridos para la integración de Infraestructura de UnZip with Fargate llamado $STACK_NAME"
+        echo "<<DEMO>>: Creating Cloudformation Stack with the required permissions $STACK_NAME"
     fi
 fi
 

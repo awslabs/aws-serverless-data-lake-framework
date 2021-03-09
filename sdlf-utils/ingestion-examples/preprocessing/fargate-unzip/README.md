@@ -27,7 +27,16 @@ Note: This solution uses the Serveless Application Model (SAM)
 1. If you have not installed AWS Cli. Install it: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html
 1. If you have not installed AWS SAM Cli. Install it: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html
 1. Configure credentials for your SDLF environment account (DEV/TEST/PROD) as explained in this blog entry: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html
-1. Create the ECR Docker image by running the "publish_docker.sh" shell script inside the Dockerfile folder, save the published docker image URI
+1. Create the ECR Docker image by running the "publish_docker.sh" shell script inside the Dockerfile folder using the following syntax:
+```
+./publish_docker.sh -p <aws_profile> -r <deployment_region> -n <ecr_repository_name>
+```
+Where:
+
+* **<aws_profile>**: CLI credentials profile for the target account
+* **<deployment_region>**: AWS Target region, should match with the SDLF deployment
+* **<ecr_repository_name>**: ECR Repository name for storing docker image
+
 1. Modify the parameters corresponding to the target environment (parameters-dev/test/prod.json)
 
 | parameter | description |
@@ -44,16 +53,14 @@ Note: This solution uses the Serveless Application Model (SAM)
 | pS3LandingPrefix | Prefix of the files that will land into the landing bucket (ex. /datascience/dataset1)
 | pS3LandingExt | File extension of the files that will land into the landing bucket (ex. .txt.gz)
 
-7. Run the deployment script using the following syntax: 
+1. Run the deployment script using the following syntax: 
 
 ```shell
 ./deploy.sh -p <aws_profile> -r <deployment_region> -e <deployment_env> -c -v
 ```
 
 Where:
-
-* **<aws_profile>**: CLI credentials profile for the target account 
-* **<deployment_region>**: AWS Target region, should match with the SDLF deployment 
+ 
 * **<deployment_env>**: Target SDLF environment (e.g. dev/test/prod)
 
 # Example

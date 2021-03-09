@@ -4,24 +4,12 @@
         "ParameterValue": "ingestion"
     },
     {
-        "ParameterKey": "pEnv",
-        "ParameterValue": "dev"
-    },
-    {
         "ParameterKey": "pS3LandingBucketName",
-        "ParameterValue": "<landing_bucket_name>"
-    },
-    {
-        "ParameterKey": "pS3RawBucketName",
-        "ParameterValue": "<sdlf_raw_bucket_name>"
-    },
-    {
-        "ParameterKey": "pAthenaBucketName",
-        "ParameterValue": "<athena_results_bucket>"
+        "ParameterValue": "forecourt-datalake-dev-us-east-1-795269633652-landing"
     },
     {
         "ParameterKey": "pEcrUnzipDockerImage",
-        "ParameterValue": "<docker_ecr_url>"
+        "ParameterValue": "795269633652.dkr.ecr.us-east-1.amazonaws.com/unzip-shell"
     },
     {
         "ParameterKey": "pFargateTaskCPU",
@@ -33,14 +21,14 @@
     },
     {
         "ParameterKey": "pSubnetId",
-        "ParameterValue": "<any_vpc_subnet_id>"
+        "ParameterValue": "subnet-e48f15bb"
     },
     {
         "ParameterKey": "pS3LandingPrefix",
-        "ParameterValue": "<files_landing_prefix>"
+        "ParameterValue": "landed/"
     },
     {
         "ParameterKey": "pS3LandingExt",
-        "ParameterValue": "<landing_files_ext>"
+        "ParameterValue": "txt.gz"
     }
 ]
