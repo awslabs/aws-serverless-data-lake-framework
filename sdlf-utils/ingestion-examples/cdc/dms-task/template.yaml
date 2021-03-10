@@ -200,7 +200,7 @@ Resources:
   rGlueJobLoadInitial:
     Type: AWS::Glue::Job
     Properties:
-      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-load-initial
+      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-load-initial
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 20
@@ -218,7 +218,7 @@ Resources:
   rGlueJobController:
     Type: AWS::Glue::Job
     Properties:
-      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-controller
+      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 1
