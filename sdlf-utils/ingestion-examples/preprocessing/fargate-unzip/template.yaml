@@ -1,0 +1,344 @@
+# Copyright 2020 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+#
+# Licensed under the Amazon Software License (the 'License').
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+#   http://aws.amazon.com/asl/
+#
+# or in the 'license' file accompanying this file. This file is distributed
+# on an 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: "Data Lake ingestion artifact for pre-treating data before entering SDLF RAW Layer using Fargate tasks"
+Parameters:
+  pTaskName:
+    Type: String
+    Description: "General Task Name describing the general objective of this transformation."
+    Default: "unzipping"
+    AllowedPattern: "[a-z0-9]+?-?[a-z0-9]+?"
+  pEnv:
+    Description: SDLF Environment to be used
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pS3LandingBucketName:
+    Type: String
+    Description: "Landing bucket with the untreated files."
+  pS3LandingPrefix:
+    Type: String
+    Description: "Prefix of the landing bucket that will be treated"
+    Default: ""
+  pS3LandingExt:
+    Type: String
+    Description: "File extension of the files to be treated"
+    Default: ".txt.gz"
+  pS3RawBucketName:
+    Description: SDLF Raw bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CentralBucket
+  pEcrUnzipDockerImage:
+    Type: String
+    Description: "ECR Image URL in the form: repository-url/image:tag"
+  pFargateTaskCPU:
+    Type: String
+    Description: "Number of cpu units used by the task"
+    AllowedValues:
+      - 256
+      - 512
+      - 1024
+      - 2048
+      - 4096
+    Default: 2048
+  pFargateTaskMemory:
+    Type: String
+    Description: "Amount of memory used by the task"
+    AllowedValues:
+      - 512
+      - 1024
+      - 2048
+      - 3072
+      - 4096
+      - 5120
+      - 6144
+      - 7168
+      - 8192
+      - 8192
+      - 30720
+    Default: 8192
+  pSubnetId:
+    Type: String
+    Description: "Subnet ID where fargate tasks will be deployed"
+  pAthenaBucketName:
+    Description: SDLF Athena bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AthenaBucket
+  pKMSKeyId:
+    Description: Queue encryption key
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/KeyArn
+
+
+Resources:
+  ServiceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/ecs/${AWS::StackName}-converter-task"
+    UpdateReplacePolicy: "Retain"
+    DeletionPolicy: "Retain"
+
+  #################### BUCKETS ####################
+  rS3LandingBucket:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: "Retain"
+    UpdateReplacePolicy: "Retain"
+    Properties:
+      BucketName: !Ref pS3LandingBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      VersioningConfiguration:
+        Status: "Enabled"
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Queue: !GetAtt "rLandingSQSQueue.Arn"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: Prefix
+                    Value: !Ref pS3LandingPrefix
+                  - Name: Suffix
+                    Value: !Ref pS3LandingExt
+
+  rLandingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rS3LandingBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:aws:s3:::${pS3LandingBucketName}/*
+              - !Sub arn:aws:s3:::${pS3LandingBucketName}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
+  #################### SQS ####################
+  rLandingSQSDeadLetterQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: sdlf-landing-dlq-queue
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 300
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rLandingSQSQueue:
+    Type: "AWS::SQS::Queue"
+    UpdateReplacePolicy: "Delete"
+    DeletionPolicy: "Delete"
+    Properties:
+      QueueName: sdlf-landing-queue
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt "rLandingSQSDeadLetterQueue.Arn"
+        maxReceiveCount: 1
+      VisibilityTimeout: 300
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rLandingSQSQueuePolicy:
+    Type: "AWS::SQS::QueuePolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Id: sdlf-landing-queue-policy
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "s3.amazonaws.com"
+            Action:
+              - "sqs:SendMessage"
+              - "sqs:ReceiveMessage"
+            Resource: !GetAtt "rLandingSQSQueue.Arn"
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:s3:::${pS3LandingBucketName}"
+      Queues:
+        - !Ref "rLandingSQSQueue"
+
+  #################### Unzip Lambda ####################
+  rUnzipLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-lambda-role-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "sqs:ReceiveMessage"
+                  - "sqs:DeleteMessage"
+                  - "sqs:GetQueueAttributes"
+                Resource: !GetAtt "rLandingSQSQueue.Arn"
+              - Effect: "Allow"
+                Action:
+                  - "ecs:RunTask"
+                Resource:
+                  - !Ref "rUnzipTaskDefinition"
+              - Effect: "Allow"
+                Action:
+                  - "iam:PassRole"
+                Resource:
+                  - !GetAtt rUnzipTaskExecutionRole.Arn
+                  - !GetAtt rUnzipTaskRole.Arn
+              - Effect: "Allow"
+                Action:
+                  - "kms:Decrypt"
+                Resource:
+                  - !Ref pKMSKeyId
+
+  rUnzipLambda:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-landing-lambda"
+      Description: "Unzip compressed file from RAW Bucket"
+      Environment:
+        Variables:
+          TASK_DEFINITION: !Ref rUnzipTaskDefinition
+          EC2_CLUSTER_NAME: !Ref rUnzipECSCluster
+          SUBNET_ID: !Ref pSubnetId
+          DST_BUCKET: !Ref pS3RawBucketName
+      CodeUri: "LambdaHandler/"
+      Handler: "trigger_handler.lambda_handler"
+      Runtime: "python3.8"
+      Role: !GetAtt "rUnzipLambdaRole.Arn"
+      Timeout: 300
+      Events:
+        SQS:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt "rLandingSQSQueue.Arn"
+            BatchSize: 3
+            Enabled: true
+
+  #################### ECS CLUSTER ####################
+  rUnzipECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-ecs-cluster"
+      ClusterSettings:
+        - Name: "containerInsights"
+          Value: "enabled"
+
+  #################### Task Definition ####################
+  rUnzipTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-task-definition"
+      Cpu: !Ref pFargateTaskCPU
+      Memory: !Ref pFargateTaskMemory
+      ExecutionRoleArn: !GetAtt rUnzipTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt rUnzipTaskRole.Arn
+      ContainerDefinitions:
+        - Name: "UnzipShellDocker"
+          Image: !Ref "pEcrUnzipDockerImage"
+          Cpu: !Ref pFargateTaskCPU
+          MemoryReservation: !Ref pFargateTaskMemory
+          StartTimeout: 600
+          StopTimeout: 120
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ServiceLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+
+  rUnzipTaskExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-taskExecution-role"
+      AssumeRolePolicyDocument:
+        Version: "2008-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-ECSTaskExecution-role-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:BatchGetImage"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+
+  rUnzipTaskRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-ECSTask-role"
+      AssumeRolePolicyDocument:
+        Version: "2008-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+            Effect: "Allow"
+            Sid: ""
+      Policies:
+        - PolicyName: !Sub "sdlf-${pTaskName}-unzip-${pEnv}-unzip-ECSTask-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "s3:GetObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${rS3LandingBucket}/*"
+                  - !Sub "arn:aws:s3:::${rS3LandingBucket}/"
+                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/*"
+                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/"
+              - Effect: "Allow"
+                Action: "s3:PutObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/*"
+                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/"
+                  - !Sub "arn:aws:s3:::${pAthenaBucketName}/*"
+                  - !Sub "arn:aws:s3:::${pAthenaBucketName}/"
