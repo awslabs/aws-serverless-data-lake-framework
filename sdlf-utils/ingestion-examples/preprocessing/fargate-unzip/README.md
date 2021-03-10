@@ -1,25 +1,25 @@
 # Problem
 
-Source files for SDLF pipelines could come in a compressed format to optimize bandwidth usage when ingesting from onpremises servers. In that case, decompressing them at the SDLF light transformation stage may not be possible due to time and storage constraints of the lambda service. 
+Source files for SDLF pipelines could come in a compressed format to optimize bandwidth usage when ingesting from on-premises servers. In that case, decompressing them at the SDLF light transformation stage may not be possible due to time and storage constraints of the lambda service. 
 
 # Solution
 
-Add a layer to the SDLF using an additonal landing bucket and fargate as the processing service to uncompress data before writing it to the Raw SDLF bucket.
+Add a layer to the SDLF using an additional landing bucket and Fargate as the processing service to decompress data before writing it to the Raw SDLF bucket.
 
 The default code inside Dockerfile/unzipping_task decompress a compressed file in gzip format. However, it is possible to change the shell code to run any data pre-processing tasks
 before reaching the SDLF raw layer. As described in the Problem section, this solution is particularly suitable for pre-processing tasks that may outreach lambda limits on time or storage (e.g. File decompression, File merging)
 
 The architecture of the proposed solution is depicted in the following picture:
 
-![Architecture](/Images/Architecture.png) 
+![Architecture](Images/Architecture.png) 
 
-Note: This solution uses the Serveless Application Model (SAM)
+Note: This solution uses the Serverless Application Model (SAM)
 
 # Requirements
 
 * SDLF deployed in the target account
 * CLI access to the target account
-* Permissions to create s3 buckets, lambda, fargate task definitions & SQS
+* Permissions to create s3 buckets, lambda, Fargate task definitions & SQS
 * A docker image to perform the unzipping task stored in ECR
 
 # How to use
@@ -73,5 +73,4 @@ This command will deploy the current artifact into the SDLF account configured i
  
 # Output
 
-After a succesful execution of the Cloudformation template this artifact will deploy all the components in the solution architecture above that are inside the AWS cloud and are not part of the SDLF framework. i.e. landing bucket, landed files sqs, sqs lambda handler and an unzip fargate task that will execute an unzip fargate task every time that a file with the configured prefix and extension lands to the landing bucket.
-
+After a successful execution of the Cloudformation template this artifact will deploy all the components in the solution architecture above that are inside the AWS cloud and are not part of the SDLF framework. i.e. landing bucket, landed files sqs, sqs lambda handler and an unzip Fargate task that will execute an unzip Fargate task every time that a file with the configured prefix and extension lands to the landing bucket.
