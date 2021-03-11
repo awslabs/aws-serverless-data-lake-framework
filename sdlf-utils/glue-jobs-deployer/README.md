@@ -10,7 +10,7 @@ The artifact pretends easily create as much glue jobs as necessary trough a sing
 
 Using this structure, you will have a unique script (Python/Scala) per pipeline, and several Json parameter files as descriptors to manage the specific behavior of the script per dataset.
 
-The proposed **deploy.sh** script can be included as part of a code pipeline, to automatically create/update the new or changed dataset parameters files, since the las commit in the repo, so not all glu jobs are are created each time you deploy. 
+The proposed **deploy.sh** script can be included as part of a code pipeline, to automatically create/update the new or changed dataset parameters files, from the last commit in the repository, so not all glue jobs are re-created each time you deploy. 
 
 ![Architecture](Images/glue_deployer_4_sdlf_fs.png) 
 
@@ -52,7 +52,7 @@ The proposed **deploy.sh** script can be included as part of a code pipeline, to
 
 # Output
     
-The proposed script will upload the necessary scripts and parameter files to the SDLF artifacts bucket, and deploy one glue job per dataset trough a CloudFormation common stack template, to be defined from parameters like the dataset name and the pipeline name.
+The proposed script will upload the necessary pySpark scripts and parameter files to the SDLF artifacts bucket, and deploy one glue job per dataset trough a CloudFormation common stack template, to be defined from parameters like the dataset name and the pipeline name.
 
 
 # Going to the pieces ...
@@ -69,7 +69,7 @@ There are 4 main pieces in the proposed folder structure:
     
     The script will contain all the personalized Spark logic for that specific pipeline.
 
-1. **job_files** folder: This folder will contain one sub-folder per pipeline named as the pipeline.  In the presented example there are 3 pipelines deployed in the framework, that uses Glue jobs as process in one of their steps; jdbc2stage, analytics, and jdbcing.
+1. **job_files** folder: This folder will contain one sub-folder per pipeline named as the pipeline.
     
     For each pipeline folder, at least a Json parameters file should exits, and each Json parameter file should be named as the related dataset in the SDLF.
     
