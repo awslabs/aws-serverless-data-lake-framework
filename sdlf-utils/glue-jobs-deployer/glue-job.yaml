@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Engineering <<pipeline-dataset>> Glue Job"
+
+Parameters:
+    pPipelineBucket:
+      Description: "The artifactory bucket used by CodeBuild and CodePipeline"
+      Type: "AWS::SSM::Parameter::Value<String>"
+      Default: "/SDLF/S3/ArtifactsBucket"
+    pJobFiles:
+      Type: String
+      Description: The .sql and .json files from the jobs.
+    pPipeline:
+      Type: String
+      Description: The pipeline name (i.e. analyticspipeline).
+    pTeam:
+      Type: String
+      Description: The team name (i.e. engineering)
+    pDataset:
+      Type: String
+      Description: The dataset name (i.e. sampledataset)
+    pAllocatedCapacity:
+      Type: Number
+      Description: The glue job allocated capacity
+
+Resources:
+  ######## Glue Job Role #########
+  # This role and policies list should be refined depending on what you require for Glue job to do
+  rGlueRole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      RoleName: !Sub 'sdlf-${pPipeline}-${pDataset}-glue-role'
+      Path: "/service-role/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      ManagedPolicyArns: 
+        - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+        - "arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonRedshiftFullAccess"
+        - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+        - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+        - "arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin"
+      Policies:
+        - PolicyName: !Sub 'sdlf-${pTeam}-${pPipeline}-${pDataset}-glue-job-policy'
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ssm:GetParameter"
+                  - "secretsmanager:GetSecretValue"
+                Resource:
+                  - "*"
+              - Effect: "Allow"
+                Action:
+                  - "kms:DescribeKey"
+                  - "kms:Encrypt"
+                  - "kms:Decrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:GenerateDataKey*"
+                  - "kms:CreateGrant"
+                Resource: 
+                  - !Sub '{{resolve:ssm:/SDLF/KMS/${pTeam}/InfraKeyId:1}}'
+                  - !Sub '{{resolve:ssm:/SDLF/KMS/${pTeam}/DataKeyId:1}}'
+
+  ######## Glue Job #########
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub 's3://${pPipelineBucket}/artifacts/glue_jobs/pipeline_scripts/${pPipeline}/${pPipeline}-glue-job.py'
+      DefaultArguments:
+        '--job-bookmark-option': job-bookmark-disable
+        "--enable-continuous-cloudwatch-log": "true"
+        "--enable-continuous-log-filter": "true"
+        "--enable-metrics": "true"
+        "--enable-glue-datacatalog": "true"
+        '--extra-files': !Sub '${pJobFiles}'
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      MaxRetries: 0
+      AllocatedCapacity: !Sub ${pAllocatedCapacity}
+      GlueVersion: '2.0'
+      Connections:
+        Connections:
+        - !Sub 'sdlf-${pTeam}-glue-conn'
+      Name: !Sub 'sdlf-${pTeam}-${pPipeline}-${pDataset}-glue-job'
+      SecurityConfiguration: !Sub 'sdlf-${pTeam}-glue-security-config'
+      Role: !Ref rGlueRole
