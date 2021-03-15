@@ -23,6 +23,8 @@ Parameters:
       Description: The glue job allocated capacity
 
 Resources:
+  ######## Glue Job Role #########
+  # This role and policies list should be refined depending on what you require for Glue job to do
   rGlueRole:
     Type: "AWS::IAM::Role"
     Properties: 
@@ -69,6 +71,7 @@ Resources:
                   - !Sub '{{resolve:ssm:/SDLF/KMS/${pTeam}/InfraKeyId:1}}'
                   - !Sub '{{resolve:ssm:/SDLF/KMS/${pTeam}/DataKeyId:1}}'
 
+  ######## Glue Job #########
   GlueJob:
     Type: AWS::Glue::Job
     Properties:
