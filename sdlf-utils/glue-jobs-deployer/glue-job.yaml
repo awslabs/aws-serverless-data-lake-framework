@@ -39,8 +39,12 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns: 
         - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+        - "arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonRedshiftFullAccess"
         - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+        - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
         - "arn:aws:iam::aws:policy/AWSLakeFormationDataAdmin"
       Policies:
         - PolicyName: !Sub 'sdlf-${pTeam}-${pPipeline}-${pDataset}-glue-job-policy'
@@ -49,12 +53,6 @@ Resources:
             Statement:
               - Effect: "Allow"
                 Action:
-                  - "s3:*"
-                  - "glue:*"
-                  - "dynamodb:*"
-                  - "redshift:*"
-                  - "logs:*"
-                  - "cloudwatch:*"
                   - "ssm:GetParameter"
                   - "secretsmanager:GetSecretValue"
                 Resource:

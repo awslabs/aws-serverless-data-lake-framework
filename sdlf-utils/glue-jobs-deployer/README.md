@@ -19,6 +19,7 @@ The proposed **deploy.sh** script can be included as part of a code pipeline, to
 
 * SDLF deployed in the target account
 * CLI access to the target account
+* jq is required as pre-installed software on the machine / env (aws cloud9) used to run the deploy script 
 * Permissions to read SSM parameters created during SDLF deployment
 * Permissions to use the KMS keys of the SDLF
 * Permissions to write files in the s3 artifacts bucket of the SDLF
