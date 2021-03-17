@@ -762,6 +762,15 @@ Resources:
                   - lambda:AddPermission
                   - lambda:RemovePermission
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: !Sub arn:aws:iam:::role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              - Effect: Allow
+                Action:
+                  - codecommit:GetCommit
+                  - codecommit:GetDifferences
+                Resource: !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset
 
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role

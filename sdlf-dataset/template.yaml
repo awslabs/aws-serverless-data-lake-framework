@@ -42,6 +42,24 @@ Parameters:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
+  pCreateDatabase:
+    Description: Create a database if True, it will not create if False
+    Type: String
+    Default: "True"
+    AllowedValues:
+      - "True"
+      - "False"
+  pScheduleExpression:
+    Description: Schedule Expression i.e. cron(0 12 * * ? *)
+    Type: String
+    Default: "cron(0 12 * * ? *)"
+  pScheduleExpressionState:
+    Description: Schedule Expression will run if ENABLED
+    Type: String
+    Default: "ENABLED"
+
+Conditions:
+  CreateDatabase: !Equals [ !Ref pCreateDatabase, "True" ]
 
 Resources:
   ######## SQS #########
@@ -70,9 +88,9 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-b
-      Description: Trigger StageB Routing Lambda every 5 minutes
-      State: ENABLED
-      ScheduleExpression: "cron(*/5 * * * ? *)"
+      Description: Trigger StageB Routing Lambda depending on the dataset Schedule Expression
+      State: !Ref pScheduleExpressionState
+      ScheduleExpression: !Ref pScheduleExpression
       Targets:
         - Id: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-b
           Arn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipelineName}-routing-b
@@ -97,6 +115,7 @@ Resources:
 
   ######## GLUE #########
   rGlueDataCatalog:
+    Condition: CreateDatabase
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
@@ -105,6 +124,7 @@ Resources:
         Name: !Sub ${pOrg}_${pApp}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueCrawler:
+    Condition: CreateDatabase
     Type: AWS::Glue::Crawler
     Properties:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn:1}}"
@@ -115,6 +135,7 @@ Resources:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
+    Condition: CreateDatabase
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
@@ -145,6 +166,7 @@ Resources:
       Description: !Sub "Name of the StageB ${pTeamName} ${pDatasetName} DLQ"
 
   rGlueDataCatalogSsm:
+    Condition: CreateDatabase
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog

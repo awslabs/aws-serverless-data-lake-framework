@@ -10,5 +10,13 @@
     {
         "ParameterKey": "pDatasetName",
         "ParameterValue": "legislators"
+    },
+    {
+        "ParameterKey": "pCreateDatabase",
+        "ParameterValue": "True"
+    },
+    {
+        "ParameterKey": "pScheduleExpression",
+        "ParameterValue": "cron(*/5 * * * ? *)"
     }
 ]
