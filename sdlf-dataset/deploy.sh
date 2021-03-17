@@ -30,7 +30,7 @@ then
     echo "-p not specified, using default..." >&2
     PROFILE="default"
 fi
-ACCOUNT_ID=$(aws sts get-caller-identity --profile $AWS_PROFILE --output text | awk '{print $1}')
+ACCOUNT_ID=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/DevOpsAccountId --profile $PROFILE --query "Parameter.Value")")
 ENV=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/pEnv --profile $PROFILE --query "Parameter.Value")")
 
 # Devops role for cicd
