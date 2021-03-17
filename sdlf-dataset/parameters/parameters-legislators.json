@@ -17,6 +17,6 @@
     },
     {
         "ParameterKey": "pScheduleExpression",
-        "ParameterValue": "cron(*/5 * * * ? *)"
+        "ParameterValue": "cron(0/5 * * * ? *)"
     }
 ]
