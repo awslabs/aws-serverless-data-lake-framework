@@ -4,3 +4,6 @@ This repository holds examples of ingestion and transformation pipelines to depl
 3. Deequ and EMR steps using Step Functions: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/cloudfront/README.md)
 4. Topic Modelling of unstructured data with AWS Comprehend: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/topic-modelling/README.md)
 5. Datasets Dependency Management: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/dataset-dependency/README.md)
+6. Manifest based processing: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/manifests/README.md)
+7. Ingestion layer with Landing bucket and file decompression using Fargate: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/ingestion-examples/preprocessing/fargate-unzip/README.md)
+8. Dynamic creation of Glue jobs: [README.md](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master/sdlf-utils/pipeline-examples/glue-jobs-deployer/README.md)

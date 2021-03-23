@@ -4,6 +4,7 @@ import datetime as dt
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
+from decimal import Decimal
 
 from ..commons import init_logger
 
@@ -19,9 +20,11 @@ class DynamoInterface:
 
         self.object_metadata_table = None
         self.transform_mapping_table = None
+        self.manifests_control_table = None
 
         self._get_object_metadata_table()
         self._get_transform_mapping_table()
+        self._get_manifests_control_table()
 
     def _get_object_metadata_table(self):
         if not self.object_metadata_table:
@@ -34,10 +37,22 @@ class DynamoInterface:
             self.transform_mapping_table = self.dynamodb_resource.Table(
                 self._config.transform_mapping_table)
         return self.transform_mapping_table
+    
+    def _get_manifests_control_table(self):
+        if not self.manifests_control_table:
+            self.manifests_control_table = self.dynamodb_resource.Table(
+                self._config.manifests_control_table)
+        return self.manifests_control_table
 
     @staticmethod
     def build_id(bucket, key):
         return 's3://{}/{}'.format(bucket, key)
+    
+    @staticmethod
+    def manifest_keys(dataset_name,manifest_file_name,data_file_name):
+        ds_name = dataset_name+"-"+manifest_file_name
+        df_name = manifest_file_name+"-"+data_file_name
+        return({'dataset_name':ds_name,"datafile_name":df_name})
 
     def get_item(self, table, key):
         try:
@@ -118,3 +133,180 @@ class DynamoInterface:
             self._logger.exception(msg)
             raise
         return items
+    
+    def put_item_in_manifests_control_table(self,item):
+        return self.put_item(self.manifests_control_table,item)
+
+    def get_item_from_manifests_control_table(self,dataset_name,manifest_file_name,data_file_name):
+        return self.get_item(
+            self.manifests_control_table,
+            self.manifest_keys(dataset_name,manifest_file_name,data_file_name))
+    
+    def update_manifests_control_table(self,key, update_expr,expr_values,expr_names):
+        return self.manifests_control_table.update_item(
+            Key=key, UpdateExpression=update_expr, 
+            ExpressionAttributeValues=expr_values, 
+            ExpressionAttributeNames=expr_names, 
+            ReturnValues="UPDATED_NEW",
+            )
+    
+    def update_manifests_control_table_stagea(self,ddb_key,status,s3_key=None):
+        if status == "STARTED":
+            starttime_time = dt.datetime.utcnow()
+            starttime = str(starttime_time)
+            starttimestamp = int(starttime_time.timestamp())
+            expr_names = {
+                "#S" : "stage_a_status",
+                "#ST" : "stage_a_starttime",
+                "#STS" : "stage_a_starttimestamp",
+            }
+
+            expr_values = {
+                ":S" : status,
+                ":ST" : starttime,
+                ":STS": str(starttimestamp),
+            }
+
+            update_expr = "SET #S = :S, #ST = :ST , #STS = :STS"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status == "PROCESSING":
+            expr_names = {
+                "#S": "stage_a_status",
+            }
+
+            expr_values = {
+                ":S": status
+            }
+
+            update_expr = "SET #S = :S"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status == "COMPLETED":
+            endtime_time = dt.datetime.utcnow()
+            endtime = str(endtime_time)
+            endtimestamp = int(endtime_time.timestamp())
+            s3_prefix = s3_key
+            expr_names = {
+                "#S": "stage_a_status",
+                "#ET": "stage_a_endtime",
+                "#ETS": "stage_a_endtimestamp",
+                "#S3K" : "s3_key",
+            }
+
+            expr_values = {
+                ":S": status,
+                ":ET": endtime,
+                ":ETS": str(endtimestamp),
+                ":S3K": str(s3_prefix)
+            }
+
+            update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS, #S3K = :S3K"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status=="FAILED":
+            endtime_time = dt.datetime.utcnow()
+            endtime = str(endtime_time)
+            endtimestamp = int(endtime_time.timestamp())
+            expr_names = {
+                "#S": "stage_a_status",
+                "#ET": "stage_a_endtime",
+                "#ETS": "stage_a_endtimestamp",
+            }
+
+            expr_values = {
+                ":S": status,
+                ":ET": endtime,
+                ":ETS": str(endtimestamp),
+            }
+
+            update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+    
+    def update_manifests_control_table_stageb(self, ddb_key, status, s3_key=None, comment=None):
+        if status == "STARTED":
+            starttime_time = dt.datetime.utcnow()
+            starttime = str(starttime_time)
+            starttimestamp = int(starttime_time.timestamp())
+            expr_names = {
+                "#S": "stage_b_status",
+                "#ST": "stage_b_starttime",
+                "#STS": "stage_b_starttimestamp",
+            }
+
+            expr_values = {
+                ":S": status,
+                ":ST": starttime,
+                ":STS": str(starttimestamp),
+            }
+
+            update_expr = "SET #S = :S, #ST = :ST , #STS = :STS"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status == "COMPLETED":
+            endtime_time = dt.datetime.utcnow()
+            endtime = str(endtime_time)
+            endtimestamp = int(endtime_time.timestamp())
+            expr_names = {
+                "#S": "stage_b_status",
+                "#ET": "stage_b_endtime",
+                "#ETS": "stage_b_endtimestamp",
+            }
+
+            expr_values = {
+                ":S": status,
+                ":ET": endtime,
+                ":ETS": str(endtimestamp)
+            }
+
+            update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status == "FAILED":
+            endtime_time = dt.datetime.utcnow()
+            endtime = str(endtime_time)
+            endtimestamp = int(endtime_time.timestamp())
+            expr_names = {
+                "#S": "stage_b_status",
+                "#ET": "stage_b_endtime",
+                "#ETS": "stage_b_endtimestamp",
+                "#C" : "comment",
+            }
+
+            expr_values = {
+                ":S": status,
+                ":ET": endtime,
+                ":ETS": str(endtimestamp),
+                ":C": comment,
+            }
+
+            update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS, #C = :C"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)
+
+        elif status == "PROCESSING":
+            expr_names = {
+                "#S": "stage_b_status",
+            }
+
+            expr_values = {
+                ":S": status,
+            }
+
+            update_expr = "SET #S = :S"
+
+            return self.update_manifests_control_table(
+                ddb_key, update_expr, expr_values, expr_names)

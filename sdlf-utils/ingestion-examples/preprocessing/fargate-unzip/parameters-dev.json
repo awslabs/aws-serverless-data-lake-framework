@@ -1,0 +1,34 @@
+[
+    {
+        "ParameterKey": "pTaskName",
+        "ParameterValue": "ingestion"
+    },
+    {
+        "ParameterKey": "pS3LandingBucketName",
+        "ParameterValue": "forecourt-datalake-dev-us-east-1-795269633652-landing"
+    },
+    {
+        "ParameterKey": "pEcrUnzipDockerImage",
+        "ParameterValue": "795269633652.dkr.ecr.us-east-1.amazonaws.com/unzip-shell"
+    },
+    {
+        "ParameterKey": "pFargateTaskCPU",
+        "ParameterValue": "512"
+    },
+    {
+        "ParameterKey": "pFargateTaskMemory",
+        "ParameterValue": "2048"
+    },
+    {
+        "ParameterKey": "pSubnetId",
+        "ParameterValue": "subnet-e48f15bb"
+    },
+    {
+        "ParameterKey": "pS3LandingPrefix",
+        "ParameterValue": "landed/"
+    },
+    {
+        "ParameterKey": "pS3LandingExt",
+        "ParameterValue": "txt.gz"
+    }
+]

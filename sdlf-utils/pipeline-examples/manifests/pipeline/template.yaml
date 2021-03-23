@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Contains all the resources necessary for a single pipeline
+
+Parameters:
+  pAnalyticsBucket:
+    Description: The analytics bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AnalyticsBucket
+  pApplicationName:
+    Description: Name of the application
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pApp
+  pCentralBucket:
+    Description: The central bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CentralBucket
+  pCFNBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+  pEnvironment:
+    Description: Environment name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pOrganizationName:
+    Description: Name of the organization owning the datalake
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pOrg
+  pPipelineName:
+    Description: The name of the Pipeline (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,10}"
+  pSharedDevOpsAccountId:
+    Description: Shared DevOps Account Id
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/DevOpsAccountId
+  pStageBucket:
+    Description: The stage bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/StageBucket
+  pStageABranch:
+    Description: The branch containing feature releases for the StageA Machine. If unique across all pipelines, then git push will only trigger the specific pipeline's CodePipeline. Defaults to master.
+    Type: String
+    Default: master
+  pStageBBranch:
+    Description: The branch containing feature releases for the StageB Machine. If unique across all pipelines, then git push will only trigger the specific pipeline's CodePipeline. Defaults to master.
+    Type: String
+    Default: master
+  pStageAStateMachineRepository:
+    Type: String
+    Description: The name of the repository containing the code for StageA's State Machine.
+    Default: sdlf-stageA
+  pStageBStateMachineRepository:
+    Type: String
+    Description: The name of the repository containing the code for StageB's State Machine.
+    Default: sdlf-stageB
+  pTeamName:
+    Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,12}"
+
+Resources:
+  ######## STATE MACHINES #########
+  stageAStateMachinePipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nested-stacks/template-statemachine.yaml
+      Parameters:
+        pAppName: !Ref pApplicationName
+        pArtifactoryStore: !Ref pCFNBucket
+        pBranchName: !Ref pStageABranch
+        pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
+        pCloudWatchRepositoryTriggerRoleArn: !Sub /SDLF/IAM/${pTeamName}/CloudWatchRepositoryTriggerRoleArn
+        pCodePipelineRoleArn: !Sub /SDLF/IAM/${pTeamName}/CodePipelineRoleArn
+        pDatasetBucket: !Ref pCentralBucket
+        pEnv: !Ref pEnvironment
+        pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
+        pKMSDataKeyId: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
+        pOrgName: !Ref pOrganizationName
+        pPermissionsBoundaryManagedPolicy: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
+        pPipeline: !Ref pPipelineName
+        pRepositoryName: !Ref pStageAStateMachineRepository
+        pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications
+        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
+        pStageBucket: !Ref pStageBucket
+        pTeamName: !Ref pTeamName
+        pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
+
+  stageBStateMachinePipeline:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: stageAStateMachinePipeline
+    Properties:
+      TemplateURL: ./nested-stacks/template-statemachine.yaml
+      Parameters:
+        pAppName: !Ref pApplicationName
+        pArtifactoryStore: !Ref pCFNBucket
+        pBranchName: !Ref pStageBBranch
+        pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
+        pCloudWatchRepositoryTriggerRoleArn: !Sub /SDLF/IAM/${pTeamName}/CloudWatchRepositoryTriggerRoleArn
+        pCodePipelineRoleArn: !Sub /SDLF/IAM/${pTeamName}/CodePipelineRoleArn
+        pDatasetBucket: !Ref pStageBucket
+        pEnv: !Ref pEnvironment
+        pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
+        pKMSDataKeyId: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
+        pOrgName: !Ref pOrganizationName
+        pPermissionsBoundaryManagedPolicy: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
+        pPipeline: !Ref pPipelineName
+        pRepositoryName: !Ref pStageBStateMachineRepository
+        pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications
+        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
+        pStageBucket: !Ref pStageBucket
+        pTeamName: !Ref pTeamName
+        pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
+      Tags:
+        - Key: tagging-policy
+          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
