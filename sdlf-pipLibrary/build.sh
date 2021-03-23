@@ -2,11 +2,19 @@
 
 team_name=$1
 
+function add_external_wheels()
+{
+    echo "external_wheels.json exists"
+    artifacts_bucket=$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket | grep -o -E "\"Value\": \"[a-z0-9|-]+\"" | awk -F\: '{print $2}' | sed 's/.$//')
+    python3 ../external_wheels.py ${artifacts_bucket:2} $team_name
+}
+
 for dir in ./*/
 do
     dir=${dir%*/}      # remove the trailing "/"
     echo ${dir##*/}    # print everything after the final "/"
     echo "---- Looking to move to: "
+
     cd $dir
     echo "Moving into dir..."
     echo "Current directory contents:"
@@ -38,7 +46,16 @@ do
         echo "external_layers.json exists"
         artifacts_bucket=$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket | grep -o -E "\"Value\": \"[a-z0-9|-]+\"" | awk -F\: '{print $2}' | sed 's/.$//')
         python3 ../external_layers.py ${artifacts_bucket:2} $team_name
+        
+        if [ -f "./external_wheels.json" ]; then
+            add_external_wheels
+        fi
+        
         cd ../
+    elif [ -f "./external_wheels.json" ]; then
+        add_external_wheels
+        cd ../   
     fi
+
     echo "============= COMPLETED DIRECTORY BUILD ============="
 done
