@@ -20,7 +20,7 @@ def add_wheels(name, info, team_name, bucket, client_s3, client_ssm):
     url = info["url"]
     file_name = url.rsplit(sep="/", maxsplit=1)[1]
     print(f"file_name: {file_name}")
-    key = f"common_wheels/{team_name}/{file_name}"
+    key = f"wheels/{team_name}/{file_name}"
     print(f"key: {key}")
 
     try:
@@ -38,7 +38,7 @@ def add_wheels(name, info, team_name, bucket, client_s3, client_ssm):
 
 
     client_ssm.put_parameter(
-        Name=f"/SDLF/Common/{team_name}/{name}",
+        Name=f"/SDLF/Wheels/{team_name}/{name}",
         Description=url,
         Value="s3://{}/{}".format(bucket, key),
         Type="String",
