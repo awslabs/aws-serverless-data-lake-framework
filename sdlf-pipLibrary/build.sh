@@ -2,13 +2,6 @@
 
 team_name=$1
 
-# function add_external_wheels()
-# {
-#     echo "external_wheels.json exists"
-#     artifacts_bucket=$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket | grep -o -E "\"Value\": \"[a-z0-9|-]+\"" | awk -F\: '{print $2}' | sed 's/.$//')
-#     python3 ../external_wheels.py ${artifacts_bucket:2} $team_name
-# }
-
 for dir in ./*/
 do
     dir=${dir%*/}      # remove the trailing "/"
