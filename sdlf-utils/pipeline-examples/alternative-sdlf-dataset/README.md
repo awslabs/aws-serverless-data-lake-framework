@@ -47,14 +47,6 @@ The required parameters MUST be defined in a `parameters/parameters-$DATASET.jso
         {
             "ParameterKey": "pDatasetName",
             "ParameterValue": "<datasetName>"
-        },
-        {
-            "ParameterKey": "pCreateDatabase",
-            "ParameterValue": "True"
-        },
-        {
-            "ParameterKey": "pScheduleExpression",
-            "ParameterValue": "cron(*/5 * * * ? *)"
         }
     ]
 
