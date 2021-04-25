@@ -5,11 +5,11 @@
     },
     {
         "ParameterKey": "pS3LandingBucketName",
-        "ParameterValue": "forecourt-datalake-dev-us-east-1-795269633652-landing"
+        "ParameterValue": "<landing_bucket_name>"
     },
     {
         "ParameterKey": "pEcrUnzipDockerImage",
-        "ParameterValue": "795269633652.dkr.ecr.us-east-1.amazonaws.com/unzip-shell"
+        "ParameterValue": "<docker_ecr_url>"
     },
     {
         "ParameterKey": "pFargateTaskCPU",
@@ -21,14 +21,14 @@
     },
     {
         "ParameterKey": "pSubnetId",
-        "ParameterValue": "subnet-e48f15bb"
+        "ParameterValue": "<any_vpc_subnet_id>"
     },
     {
         "ParameterKey": "pS3LandingPrefix",
-        "ParameterValue": "landed/"
+        "ParameterValue": "<files_landing_prefix>"
     },
     {
         "ParameterKey": "pS3LandingExt",
-        "ParameterValue": "txt.gz"
+        "ParameterValue": "<landing_files_ext>"
     }
 ]

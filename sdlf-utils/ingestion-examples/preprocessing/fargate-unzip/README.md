@@ -11,7 +11,7 @@ before reaching the SDLF raw layer. As described in the Problem section, this so
 
 The architecture of the proposed solution is depicted in the following picture:
 
-![Architecture](/Images/Architecture.png) 
+![Architecture](Images/Architecture.png) 
 
 Note: This solution uses the Serveless Application Model (SAM)
 
@@ -42,10 +42,7 @@ Where:
 | parameter | description |
 | --------- | ------------ |
 | pTaskName | Name of the decompression task |
-| pEnv | deployment environment (dev/test/prod) |
 | pS3LandingBucketName | S3 Landing bucket to be created |
-| pS3RawBucketName | Existing SDLF S3 Raw bucket |
-| pAthenaBucketname | Existing SDLF S3 Athena results bucket |
 | pEcrUnzipDockerImage | Docker Image Ecr URI |
 | pFargateTaskCPU | Number of CPU Units used by the task, check template.yaml for allowed values (default: 512) |
 | pFargateTaskMemory | Amount of memory used by the task, check template.yaml for allowed values (default: 2048) |
