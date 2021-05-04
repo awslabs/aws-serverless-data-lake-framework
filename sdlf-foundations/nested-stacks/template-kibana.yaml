@@ -733,6 +733,8 @@ Resources:
         DedicatedMasterCount: 3
       SnapshotOptions:
         AutomatedSnapshotStartHour: 1
+      NodeToNodeEncryptionOptions:
+        Enabled: true
       AccessPolicies:
         Version: 2012-10-17
         Statement:
