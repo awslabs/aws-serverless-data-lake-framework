@@ -1,4 +1,4 @@
-# data_lake_testing_pipeline
+# Pipeline testing
 Testing a data lake
 
 **Installation**
