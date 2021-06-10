@@ -168,6 +168,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaJobCheckStep:
     Type: AWS::Serverless::Function
@@ -184,6 +185,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaStep2:
     Type: AWS::Serverless::Function
@@ -200,6 +202,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaReplicate:
     Type: AWS::Serverless::Function
@@ -219,6 +222,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaReplicate}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rEventsInvokeLambdaPermission:
     Type: AWS::Lambda::Permission
