@@ -72,6 +72,17 @@ Resources:
             Condition:
               Bool:
                 kms:GrantIsForAWSResource: true
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service: !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
 
