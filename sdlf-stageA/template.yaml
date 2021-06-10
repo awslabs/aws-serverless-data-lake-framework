@@ -67,9 +67,13 @@ Parameters:
   pSNSTopic:
     Description: The team SNS topic
     Type: String
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
 
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
+  EnableTracing: !Equals [!Ref pEnableTracing, "true"]
 
 Globals:
   Function:
@@ -573,6 +577,8 @@ Resources:
         lStep3: !GetAtt rLambdaStep3.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !Ref pStatesExecutionRole
+      Tracing:
+        Enabled: !If [EnableTracing, true, false]
 
   ######## SSM OUTPUTS #########
   rQueueRoutingStepSsm:
