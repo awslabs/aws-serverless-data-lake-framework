@@ -246,6 +246,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep1:
     Type: Custom::UpdateSubscriptionFilter
@@ -262,6 +263,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterJobCheckStep:
     Type: Custom::UpdateSubscriptionFilter
@@ -278,6 +280,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep2:
     Type: Custom::UpdateSubscriptionFilter
