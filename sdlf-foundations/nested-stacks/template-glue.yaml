@@ -17,6 +17,8 @@ Parameters:
     Type: String
   pPipelineBucket:
     Type: String
+  pCloudWatchLogsRetentionInDays:
+    Type: Number
 
 Globals:
   Function:
@@ -165,6 +167,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
   rLambdaJobCheckStep:
     Type: AWS::Serverless::Function
@@ -180,6 +183,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
   rLambdaStep2:
     Type: AWS::Serverless::Function
@@ -195,6 +199,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
   rLambdaReplicate:
     Type: AWS::Serverless::Function
@@ -213,6 +218,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaReplicate}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
   rEventsInvokeLambdaPermission:
     Type: AWS::Lambda::Permission
