@@ -47,6 +47,8 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rPipelineBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -93,6 +95,8 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rCentralBucketPolicy:
     Condition: CreateSingleBucket
@@ -146,6 +150,8 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rRawBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -199,6 +205,8 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rStageBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -252,6 +260,8 @@ Resources:
             Queue: !GetAtt rQueueCatalog.Arn
           - Event: s3:ObjectRemoved:*
             Queue: !GetAtt rQueueCatalog.Arn
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rAnalyticsBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -297,6 +307,8 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rDataQualityBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -340,6 +352,8 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rAthenaBucketPolicy:
     Type: AWS::S3::BucketPolicy

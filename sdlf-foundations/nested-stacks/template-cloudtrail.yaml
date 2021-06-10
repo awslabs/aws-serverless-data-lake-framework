@@ -79,6 +79,8 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rTrailBucketPolicy:
     Condition: InternalBucket
