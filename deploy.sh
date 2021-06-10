@@ -8,6 +8,7 @@ fflag=false
 oflag=false
 cflag=false
 xflag=false
+aflag=false
 
 DIRNAME=$(pwd)
 declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
@@ -23,8 +24,9 @@ usage () { echo "
     -o -- Deploys Shared DevOps Account CICD Resources
     -c -- Deploys Child Account CICD Resources
     -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket
+    -a -- Flag to add CodeCommit Pull Request test infrastructure
 "; }
-options=':s:t:r:x:e:dfoch'
+options=':s:t:r:x:e:dfocha'
 while getopts $options option
 do
     case "$option" in
@@ -37,6 +39,7 @@ do
         f  ) fflag=true;;
         o  ) oflag=true;;
         c  ) cflag=true;;
+        a  ) aflag=true;;
         h  ) usage; exit;;
         \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
         :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
@@ -189,7 +192,7 @@ then
 
     template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
     # Adding in CodeCommit Pull Request tests. Pass / Fail comments are injected into the 'Activity' tab of CodeCommit
-    if ! $xlfag
+    if [ "$xflag" == "false" ] && [ "$aflag" == "true" ]
     then
         DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/${ENV}/CICDKeyId --region ${REGION} --profile ${DEVOPS_PROFILE} --query "Parameter.Value" --output text)
         for REPOSITORY in "${REPOSITORIES[@]}"
