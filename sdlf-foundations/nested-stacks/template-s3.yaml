@@ -451,6 +451,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRouting}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaCatalogRedrive:
     Type: AWS::Serverless::Function
@@ -471,6 +472,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaRoutingRedrive:
     Type: AWS::Serverless::Function
@@ -490,6 +492,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rQueueCatalogPolicy:
     Type: AWS::SQS::QueuePolicy
