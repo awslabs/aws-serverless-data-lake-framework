@@ -528,6 +528,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
   rUpdateSubscriptionFilterStep2:
     Type: Custom::UpdateSubscriptionFilter
