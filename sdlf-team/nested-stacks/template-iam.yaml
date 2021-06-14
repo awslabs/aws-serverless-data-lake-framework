@@ -886,6 +886,14 @@ Resources:
                 Condition:
                   StringLike:
                     iam:AWSServiceName: elasticmapreduce.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                  - xray:GetSamplingStatisticSummaries
+                Resource: "*"
 
   rRoleCloudWatchEventRole:
     Type: AWS::IAM::Role
