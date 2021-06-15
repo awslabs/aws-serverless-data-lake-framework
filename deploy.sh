@@ -167,7 +167,7 @@ then
     echo "Waiting for stack to be created ..."
     aws cloudformation wait stack-create-complete --profile ${DEVOPS_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
 
-    template_protection "mgmt" $STACK_NAME $REGION $DEVOPS_PROFILE
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
 fi
 
 if $oflag
@@ -186,7 +186,7 @@ then
     echo "Waiting for stack to be created ..."
     aws cloudformation wait stack-create-complete --profile ${DEVOPS_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
 
-    template_protection "mgmt" $STACK_NAME $REGION $DEVOPS_PROFILE
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
 fi
 
 if $cflag
@@ -208,5 +208,5 @@ then
         --region ${REGION} \
         --profile ${CHILD_PROFILE}
 
-    template_protection $ENV $STACK_NAME $REGION $CHILD_PROFILE
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
 fi
