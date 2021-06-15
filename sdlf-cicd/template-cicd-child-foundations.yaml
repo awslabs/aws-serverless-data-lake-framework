@@ -322,6 +322,7 @@ Resources:
                   - s3:PutBucketTagging
                   - s3:PutBucketVersioning
                   - s3:PutEncryptionConfiguration
+                  - s3:PutLifecycleConfiguration
                   - s3:PutObject
                   - s3:SetBucketEncryption
               - Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
