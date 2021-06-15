@@ -230,6 +230,8 @@ then
                     --region ${REGION} \
                     --profile ${DEVOPS_PROFILE} \
                     --no-fail-on-empty-changeset
+
+                template_protection "mgmt" ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
             fi
         done
     fi
