@@ -72,6 +72,8 @@ Resources:
             Condition:
               Bool:
                 kms:GrantIsForAWSResource: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias

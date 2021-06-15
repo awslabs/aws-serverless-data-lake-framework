@@ -94,7 +94,6 @@ Resources:
               Bool:
                 aws:SecureTransport: False
 
-
   ######## IAM #########
   rCodeBuildRole:
     Type: AWS::IAM::Role
