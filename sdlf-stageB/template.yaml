@@ -91,9 +91,13 @@ Parameters:
         1827,
         3653,
       ]
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
 
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
+  EnableTracing: !Equals [!Ref pEnableTracing, "true"]
 
 Globals:
   Function:
@@ -583,6 +587,8 @@ Resources:
         lError: !GetAtt rLambdaErrorStep.Arn
         smDataQuality: "{{resolve:ssm:/SDLF/SM/DataQualityStateMachine:1}}"
       Role: !Ref pStatesExecutionRole
+      Tracing:
+        Enabled: !If [EnableTracing, true, false]
 
   ######## SSM OUTPUTS #########
   rStateMachineSsm:
