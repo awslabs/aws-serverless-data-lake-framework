@@ -49,7 +49,7 @@ then
     if $dflag; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
     # declare all the external SCMs supported for example: bitbucket github gitlab
     # each one of these should have its directory, config and custom functions
-    declare -a SCMS=(ado bbucket) 
+    declare -a SCMS=(ado bbucket)
     if [[ " ${SCMS[@]} " =~ " ${SCM} " ]]; then
         SCM_DIR=${DIRNAME}/thirdparty-scms/${SCM}
         source ${SCM_DIR}/functions.sh
@@ -126,6 +126,26 @@ function deploy_sdlf_foundations()
     cd ${DIRNAME}
 }
 
+function template_protection()
+{
+    CURRENT_ENV=$1
+    CURRENT_STACK_NAME=$2
+    CURRENT_REGION=$3
+    CURRENT_PROFILE_NAME=$4
+
+    if [ $CURRENT_ENV != "dev" ]
+    then
+        echo "Updating termination protection for stack $CURRENT_STACK_NAME"
+        aws cloudformation update-termination-protection \
+            --enable-termination-protection \
+            --stack-name $CURRENT_STACK_NAME \
+            --region $CURRENT_REGION \
+            --profile $CURRENT_PROFILE_NAME
+    else
+        echo "Target is the dev account. Not applying template protection"
+    fi
+}
+
 if $fflag
 then
     echo "Deploying SDLF foundational repositories..." >&2
@@ -146,6 +166,8 @@ then
         --profile ${DEVOPS_PROFILE}
     echo "Waiting for stack to be created ..."
     aws cloudformation wait stack-create-complete --profile ${DEVOPS_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
+
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
 fi
 
 if $oflag
@@ -163,13 +185,15 @@ then
         --profile ${DEVOPS_PROFILE}
     echo "Waiting for stack to be created ..."
     aws cloudformation wait stack-create-complete --profile ${DEVOPS_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
+
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
 fi
 
 if $cflag
 then
     # Increase SSM Parameter Store throughput to 1,000 requests/second
     aws ssm update-service-setting --setting-id arn:aws:ssm:${REGION}:${CHILD_ACCOUNT}:servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region ${REGION} --profile ${CHILD_PROFILE}
-    DEVOPS_ACCOUNT_KMS=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/KMS/${ENV}/CICDKeyId --region ${REGION} --profile ${DEVOPS_PROFILE} --query "Parameter.Value")")
+    DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/${ENV}/CICDKeyId --region ${REGION} --profile ${DEVOPS_PROFILE} --query "Parameter.Value" --output text)
     STACK_NAME=sdlf-cicd-child-foundations
     aws cloudformation deploy \
         --stack-name ${STACK_NAME} \
@@ -183,6 +207,6 @@ then
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region ${REGION} \
         --profile ${CHILD_PROFILE}
-    echo "Waiting for stack to be created ..."
-    aws cloudformation wait stack-create-complete --profile ${CHILD_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
+
+    template_protection ${ENV} ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
 fi
