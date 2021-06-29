@@ -8,8 +8,10 @@ fflag=false
 oflag=false
 cflag=false
 xflag=false
+aflag=false
 
 DIRNAME=$(pwd)
+declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
 
 usage () { echo "
     -h -- Opens up this help message
@@ -22,8 +24,9 @@ usage () { echo "
     -o -- Deploys Shared DevOps Account CICD Resources
     -c -- Deploys Child Account CICD Resources
     -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket
+    -a -- Flag to add CodeCommit Pull Request test infrastructure
 "; }
-options=':s:t:r:x:e:dfoch'
+options=':s:t:r:x:e:dfocha'
 while getopts $options option
 do
     case "$option" in
@@ -36,6 +39,7 @@ do
         f  ) fflag=true;;
         o  ) oflag=true;;
         c  ) cflag=true;;
+        a  ) aflag=true;;
         h  ) usage; exit;;
         \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
         :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
@@ -149,7 +153,7 @@ function template_protection()
 if $fflag
 then
     echo "Deploying SDLF foundational repositories..." >&2
-    declare -a REPOSITORIES=("sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
+
     if $xflag ; then
         echo "External SCM deployment detected: ${SCM}"
         deploy_sdlf_foundations_scm
@@ -187,6 +191,50 @@ then
     aws cloudformation wait stack-create-complete --profile ${DEVOPS_PROFILE} --region ${REGION} --stack-name ${STACK_NAME}
 
     template_protection ${ENV} ${STACK_NAME} ${REGION} ${DEVOPS_PROFILE}
+    # Adding in CodeCommit Pull Request tests. Pass / Fail comments are injected into the 'Activity' tab of CodeCommit
+    if [ "$xflag" == "false" ] && [ "$aflag" == "true" ]
+    then
+        DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/${ENV}/CICDKeyId --region ${REGION} --profile ${DEVOPS_PROFILE} --query "Parameter.Value" --output text)
+        for REPOSITORY in "${REPOSITORIES[@]}"
+        do
+            # Currently the tests focus on cfn-lint and cfn_nag scans. Ignoring repositories
+            # that do not have these templates.
+
+            if [ "$REPOSITORY" != "sdlf-datalakeLibrary" ] && [ "$REPOSITORY" != "sdlf-pipLibrary" ]
+            then
+                # NOTE: The default is that only cfn-lint and cfn_nag tests are executed.
+                #       If wishing to execute different tests beyond cfn-lint / cfn_nag for any one of the repositories,
+                #       override the default values below by adding if conditions. An example is below:
+                #
+                #       pInstallationCommands="gem install cfn-nag && pip3 install cfn-lint"
+                #       pTestCommands="cfn-lint **/*.yaml && cfn_nag_scan --input-path ./ --template-pattern '..*\.yaml|..*\.yml' -s"
+                #       if [ "$REPOSITORY" == "sdlf-team" ]
+                #       then
+                #           pInstallationCommands="$pInstallationCommands && pip3 install -r policy_creation/requirements.txt"
+                #           pTestCommands="$pTestCommands && pytest --cov=bucket_policies -v"
+                #       fi
+                pInstallationCommands="gem install cfn-nag && pip3 install cfn-lint"
+                pTestCommands="cfn-lint **/*.yaml && cfn_nag_scan --input-path ./ --template-pattern '..*\.yaml|..*\.yml' -s"
+
+                STACK_NAME="$REPOSITORY-pr-check-stack"
+                aws cloudformation deploy \
+                    --stack-name "${STACK_NAME}" \
+                    --template-file ${DIRNAME}/sdlf-cicd/template-codecommit-pr-check.yaml \
+                    --parameter-overrides \
+                        pTargetRepositoryName="${REPOSITORY}" \
+                        pKMSKeyArn="${DEVOPS_ACCOUNT_KMS}" \
+                        pInstallationCommands="${pInstallationCommands}" \
+                        pTestCommands="${pTestCommands}" \
+                    --tags Framework=sdlf \
+                    --capabilities "CAPABILITY_IAM" \
+                    --region ${REGION} \
+                    --profile ${DEVOPS_PROFILE} \
+                    --no-fail-on-empty-changeset
+
+                template_protection "mgmt" ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
+            fi
+        done
+    fi
 fi
 
 if $cflag
