@@ -231,7 +231,7 @@ then
                     --profile ${DEVOPS_PROFILE} \
                     --no-fail-on-empty-changeset
 
-                template_protection "mgmt" ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
+                template_protection ${ENV} ${STACK_NAME} ${REGION} ${CHILD_PROFILE}
             fi
         done
     fi
