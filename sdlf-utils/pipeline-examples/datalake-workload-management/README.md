@@ -64,3 +64,5 @@ The Architecture can be deployed as a standalone solution in a data pipeline wit
         ./cleanup.sh -p <aws-profile:default:default> -r <region:default:us-east-1>
     ```
 
+### Conclusion
+The workload management solution can be really helpful when the workload needs to be distributed across various sources based on priority levels, it will ensure that no one source takes control of all available resources and help the customer customize the solution based on their requirement enabling them to scale better
