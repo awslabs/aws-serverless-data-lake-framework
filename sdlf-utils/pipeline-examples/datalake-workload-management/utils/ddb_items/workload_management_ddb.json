@@ -1,0 +1,19 @@
+{
+    "LEGISLATORS-REGIONS":
+    {
+        "priority": "LOW"
+    },
+    "LEGISLATORS-MEMBERSHIPS":
+    {
+        "priority": "HIGH"
+    },
+    "LEGISLATORS-ORGANIZATIONS":
+    {
+        "priority": "LOW"
+    },
+    "LEGISLATORS-PERSONS":
+    {
+        "priority": "LOW"
+    }
+
+}

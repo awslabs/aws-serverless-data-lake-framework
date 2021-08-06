@@ -1,0 +1,413 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: "workload management Resources to be created by the common stack"
+
+Parameters:
+  pKMSKeyId:
+    Type: String
+  pSNSNotificationsEmail:
+    Type: String
+  pddb:
+    Type: String
+
+Resources:
+  ######## S3 #########
+  rWlmBucket:
+    Type: "AWS::S3::Bucket"
+    DependsOn: rQueuePolicy
+    Properties:
+      BucketName: !Sub "workload-management-${AWS::Region}-${AWS::AccountId}-landing-bucket"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .trigger
+            Queue: !GetAtt rQueueRouting.Arn
+
+  
+  ######## Lambda & SQS #########
+  rQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 's3.amazonaws.com'
+            Action:
+              - SQS:SendMessage
+            Resource: !GetAtt rQueueRouting.Arn
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub "arn:aws:s3:::workload-management-${AWS::Region}-${AWS::AccountId}-landing-bucket"
+  
+      Queues:
+        - !Ref rQueueRouting
+
+  rQueueRouting:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['-', ["wlm", "routing", "queue"]]
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt rDeadLetterQueueRouting.Arn
+        maxReceiveCount: 1
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rDeadLetterQueueRouting:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['-', ["wlm", "routing", "dlq"]]
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rQueueHigh:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['-', ["wlm", "high", "queue.fifo"]]
+      FifoQueue: True
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt rDeadLetterQueuepriority.Arn
+        maxReceiveCount: 1
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rQueueLow:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['-', ["wlm", "low", "queue.fifo"]]
+      FifoQueue: True
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt rDeadLetterQueuepriority.Arn
+        maxReceiveCount: 1
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  rDeadLetterQueuepriority:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['-', ["wlm", "priority", "dlq.fifo"]]
+      FifoQueue: True
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSKeyId
+
+  
+
+  rRoleLambdaExecutionRouting:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "wlm-routing"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "wlm-routing"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+            - Effect: Allow
+              Action: 'sns:Publish'
+              Resource:
+                - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
+            - Effect: Allow
+              Action:
+                - "dynamodb:Get*"
+                - "dynamodb:Query"
+                - "dynamodb:Scan"
+              Resource:
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/workload-management-ddb"
+            - Effect: Allow
+              Action:
+                - "kms:DescribeKey"
+                - "kms:Encrypt"
+                - "kms:Decrypt"
+                - "kms:ReEncrypt*"
+                - "kms:GenerateDataKey*"
+                - "kms:CreateGrant"
+              Resource: !Ref pKMSKeyId
+            - Effect: Allow
+              Action:
+                - "sqs:List*"
+                - "sqs:ReceiveMessage"
+                - "sqs:SendMessage*"
+                - "sqs:DeleteMessage*"
+                - "sqs:GetQueue*"
+              Resource:
+                - !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:wlm-*"
+            -
+              Effect: "Allow"
+              Action:
+                - "s3:PutObject"
+                - "s3:GetObject"
+                - "s3:GetObjectVersion"
+                - "s3:GetBucketAcl"
+                - "s3:GetBucketLocation"
+                - "s3:ListBucket"
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - "states:DescribeStateMachineForExecution"
+                - "states:DescribeStateMachine"
+                - "states:StartExecution"
+                - "states:ListStateMachines"
+                - "states:ListExecutions"
+              Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:wlm-*"
+          
+
+
+  rLambdaSendEvent:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: ../lambda/send-events-sqs/src
+      FunctionName: !Join ['-', ["wlm", "send-events", "sqs"]]
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          REGION: !Ref 'AWS::Region'
+          HIGH: !GetAtt rQueueHigh.QueueName
+          LOW: !GetAtt rQueueLow.QueueName
+          ddb: !Ref pddb
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Description: "Routes sqs messages to relevant priority queue"
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecutionRouting.Arn
+      KmsKeyArn: !Ref pKMSKeyId
+
+  rQueueLambdaEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: True
+      EventSourceArn: !GetAtt rQueueRouting.Arn
+      FunctionName: !GetAtt rLambdaSendEvent.Arn
+
+  rLambdaWLM:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: ../lambda/workload-management/src
+      FunctionName: !Join ['-', ["wlm", "lambda"]]
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          REGION: !Ref 'AWS::Region'
+          STEPFUNCTION: !Ref rStateMachine
+          HIGH: !GetAtt rQueueHigh.QueueName
+          LOW: !GetAtt rQueueLow.QueueName
+          ddb: !Ref pddb
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Description: "lambda to manage workload for data pipeline"
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecutionRouting.Arn
+      KmsKeyArn: !Ref pKMSKeyId
+
+  rLambdaStep1:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: ../lambda/step1/src
+      FunctionName: !Join ['-', ["wlm", "test"]]
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          REGION: !Ref 'AWS::Region'
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Description: "Test lambda for demo"
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecutionRouting.Arn
+      KmsKeyArn: !Ref pKMSKeyId
+
+  rLambdaRerun:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: ../lambda/rerun/src
+      FunctionName: !Join ['-', ["wlm", "rerun"]]
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          REGION: !Ref 'AWS::Region'
+          HIGH: !GetAtt rQueueHigh.QueueName
+          LOW: !GetAtt rQueueLow.QueueName
+          ddb: !Ref pddb
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Description: "Routes sqs messages to the relevant sqs after failure"
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecutionRouting.Arn
+      KmsKeyArn: !Ref pKMSKeyId
+
+  ######## TRIGGERS #########
+  rPostStateRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: !Join ['-', ["wlm", trigger, "rule"]]
+      Description: Trigger workload management Lambda every 5 minutes
+      State: ENABLED
+      ScheduleExpression: "cron(*/5 * * * ? *)"
+      Targets:
+        - Id: !Join ['-', ["wlm", trigger, "rule"]]
+          Arn: !GetAtt rLambdaWLM.Arn
+            
+  rPermissionEventsInvokeRoutingLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Join ['-', ["wlm", "lambda"]]
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt rPostStateRule.Arn
+
+
+  rSNSErrorTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: 'wlm-notifications-error'
+      KmsMasterKeyId: !Ref pKMSKeyId
+  
+  rSNSTopicPolicy2:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Id: 'wlm-notifications'
+        Version: '2012-10-17'
+        Statement:
+        - Sid: 'wlm-notifications-error'
+          Effect: Allow
+          Principal:
+            Service:
+              - 'cloudwatch.amazonaws.com'
+              - 'cloudtrail.amazonaws.com'
+              - 'lambda.amazonaws.com'
+              - 'states.amazonaws.com'
+          Action: 'sns:Publish'
+          Resource: !Ref rSNSErrorTopic
+      Topics:
+      - !Ref rSNSErrorTopic
+
+  SnsErrorSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref pSNSNotificationsEmail
+      Protocol: "email"
+      TopicArn: !Ref rSNSErrorTopic
+
+
+  rStatesExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "wlm-states-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub "states.${AWS::Region}.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "wlm-states-execution"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:wlm-*"
+              - Effect: Allow
+                Action: 'sns:Publish'
+                Resource:
+                  - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
+
+
+  ######## STATE MACHINE #########
+  rStateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "wlm-states-machine"
+      DefinitionString:
+        !Sub
+          - |-
+                {
+                  "Comment": "Simple pseudo flow",
+                  "StartAt": "Try",
+                  "States": {
+                    "Try": {
+                      "Type": "Parallel",
+                      "Branches": [
+                        {
+                          "StartAt": "lambda",
+                          "States": {
+                            "lambda": {
+                              "Type": "Task",
+                              "Resource": "${lStep1}",
+                              "Comment": "test lambda",
+                              "End": true
+                            }
+                          }
+                        }
+                      ],
+                      "Catch": [
+                        {
+                          "ErrorEquals": [
+                            "States.ALL"
+                          ],
+                          "ResultPath": "$.error",
+                          "Next": "SNS"
+                        }
+                      ],
+                      "Next": "Done"
+                    },
+                    "Done": {
+                      "Type": "Succeed"
+                    },
+                    "SNS": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::sns:publish",
+                      "Parameters": {
+                        "Message": {
+                          "Input.$": "$"
+                        },
+                        "TopicArn": "${lError}"
+                      },
+                      "Next": "Failed"
+                    },
+                    "Failed": {
+                      "Type": "Fail"
+                    }
+                  }
+                }
+          - {
+              lStep1: !GetAtt rLambdaStep1.Arn,
+              lError: !Ref rSNSErrorTopic
+            }
+      RoleArn: !GetAtt rStatesExecutionRole.Arn
+
