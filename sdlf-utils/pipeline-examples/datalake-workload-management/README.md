@@ -6,7 +6,7 @@ This readme describes a workload management solution which can be used in data l
 In Data Lake projects, there are various different phases ranging from ingestion, foundations and consumption. During the Ingestion phases, a lot of data is ingested to the data lake on s3 from various sources. Each source can have multiple datasets that will be ingested concurrently onto the platform. During one of our usecase implementations, we faced couple of issues with large number of simultaneous step function executions which had multiple steps using glue/lambda resources. 1) The glue job failed with max concurrency which was resolved by adding wait states and increasing the limits 2) Associate KMS key when using KMS key in the glue security configuration where we hit a hard limit on associatekmskey action on CloudWatch log groups. 3) Glue crawler api throttle on start crawler. Furthermore, it become a concern when sources with large number of datasets started taking control of compute resources for a long time and clogging the pipeline. The workload management solution aims to control the flow of step function executions based on priority of source-dataset which will ensure all datasets are processed based on priority.
 
 ## Architecture
-![Architecture](workload\ management\ artifact.png)
+![Architecture](workload_management.png)
 
 
 ## Deployment
