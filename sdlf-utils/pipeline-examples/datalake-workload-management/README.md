@@ -10,34 +10,46 @@ In Data Lake projects, there are various different phases ranging from ingestion
 
 
 ## Deployment
-1. Use the artifacts in the `stageA` directory to create a SDLF pipeline with one stage. The resulting step function is as follows: 
-![research_stepfunctions_graph.png](docs/_static/dependency_stepfunction.png)
+1. We need to set up account profiles in ~/.aws/credentials
 
-2. Create the Aggregate Dataset using the template in the `dataset` directory. You can also develop a transform for this dataset that will be executed in the `Execute Transformation` step. Otherwise, use the dummy transformation in the `transforms` directory as a dummy for testing
+2. Run the below command on your local computer terminal to open the help message to see all the execution options
+    ```bash
+        ./deploy.sh -h
+        -h -- Opens up this help message
+        -p -- Name of the AWS profile to use for the Account
+        -r -- AWS Region to deploy to (e.g. eu-west-1)
+        -s -- S3 bucket to store artifact
+    ```
+3. We start by executing the below command. For demo purpose don’t provide -s and let deploy script create the bucket
+    ```bash
+        ./deploy.sh -p <aws-profile:default:default> -r <region:default:us-east-1>
+    ```
+    This will deploy all the nested cloudformation stacks required for the workload management solutions and also fill the DynamoDB with required information for demo purpose
 
-3. Once the Aggregate Dataset is deployed, update its DynamoDB entry in the `octagon-Dataset-$ENV` table to specify the Atomic Dataset(s) in the dependencies:
-```
-{
-  "dependencies": {
-    "dataset1": "engineering-legislators",
-    "dataset2": "engineering-politicians",
-    ...
-  },
-  "max_items_process": {
-    "stage_b": 100,
-    "stage_c": 100
-  },
-  "min_items_process": {
-    "stage_b": 1,
-    "stage_c": 1
-  },
-  "name": "engineering-dependent",
-  "pipeline": "aggregate",
-  "transforms": {
-    "stage_a_transform": "aggregate_dependent_transform",
-    "stage_b_transform": "heavy_transform_blueprint"
-  },
-  "version": 1
-}
-```
-The step function waits for the second stage of all specified Atomic Datasets to finish before executing the submitted transformation. If the conditions are not met, it waits for one hour and retries 2 times by default before abandoning. The retry duration and count can be amended in the stageA and dataset templates, respectively.
+4. Once all the stacks are deployed successfully, check the DDB to confirm if there are 4 records in the table. To start the demo, execute the below command to see the attributes
+    ```bash
+        ./bootstrap.sh -h
+        -h -- Opens up this help message
+        -p -- Name of the AWS profile to use for the Account
+        -r -- AWS Region to deploy to (e.g. eu-west-1)
+        -s -- S3 bucket to store artifact
+    ```
+5. We start by demo with below command. For demo purpose don’t provide -s and let bootstrap script use the bucket
+    ```bash
+        ./bootstrap.sh -p <aws-profile:default:default> -r <region:default:us-east-1>
+    ```
+
+6. Once the demo is done, run the clean-up script to delete all data, s3 bucket, DDB and all relevant cloudformation stacks. 
+    ```bash
+        ./cleanup.sh -h
+        -h -- Opens up this help message
+        -p -- Name of the AWS profile to use for the Account
+        -r -- AWS Region to deploy to (e.g. eu-west-1)
+        -s -- S3 bucket to store artifact
+    ```
+
+7. We start the clean-up with below command. For demo purpose don’t provide -s and let cleanup script use the bucket
+    ```bash
+        ./cleanup.sh -p <aws-profile:default:default> -r <region:default:us-east-1>
+    ```
+
