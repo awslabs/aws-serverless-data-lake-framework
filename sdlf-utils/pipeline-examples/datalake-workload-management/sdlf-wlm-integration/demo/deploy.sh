@@ -52,7 +52,7 @@ mkdir $DIRNAME/output
 
 function send_legislators() 
 {
-  ORIGIN=$DIRNAME/data/
+  ORIGIN=../../../legislators/data/
   
   CENTRAL_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/CentralBucket --profile $PROFILE --query "Parameter.Value")")
   STAGE_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/StageBucket --profile $PROFILE --query "Parameter.Value")")

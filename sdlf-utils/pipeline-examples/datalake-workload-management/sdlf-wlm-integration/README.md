@@ -4,28 +4,28 @@
         rDynamoOctagonWlm:
             Type: AWS::DynamoDB::Table
             Properties:
-            KeySchema:
-                - AttributeName: name
-                KeyType: HASH
-            AttributeDefinitions:
-                - AttributeName: name
-                AttributeType: S
-            BillingMode: PAY_PER_REQUEST
-            TableName: !Sub octagon-wlm-${pEnvironment}
-            SSESpecification:
-                SSEEnabled: True
-                SSEType: KMS
-                KMSMasterKeyId: !Ref pKMSKeyId
+                KeySchema:
+                  - AttributeName: name
+                    KeyType: HASH
+                AttributeDefinitions:
+                  - AttributeName: name
+                    AttributeType: S
+                BillingMode: PAY_PER_REQUEST
+                TableName: !Sub octagon-wlm-${pEnvironment}
+                SSESpecification:
+                  SSEEnabled: True
+                  SSEType: KMS
+                  KMSMasterKeyId: !Ref pKMSKeyId
             UpdateReplacePolicy: Retain
             DeletionPolicy: Delete
 
         rDynamoWlmSsm:
             Type: AWS::SSM::Parameter
             Properties:
-            Name: /SDLF/Dynamo/wlm
-            Type: String
-            Value: !Ref rDynamoOctagonWlm
-            Description: Name of the DynamoDB used to store wlm dataset-table priority metadata
+                Name: /SDLF/Dynamo/wlm
+                Type: String
+                Value: !Ref rDynamoOctagonWlm
+                Description: Name of the DynamoDB used to store wlm dataset-table priority metadata
     ```
 
 2. We need make changes in the sdlf-team --> nested stack ---> template-iam.yaml. Below changes are required.
@@ -60,9 +60,9 @@
     ```bash
         sdlf-stageA --> lambda --> stage-a-postupdate-metadata/src/lambda_function.py --> code changes that will evaluate which priority sqs queue to send the message based on the metadata defined at the wlm ddb table
 
-        sdlf-stageB --> lambda --> stage-b-process-data/src/lambda_function.py --> code changes that will figure out if there are available execution steps available in step function, based on available slots it will evaluate the messages to pull based on work load management logic
+        sdlf-stageB --> lambda --> stage-b-routing/src/lambda_function.py --> code changes that will figure out if there are available execution steps available in step function, based on available slots it will evaluate the messages to pull based on work load management logic
 
-        sdlf-stageB --> lambda --> stage-b-redrive-data/src/lambda_function.py  --> After any failure, once the error is resolved, take the original message from step function for failed execution and use lambda console to execute using the event. This lambda will put it into the relevant priority sqs queues based on metadata in WLM ddb table
+        sdlf-stageB --> lambda --> stage-b-redrive/src/lambda_function.py  --> After any failure, once the error is resolved, take the original message from step function for failed execution and use lambda console to execute using the event. This lambda will put it into the relevant priority sqs queues based on metadata in WLM ddb table
         
         sdlf-stageB --> template.yaml --> rRoleLambdaExecutionRoutingStep --> add states:ListExecutions permission action
     ```
