@@ -143,7 +143,7 @@ Resources:
           - Effect: Allow
             Action:
               - states:StartExecution
-              - states:ListExecutions
+              - states:ListExecutions #WLM
             Resource:
               - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
           - Effect: Allow
@@ -660,6 +660,7 @@ Resources:
                 Resource:
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Pipelines-${pEnvironment}
                   - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Datasets-${pEnvironment}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-wlm-${pEnvironment} #WLM
               - Effect: Allow
                 Action:
                   - events:DeleteRule

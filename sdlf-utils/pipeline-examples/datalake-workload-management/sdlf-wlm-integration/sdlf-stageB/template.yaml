@@ -180,6 +180,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - states:StartExecution
+                  - states:ListExecutions #WLM
                 Resource:
                   - !Ref rStateMachine
               - Effect: Allow

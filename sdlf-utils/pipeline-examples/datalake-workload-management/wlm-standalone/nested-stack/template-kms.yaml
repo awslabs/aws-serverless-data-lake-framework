@@ -76,25 +76,7 @@ Resources:
               StringEquals:
                 "kms:CallerAccount": !Ref AWS::AccountId
                 "kms:ViaService": !Sub dynamodb.${AWS::Region}.amazonaws.com
-          - Sid: Allow ElasticSearch access
-            Effect: Allow
-            Principal:
-              AWS: "*"
-            Action:
-              - "kms:DescribeKey"
-              - "kms:Encrypt"
-              - "kms:Decrypt"
-              - "kms:ReEncrypt*"
-              - "kms:GenerateDataKey*"
-              - "kms:CreateGrant"
-            Resource: "*"
-            Condition:
-              StringEquals:
-                "kms:CallerAccount": !Ref AWS::AccountId
-                "kms:ViaService": !Sub es.${AWS::Region}.amazonaws.com
-              Bool:
-                "kms:GrantIsForAWSResource": "true"
-
+          
   rKMSKeyAlias:
     Type: "AWS::KMS::Alias"
     Properties:

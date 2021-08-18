@@ -526,7 +526,7 @@ Resources:
       Type: String
       Value: !Ref rDynamoOctagonManifests
       Description: Name of the DynamoDB used to store manifest process metadata
-  rDynamoWlmSsm:
+  rDynamoWlmSsm: #WLM
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/Dynamo/wlm
