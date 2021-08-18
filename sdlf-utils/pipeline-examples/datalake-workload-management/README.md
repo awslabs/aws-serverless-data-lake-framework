@@ -12,13 +12,7 @@ In Data Lake projects, there are various different phases ranging from ingestion
 The Architecture is extensible by adding more SQS FIFO queues based on varying level of priorities and changing the workload management lambda logic and accomodating new sqs fifo queues.
 
 ## Extensibility to SDLF
-The Architecture can be deployed as a standalone solution in a data pipeline with more than 1 stage or can be used with the Serverless data lake framework.
-1.  ```stage-a-postupdate-metadata``` : This lambda needs to be changed to look at the dynamodb table for priority of the dataset and then send the message to that respective priority SQS fifo queue. Refer to logic in send-event-sqs lambda
-2. ```stage-b-sqs-queues```: All stageB sqs queues should be converted to FIFO so that order is maintained.
-3. ```stage-b-routing``` : This lambda needs to be changed and workload management logic has to be added here. Refer to code logic in workload-management lambda which will evaluate which messages has to be taken from which priority queue based on number of available slots designated to run concurrently in a step function. 
-4. ```stage-b-stepfunction```: This need to have a logic to send an sns message to a sns topic which can be subscribed by support and ops.
-5. ```stage-b-rerun```: Add this new lambda to stageb which the support/ops team can use to put the message back into the respective sqs fifo queue based on priority. The step function should never be run directly so as to maintain priority based workload management.
-6. ```ddb```: you can utilize octagon-pipeline-{env} instead of the new source-dataset-table
+Refer to the SDLF-WLM-INTEGRATION repository
 
 ## Deployment for demo as a stand alone solution
 1. We need to set up account profiles in ~/.aws/credentials

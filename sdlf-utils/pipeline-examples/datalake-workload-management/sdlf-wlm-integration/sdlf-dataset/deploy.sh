@@ -87,6 +87,7 @@ if ! aws cloudformation describe-stacks --profile $PROFILE --stack-name $STACK_N
     --table-name octagon-Datasets-$ENV \
     --item "$DATASET_JSON"
   echo "$TEAM_NAME-$DATASET_NAME DynamoDB Dataset entry created"
+  python ./wlm/scripts/fill_ddb.py $PROFILE $ENV $TEAM_NAME
 else
   echo -e "Stack exists, attempting update ..."
 
@@ -107,8 +108,10 @@ else
     # Don't fail for no-op update
     if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
       echo -e "\nFinished create/update - no updates to be performed";
+      python ./wlm/scripts/fill_ddb.py $PROFILE $ENV $TEAM_NAME
       exit 0;
     else
+      python ./wlm/scripts/fill_ddb.py $PROFILE $ENV $TEAM_NAME
       exit $status
     fi
   fi
@@ -134,6 +137,6 @@ else
       --expression-attribute-values "$VALUES_JSON" \
       --condition-expression "attribute_exists(#N)"
   echo "$TEAM_NAME-$DATASET_NAME DynamoDB Dataset entry updated"
+  python ./wlm/scripts/fill_ddb.py $PROFILE $ENV $TEAM_NAME
 fi
 
-python ./wlm/scripts/fill_ddb.py $PROFILE $ENV $TEAM_NAME
