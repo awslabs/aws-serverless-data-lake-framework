@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "KMS resources to be created by the kms stack"
+
+Resources:
+  ######## KMS #########
+  rKMSKey:
+    Type: "AWS::KMS::Key"
+    Properties:
+      Description: "Workload Management KMS Key"
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "workload-management-key-default-policy"
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow CloudTrail/CloudWatch alarms access
+            Effect: Allow
+            Principal:
+              Service: 
+                - "cloudwatch.amazonaws.com"
+                - "cloudtrail.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey*"
+              - "kms:Decrypt"
+            Resource: "*"
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service: !Sub "logs.${AWS::Region}.amazonaws.com"
+            Action:
+              - "kms:DescribeKey"
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:CreateGrant"
+            Resource: "*"
+          - Sid: Allow SNS access
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - "kms:Decrypt"
+              - "kms:GenerateDataKey*"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                "kms:CallerAccount": !Ref AWS::AccountId
+                "kms:ViaService": !Sub sns.${AWS::Region}.amazonaws.com
+          - Sid: Allow S3 Events access
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action:
+              - "kms:GenerateDataKey"
+              - "kms:Decrypt"
+            Resource: "*"
+          - Sid: Allow DynamoDB access
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - "kms:DescribeKey"
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:CreateGrant"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                "kms:CallerAccount": !Ref AWS::AccountId
+                "kms:ViaService": !Sub dynamodb.${AWS::Region}.amazonaws.com
+          
+  rKMSKeyAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: "alias/workload-management-kms-key"
+      TargetKeyId: !Ref rKMSKey
+
+  ######## SSM #########
+  rKMSKeySsm:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: "/workload/KMS/KeyArn"
+      Type: "String"
+      Value: !GetAtt rKMSKey.Arn
+      Description: "Arn of the KMS key"
+
+Outputs:
+  oKMSKeyId:
+    Description: "Arn of the KMS key"
+    Value: !GetAtt rKMSKey.Arn

@@ -1,0 +1,21 @@
+{
+    "legislators":[
+    
+    {
+        "table_name":"regions",
+        "priority": "LOW"
+    },
+    
+    {   "table_name": "memberships",
+        "priority": "HIGH"
+    },
+        
+    {   "table_name": "organizations",
+        "priority": "LOW"
+    },
+    
+    {   "table_name": "persons",
+        "priority": "LOW"
+    }]
+
+}
