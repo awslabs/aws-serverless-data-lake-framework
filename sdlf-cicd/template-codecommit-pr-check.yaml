@@ -1,0 +1,424 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack for creation of CodeCommit Pull Request Checking. Drawn from https://github.com/aws-samples/aws-codecommit-pull-request-aws-codebuild
+
+Parameters:
+  pTargetRepositoryName:
+    Description: The name of the target CodeCommit repository
+    Type: String
+  pKMSKeyArn:
+    Description: The name of the target kms key
+    Type: String
+  pCloudWatchLogsRetentionInDays:
+    Description: The number of days log events are kept in CloudWatch Logs
+    Type: Number
+    Default: 30
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
+  pInstallationCommands:
+    Description: The installation commands
+    Type: String
+  pTestCommands:
+    Description: The test commands
+    Type: String
+
+Resources:
+  rPullRequestLambdaRole:
+    Type: "AWS::IAM::Role"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that do not have resource limitations associated with them
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: enable-access-to-codecommit
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:AssociateKmsKey
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-pr-function*
+              - Effect: Allow
+                Action:
+                  - codecommit:BatchGet*
+                  - codecommit:Get*
+                  - codecommit:Describe*
+                  - codecommit:PostCommentForPullRequest
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSKeyArn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                  - xray:GetSamplingStatisticSummaries
+                Resource: "*"
+
+  rPullRequestLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "The relevant log groups are being created separately within the stack"
+    Properties:
+      FunctionName: !Sub "${pTargetRepositoryName}-pr-function"
+      Description: "Triggers CodeBuild on PR's in CodeCommit"
+      Handler: "index.lambda_handler"
+      MemorySize: 128
+      Role: !GetAtt rPullRequestLambdaRole.Arn
+      TracingConfig:
+        Mode: Active
+      Runtime: "python3.7"
+      Timeout: 10
+      Code:
+        ZipFile: |
+          import datetime
+          import boto3
+          codecommit_client = boto3.client('codecommit')
+          def lambda_handler(event, context):
+              if event['detail']['event'] in ['pullRequestSourceBranchUpdated', 'pullRequestCreated']:
+                  pull_request_id = event['detail']['pullRequestId']
+                  repository_name = event['detail']['repositoryNames'][0]
+                  source_commit = event['detail']['sourceCommit']
+                  destination_commit = event['detail']['destinationCommit']
+                  codecommit_client.post_comment_for_pull_request(
+                    pullRequestId = pull_request_id,
+                    repositoryName = repository_name,
+                    beforeCommitId = source_commit,
+                    afterCommitId = destination_commit,
+                    content = '**Validation Build started at {}. Please wait until validation results received.**'.format(datetime.datetime.utcnow().time())
+                  )
+
+  rPullRequestLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rPullRequestLambdaFunction}
+      KmsKeyId: !Ref pKMSKeyArn
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+
+  rPullRequestPermitEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref rPullRequestLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt rPREventRule.Arn
+
+  rCodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: "AWS-CodeBuild-Service-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+              - Effect: "Allow"
+                Action:
+                  - codecommit:BatchGet*
+                  - codecommit:BatchDescribe*
+                  - codecommit:Get*
+                  - codecommit:Describe*
+                  - codecommit:List*
+                  - codecommit:GitPull
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+
+  rPRCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      EncryptionKey: !Ref pKMSKeyArn
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt rCodeBuildRole.Arn
+      Source:
+        Type: CODECOMMIT
+        Location: !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${pTargetRepositoryName}
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.7
+            pre_build:
+              on-failure: ABORT
+              commands:
+                - ${pInstallationCommands}
+            build:
+              commands:
+                - ${pTestCommands}
+
+  rPRCWEventRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "events.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: sdlf-enable-access-to-codecommit
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "codebuild:StartBuild"
+                Resource:
+                  - !GetAtt rPRCodeBuildProject.Arn
+
+  rPREventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Trigger notifications based on CodeCommit PullRequests"
+      EventPattern:
+        source:
+          - "aws.codecommit"
+        detail-type:
+          - "CodeCommit Pull Request State Change"
+        resources:
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+        detail:
+          event:
+            - "pullRequestSourceBranchUpdated"
+            - "pullRequestCreated"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt rPullRequestLambdaFunction.Arn
+          Id: !Ref rPullRequestLambdaFunction
+        - Arn: !GetAtt rPRCodeBuildProject.Arn
+          RoleArn: !GetAtt rPRCWEventRole.Arn
+          Id: !Ref rPRCodeBuildProject
+          InputTransformer:
+            InputTemplate: |
+              {
+                "sourceVersion": <sourceVersion>,
+                "artifactsOverride": {"type": "NO_ARTIFACTS"},
+                "environmentVariablesOverride": [
+                   {
+                       "name": "pullRequestId",
+                       "value": <pullRequestId>,
+                       "type": "PLAINTEXT"
+                   },
+                   {
+                       "name": "repositoryName",
+                       "value": <repositoryName>,
+                       "type": "PLAINTEXT"
+                   },
+                   {
+                       "name": "sourceCommit",
+                       "value": <sourceCommit>,
+                       "type": "PLAINTEXT"
+                   },
+                   {
+                       "name": "destinationCommit",
+                       "value": <destinationCommit>,
+                       "type": "PLAINTEXT"
+                   }
+                ]
+              }
+            InputPathsMap:
+              sourceVersion: "$.detail.sourceCommit"
+              pullRequestId: "$.detail.pullRequestId"
+              repositoryName: "$.detail.repositoryNames[0]"
+              sourceCommit: "$.detail.sourceCommit"
+              destinationCommit: "$.detail.destinationCommit"
+
+  rCodeBuildResultFunctionLambdaRole:
+    Type: "AWS::IAM::Role"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that do not have resource limitations associated with them
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: enable-access-to-codecommit
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:AssociateKmsKey
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-cb-result-function*
+              - Effect: Allow
+                Action:
+                  - codecommit:BatchGet*
+                  - codecommit:Get*
+                  - codecommit:Describe*
+                  - codecommit:PostCommentForPullRequest
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSKeyArn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                  - xray:GetSamplingStatisticSummaries
+                Resource: "*"
+
+  rCodeBuildResultFunction:
+    Type: "AWS::Lambda::Function"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "The relevant log groups are being created separately within the stack"
+    Properties:
+      FunctionName: !Sub "${pTargetRepositoryName}-cb-result-function"
+      Description: "Triggers And updates CodeCommit with information from PR's"
+      Handler: "index.lambda_handler"
+      MemorySize: 128
+      Role: !GetAtt rCodeBuildResultFunctionLambdaRole.Arn
+      TracingConfig:
+        Mode: Active
+      Runtime: "python3.7"
+      Timeout: 10
+      Code:
+        ZipFile: |
+          import boto3
+          codecommit_client = boto3.client('codecommit')
+          def lambda_handler(event, context):
+              for item in event['detail']['additional-information']['environment']['environment-variables']:
+                  if item['name'] == 'pullRequestId': pull_request_id = item['value']
+                  if item['name'] == 'repositoryName': repository_name = item['value']
+                  if item['name'] == 'sourceCommit': before_commit_id = item['value']
+                  if item['name'] == 'destinationCommit': after_commit_id = item['value']
+              s3_prefix = 's3-{0}'.format(event['region']) if event['region'] != 'us-east-1' else 's3'
+              for phase in event['detail']['additional-information']['phases']:
+                  if phase.get('phase-status') == 'FAILED':
+                      badge = 'https://{0}.amazonaws.com/codefactory-{1}-prod-default-build-badges/failing.svg'.format(s3_prefix, event['region'])
+                      content = '![Failing]({0} "Failing") - See the [Logs]({1})'.format(badge, event['detail']['additional-information']['logs']['deep-link'])
+                      break
+                  else:
+                      badge = 'https://{0}.amazonaws.com/codefactory-{1}-prod-default-build-badges/passing.svg'.format(s3_prefix, event['region'])
+                      content = '![Passing]({0} "Passing") - See the [Logs]({1})'.format(badge, event['detail']['additional-information']['logs']['deep-link'])
+              codecommit_client.post_comment_for_pull_request(
+                pullRequestId = pull_request_id,
+                repositoryName = repository_name,
+                beforeCommitId = before_commit_id,
+                afterCommitId = after_commit_id,
+                content = content
+              )
+
+  rCodeBuildResultLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rCodeBuildResultFunction}
+      KmsKeyId: !Ref pKMSKeyArn
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+
+  rPermissionForEventsToInvokeLambdaCC:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref rCodeBuildResultFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt rCodebuildEventEventRule.Arn
+
+  rCodebuildEventEventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Triggers when builds fail/pass in CodeBuild"
+      EventPattern:
+        source:
+          - "aws.codebuild"
+        detail-type:
+          - "CodeBuild Build State Change"
+        detail:
+          build-status:
+            - "FAILED"
+            - "SUCCEEDED"
+          project-name:
+            - !Ref rPRCodeBuildProject
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt rCodeBuildResultFunction.Arn
+          Id: !Ref rCodeBuildResultFunction

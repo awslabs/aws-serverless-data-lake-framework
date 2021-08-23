@@ -13,6 +13,7 @@ Resources:
   ######## KMS #########
   rKMSInfraKey:
     Type: AWS::KMS::Key
+    UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
     Metadata:
       cfn_nag:
@@ -105,6 +106,7 @@ Resources:
 
   rKMSDataKey:
     Type: AWS::KMS::Key
+    UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
     Properties:
       Description: !Sub ${pTeamName} Data KMS Key

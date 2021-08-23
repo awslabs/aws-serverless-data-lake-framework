@@ -1,0 +1,110 @@
+trigger:
+- master
+- dev
+- test
+
+name: <REPOSITORY>-$(Date:yyyyMMdd)$(Rev:.r)
+pool:
+  vmImage: 'ubuntu-20.04'
+
+parameters:
+- name: flowValidator
+  default: true 
+  type: boolean
+
+jobs:
+  - job: MirrorToCodeCommit
+    displayName: Mirror to AWS CodeCommit
+    steps:
+      - task: AWSShellScript@1
+        inputs:
+          awsCredentials: 'SERVICE_CONNECTION'
+          regionName: 'REGION'
+          scriptType: 'inline'
+          inlineScript: |
+            git checkout $(Build.SourceBranchName) 
+            git config --global credential.helper '!aws codecommit credential-helper $@'
+            git config --global credential.UseHttpPath true
+            git push https://git-codecommit.REGION.amazonaws.com/v1/repos/<REPOSITORY> --all
+  - job: Validation
+    displayName: VALIDATE TEAM REPOS
+    steps:
+    - bash: |
+        echo Setting-up organization: $(System.CollectionUri) and project: $(System.TeamProject)
+        echo $(sdlf-aztoken) | az devops login
+        az devops configure --defaults organization="$(System.CollectionUri)" project="$(System.TeamProject)"
+        sudo apt-get install -y jq
+      name: setup_azcli
+    - bash: |
+        if [ "master" ==  "$(Build.SourceBranchName)" ]; then ENV="prod"; else ENV="$(Build.SourceBranchName)"; fi
+        TEAM=`jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json`
+        PREFIX=$(sdlf-azure-prefix)
+        REPO=${PREFIX}-${TEAM}-sdlf-pipeline
+        FIRST_TIME=$(sdlf-team-firstTime)
+        REPO_COUNT=`az repos list |jq -r --arg REPO $REPO '.[] | select(.name==$REPO) | .name' |wc -l`
+        if [[ ${REPO_COUNT} -gt 0 || ${FIRST_TIME} -eq 1 ]]; then #validation in case the team has been created on AzDevOps
+          echo "##vso[task.setvariable variable=flowValidator;isOutput=true]No"
+        else
+          echo "##vso[task.setvariable variable=flowValidator;isOutput=true]Yes"
+        fi
+      name: validate_az_repos
+
+  - job: TeamArtifacts
+    displayName: CREATE TEAM AND PIPELINES ON AZURE
+    dependsOn: Validation
+    condition: eq(dependencies.Validation.outputs['validate_az_repos.flowValidator'], 'Yes')
+    steps:
+    - bash: |
+        echo Setting-up organization: $(System.CollectionUri) and project: $(System.TeamProject)
+        echo $(sdlf-aztoken) | az devops login
+        az devops configure --defaults organization="$(System.CollectionUri)" project="$(System.TeamProject)"
+        sudo apt-get install -y jq
+        git config --global user.email "you@example.com"
+        git config --global user.name "Your Name"
+      name: setup_azcli
+    - task: AWSShellScript@1
+      inputs:
+        awsCredentials: 'SERVICE_CONNECTION'
+        regionName: 'REGION'
+        scriptType: 'inline'
+        inlineScript: |
+          if [ "master" ==  "$(Build.SourceBranchName)" ]; then ENV="prod"; else ENV="$(Build.SourceBranchName)"; fi
+          declare -a REPOSITORIES=("pipeline" "dataset" "datalakeLibrary" "pipLibrary" "stageA" "stageB")
+          TEAM=`jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json`
+          for REPOSITORY in "${REPOSITORIES[@]}"; do
+            aws codecommit create-repository --repository-name sdlf-${TEAM}-${REPOSITORY}
+          done
+      name: repos_aws
+    - bash: |
+        echo "Creating team repositories"
+        if [ "master" ==  "$(Build.SourceBranchName)" ]; then ENV="prod"; else ENV="$(Build.SourceBranchName)"; fi
+        PREFIX=$(sdlf-azure-prefix)
+        TEAM=`jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-$ENV.json`
+        declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+        TOKEN64=`printf ":$(sdlf-aztoken)" | base64`
+        for REPOSITORY in "${REPOSITORIES[@]}"
+        do
+          echo "Creating repository ${PREFIX}-${TEAM}-${REPOSITORY}"
+          az repos create --name ${PREFIX}-${TEAM}-${REPOSITORY} --detect false > /dev/null
+          echo "Cloning base repository ${REPOSITORY}"
+          git  -c http.extraHeader="Authorization: Basic ${TOKEN64}" clone $(System.CollectionUri)/$(System.TeamProject)/_git/${PREFIX}-${REPOSITORY}
+          cd ${PREFIX}-${REPOSITORY}
+          sed -i "s/${REPOSITORY}/sdlf-${TEAM}-$(echo ${REPOSITORY} | cut -f 2 -d '-')/g" azure-pipelines.yml
+          git add azure-pipelines.yml && git commit -m "SDLF - Team deployment"
+          echo "Adding remote origen: ${PREFIX}-${TEAM}-${REPOSITORY}"
+          git remote add ${REPOSITORY} $(System.CollectionUri)/$(System.TeamProject)/_git/${PREFIX}-${TEAM}-${REPOSITORY}
+          git checkout -b dev
+          git checkout -b test
+          git -c http.extraHeader="Authorization: Basic ${TOKEN64}" push -u ${REPOSITORY} --all     
+          cd ..
+          echo "Creating pipeline ${PREFIX}-${TEAM}-${REPOSITORY}"
+          az pipelines create --name ${PREFIX}-${TEAM}-${REPOSITORY} \
+            --branch master --description "Pipeline SDLF for ${PREFIX}-${TEAM}-${REPOSITORY}" \
+            --folder-path "sdlf/${TEAM}" --yml-path azure-pipelines.yml \
+            --repository "${PREFIX}-${TEAM}-${REPOSITORY}" --repository-type tfsgit --skip-first-run true > /dev/null
+          echo "Running pipelines"
+          for BRANCH in master dev test; do
+            az pipelines run --name ${PREFIX}-${TEAM}-${REPOSITORY} --branch ${BRANCH} --folder-path 'sdlf\'${TEAM} > /dev/null
+          done
+        done
+      name: repos_azure_devops

@@ -64,4 +64,35 @@ if ! aws cloudformation describe-stacks --stack-name ${STACK_NAME}; then
 
   echo "Waiting for stack to be created ..."
   aws cloudformation wait stack-create-complete --stack-name ${STACK_NAME}
+else
+  echo -e "Stack exists, attempting update ..."
+
+  set +e
+  update_output=$( aws cloudformation update-stack \
+    --stack-name $STACK_NAME \
+    --parameters \
+        ParameterKey=pChildAccountId,ParameterValue="${CHILD_ACCOUNT}" \
+        ParameterKey=pEnvironment,ParameterValue="${ENV}" \
+        ParameterKey=pTeamName,ParameterValue="${TEAM_NAME}" \
+    --template-body file://${DIRNAME}/template-team-repos.yaml \
+    --tags file://${DIRNAME}/../tags.json \
+    --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" 2>&1)
+  status=$?
+  set -e
+
+  echo "$update_output"
+
+  if [ $status -ne 0 ] ; then
+    # Don't fail for no-op update
+    if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
+      echo -e "\nFinished create/update - no updates to be performed";
+      exit 0;
+    else
+      exit $status
+    fi
+  fi
+
+  echo "Waiting for stack update to complete ..."
+  aws cloudformation wait stack-update-complete --stack-name $STACK_NAME
+  echo "Finished create/update successfully!"
 fi

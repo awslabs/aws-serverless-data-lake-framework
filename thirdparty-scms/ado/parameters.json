@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "organization",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "project",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "repository-prefix",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "service-connection-name",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "sdlf-aztoken",
+    "ParameterValue": "XXXXXXXXXXXXXXX"
+  }
+]

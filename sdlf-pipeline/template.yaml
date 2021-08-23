@@ -58,6 +58,10 @@ Parameters:
     Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,12}"
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
+    Default: "false"
 
 Resources:
   ######## STATE MACHINES #########
@@ -85,6 +89,7 @@ Resources:
         pStageBucket: !Ref pStageBucket
         pTeamName: !Ref pTeamName
         pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
+        pEnableTracing: !Ref pEnableTracing
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
@@ -114,6 +119,7 @@ Resources:
         pStageBucket: !Ref pStageBucket
         pTeamName: !Ref pTeamName
         pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
+        pEnableTracing: !Ref pEnableTracing
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}

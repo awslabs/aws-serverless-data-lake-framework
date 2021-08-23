@@ -452,6 +452,31 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: Delete
 
+  rDynamoOctagonManifests:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: dataset_name
+          KeyType: HASH
+        - AttributeName: datafile_name
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: dataset_name
+          AttributeType: S
+        - AttributeName: datafile_name
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub octagon-Manifests-${pEnvironment}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: True
+        SSEType: KMS
+        KMSMasterKeyId: !Ref pKMSKeyId
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
   rDynamoObjectMetadataSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -473,6 +498,13 @@ Resources:
       Type: String
       Value: !Ref rDynamoOctagonTeams
       Description: Name of the DynamoDB used to store teams metadata
+  rDynamoManifestsSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Dynamo/Manifests
+      Type: String
+      Value: !Ref rDynamoOctagonManifests
+      Description: Name of the DynamoDB used to store manifest process metadata
 
 Outputs:
   oDynamoOctagonObjectMetadataStream:

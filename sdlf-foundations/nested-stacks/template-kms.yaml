@@ -6,6 +6,7 @@ Resources:
   rKMSKey:
     Type: AWS::KMS::Key
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       cfn_nag:
         rules_to_suppress:
