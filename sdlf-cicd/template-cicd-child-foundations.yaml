@@ -147,6 +147,8 @@ Resources:
                   - dynamodb:UntagResource
                   - dynamodb:UpdateTable
                   - dynamodb:UpdateTimeToLive
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:UpdateContinuousBackups
               - Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
                 Effect: Allow
                 Action:
