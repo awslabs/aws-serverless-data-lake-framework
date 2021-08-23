@@ -1,0 +1,9 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "sdlf-dev-unzip-fargate"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "pTaskName=\"ingestion\" pS3LandingBucketName=\"forecourt-datalake-dev-us-east-1-795269633652-landing\" pEcrUnzipDockerImage=\"795269633652.dkr.ecr.us-east-1.amazonaws.com/unzip-shell\" pFargateTaskCPU=\"512\" pFargateTaskMemory=\"2048\" pSubnetId=\"subnet-e48f15bb\" pS3LandingPrefix=\"landed/\" pS3LandingExt=\"txt.gz\" "

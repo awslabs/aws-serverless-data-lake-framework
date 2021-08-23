@@ -17,6 +17,8 @@ Parameters:
     Type: String
   pPipelineBucket:
     Type: String
+  pCloudWatchLogsRetentionInDays:
+    Type: Number
 
 Globals:
   Function:
@@ -155,7 +157,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../lambda/initial-check/src
-      FunctionName: !Sub sdlf-data-quality-initial-check
+      FunctionName: sdlf-data-quality-initial-check
       Description: Performs checks and determines which Data Quality job to run
       MemorySize: 256
       Timeout: 300
@@ -165,12 +167,14 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaJobCheckStep:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../lambda/check-job/src
-      FunctionName: !Sub sdlf-data-quality-check-job
+      FunctionName: sdlf-data-quality-check-job
       Description: Checks if job has finished (success/failure)
       MemorySize: 256
       Timeout: 300
@@ -180,12 +184,14 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaStep2:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../lambda/crawl-data/src
-      FunctionName: !Sub sdlf-data-quality-crawl-data
+      FunctionName: sdlf-data-quality-crawl-data
       Description: Glue crawler
       MemorySize: 256
       Timeout: 120
@@ -195,6 +201,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rLambdaReplicate:
     Type: AWS::Serverless::Function
@@ -213,6 +221,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaReplicate}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSKeyId
 
   rEventsInvokeLambdaPermission:
     Type: AWS::Lambda::Permission

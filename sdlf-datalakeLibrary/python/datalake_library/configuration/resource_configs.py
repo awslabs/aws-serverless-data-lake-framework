@@ -110,6 +110,7 @@ class DynamoConfiguration(BaseConfig):
     def _fetch_from_ssm(self):
         self._object_metadata_table = None
         self._transform_mapping_table = None
+        self._manifests_control_table = None
 
     @property
     def object_metadata_table(self):
@@ -124,6 +125,13 @@ class DynamoConfiguration(BaseConfig):
             self._transform_mapping_table = self._get_ssm_param(
                 '/SDLF/Dynamo/TransformMapping')
         return self._transform_mapping_table
+
+    @property
+    def manifests_control_table(self):
+        if not self._manifests_control_table:
+            self._manifests_control_table = self._get_ssm_param(
+                '/SDLF/Dynamo/Manifests')
+        return self._manifests_control_table
 
 
 class SQSConfiguration(BaseConfig):

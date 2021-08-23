@@ -1,0 +1,7 @@
+[
+    {
+        "awswrangler": {
+            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/2.5.0/awswrangler-2.5.0-py3-none-any.whl"
+        }
+    }
+]
