@@ -81,7 +81,7 @@ Resources:
               AWS: !Sub arn:aws:iam::${pSharedDevOpsAccountId}:root
             Action:
               - s3:Get*
-              - s3:Put*
+              - s3:PutObject
             Resource:
               - !Sub arn:aws:s3:::${rArtifactsBucket}/*
           - Effect: Deny
@@ -147,6 +147,8 @@ Resources:
                   - dynamodb:UntagResource
                   - dynamodb:UpdateTable
                   - dynamodb:UpdateTimeToLive
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:UpdateContinuousBackups
               - Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
                 Effect: Allow
                 Action:
