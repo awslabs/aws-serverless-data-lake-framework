@@ -16,8 +16,9 @@ class S3Interface:
     def __init__(self, log_level=None, s3_client=None, s3_resource=None):
         self.log_level = log_level or os.getenv('LOG_LEVEL', 'INFO')
         self._logger = init_logger(__name__, self.log_level)
-        self._s3_client = s3_client or boto3.client('s3')
-        self._s3_resource = s3_resource or boto3.resource('s3')
+        self._session_config = Config(user_agent="awssdlf/1.0.0")
+        self._s3_client = s3_client or boto3.client('s3', config=self._session_config)
+        self._s3_resource = s3_resource or boto3.resource('s3', config=self._session_config)
 
     def download_object(self, bucket, key):
         self._logger.info('Downloading object: {}/{}'.format(bucket, key))
