@@ -9,7 +9,7 @@ A data lake gives your organization agility. It provides a repository where cons
 
 ## Customers using the SDLF
 ![AWS Serverless Data Lake Framework](docs/source/_static/public-references.png?raw=true "AWS Serverless Data Lake Framework")
-*If you would like us to include your company’s name and/or logo in the README file to indicate that your company is using the AWS Serverless Data Lake Framework, please raise a "Become a reference customer" issue. If you would like us to display your company’s logo, please raise a linked pull request to provide an image file for the logo. Note that by raising a Public Reference issue (and related pull request), you are granting AWS permission to use your company’s name (and logo) for the limited purpose described here and you are confirming that you have authority to grant such permission.*
+*If you would like us to include your company’s name and/or logo in the README file to indicate that your company is using the AWS Serverless Data Lake Framework, please raise a "Support the SDLF" issue. If you would like us to display your company’s logo, please raise a linked pull request to provide an image file for the logo. Note that by raising a Public Reference issue (and related pull request), you are granting AWS permission to use your company’s name (and logo) for the limited purpose described here and you are confirming that you have authority to grant such permission.*
 
 ## Workshop
 To quickly get started with SDLF, follow our workshop:
