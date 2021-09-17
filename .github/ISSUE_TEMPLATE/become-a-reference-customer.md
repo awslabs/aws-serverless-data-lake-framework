@@ -13,6 +13,7 @@ Please add any files to *docs/source/_static/*
 
 Organisation Name: 
 Your Name:
+Your Position:
 I have included a logo: y/n
 
 *By raising a Public Reference issue (and related pull request), you are granting AWS permission to use your company’s name (and logo) for the limited purpose described here and you are confirming that you have authority to grant such permission.*
