@@ -1,7 +1,7 @@
 ---
 name: Become a reference customer
 about: Add your organisation's name or logo to the SDLF GitHub read.me
-title: ''
+title: "[Reference Customer]: "
 labels: ''
 assignees: ''
 
