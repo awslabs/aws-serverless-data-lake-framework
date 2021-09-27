@@ -91,6 +91,9 @@ Parameters:
         1827,
         3653,
       ]
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
 
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
@@ -770,7 +773,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep4LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: ""[log_type, log_timestamp, log_id, log_message]""
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep5LogGroup:
     Type: AWS::Logs::LogGroup
@@ -788,7 +791,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep5LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: ""[log_type, log_timestamp, log_id, log_message]""
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep6LogGroup:
     Type: AWS::Logs::LogGroup
@@ -806,7 +809,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep6LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: ""[log_type, log_timestamp, log_id, log_message]""
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep7LogGroup:
     Type: AWS::Logs::LogGroup
@@ -824,7 +827,7 @@ Resources:
       ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep7LogGroup
       DestinationArn: !Ref pKibanaFunction
-      FilterPattern: ""[log_type, log_timestamp, log_id, log_message]""
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
