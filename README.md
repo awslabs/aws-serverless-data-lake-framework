@@ -7,8 +7,9 @@ An [AWS Professional Service](https://aws.amazon.com/professional-services/) ope
 ## Motivation
 A data lake gives your organization agility. It provides a repository where consumers can quickly find the data they need and use it in their business projects. However, building a data lake can be complex; there’s a lot to think about beyond the storage of files. For example, how do you catalog the data so you know what you’ve stored? What ingestion pipelines do you need? How do you manage data quality? How do you keep the code for your transformations under source control? How do you manage development, test and production environments? Building a solution that addresses these use cases can take many weeks and this time can be better spent innovating with data and achieving business goals. The SDLF is a collection of production-hardened, best practice templates which accelerate your data lake implementation journey on AWS, so that you can focus on use cases that generate value for business.
 
-## Public References
+## Customers using the SDLF
 ![AWS Serverless Data Lake Framework](docs/source/_static/public-references.png?raw=true "AWS Serverless Data Lake Framework")
+*If you would like us to include your company’s name and/or logo in the README file to indicate that your company is using the AWS Serverless Data Lake Framework, please raise a "Support the SDLF" issue. If you would like us to display your company’s logo, please raise a linked pull request to provide an image file for the logo. Note that by raising a Support the SDLF issue (and related pull request), you are granting AWS permission to use your company’s name (and logo) for the limited purpose described here and you are confirming that you have authority to grant such permission.*
 
 ## Workshop
 To quickly get started with SDLF, follow our workshop:
