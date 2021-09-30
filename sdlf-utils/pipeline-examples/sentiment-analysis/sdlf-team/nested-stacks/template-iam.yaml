@@ -64,49 +64,6 @@ Resources:
                 !Sub "arn:aws:s3:::${pStageBucket}",
                 !Sub "arn:aws:s3:::${pAnalyticsBucket}",
               ]
-            Condition:
-              StringEquals:
-                s3:Prefix:
-                  [
-                    "",
-                    artifacts/,
-                    raw/,
-                    stage/,
-                    pre-stage/,
-                    post-stage/,
-                    analytics/,
-                    !Sub "${pTeamName}",
-                    !Sub "artifacts/${pTeamName}",
-                    !Sub "raw/${pTeamName}",
-                    !Sub "stage/${pTeamName}",
-                    !Sub "pre-stage/${pTeamName}",
-                    !Sub "post-stage/${pTeamName}",
-                    !Sub "analytics/${pTeamName}",
-                  ]
-                s3:delimiter: ["/"]
-          - Sid: AllowTeamPrefixList
-            Effect: Allow
-            Action:
-              - s3:ListBucket
-            Resource:
-              [
-                !Sub "arn:aws:s3:::${pPipelineBucket}",
-                !Sub "arn:aws:s3:::${pCentralBucket}",
-                !Sub "arn:aws:s3:::${pStageBucket}",
-                !Sub "arn:aws:s3:::${pAnalyticsBucket}",
-              ]
-            Condition:
-              StringLike:
-                s3:Prefix:
-                  [
-                    !Sub "${pTeamName}/*",
-                    !Sub "artifacts/${pTeamName}/*",
-                    !Sub "raw/${pTeamName}/*",
-                    !Sub "stage/${pTeamName}/*",
-                    !Sub "pre-stage/${pTeamName}/*",
-                    !Sub "post-stage/${pTeamName}/*",
-                    !Sub "analytics/${pTeamName}/*",
-                  ]
           - Sid: AllowTeamPrefixActions
             Effect: Allow
             Action:
@@ -196,9 +153,11 @@ Resources:
           - Effect: Allow
             Action:
               - glue:GetJobRun
+              - glue:GetJobRuns
               - glue:StartJobRun
             Resource:
               - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+              - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-*
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
@@ -471,6 +430,7 @@ Resources:
                   - logs:DeleteLogGroup
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
                   - logs:TagLogGroup
                 Resource:
                   - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
@@ -953,6 +913,14 @@ Resources:
                 Condition:
                   StringLike:
                     iam:AWSServiceName: elasticmapreduce.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                  - xray:GetSamplingStatisticSummaries
+                Resource: "*"
 
   rRoleCloudWatchEventRole:
     Type: AWS::IAM::Role

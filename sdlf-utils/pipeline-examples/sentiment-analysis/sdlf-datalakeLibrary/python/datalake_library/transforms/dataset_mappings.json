@@ -1,0 +1,9 @@
+[
+    {
+        "name": "paperclips",
+        "transforms": {
+            "stage_a_transform": "ml_light_transform",
+            "stage_b_transform": "ml_heavy_transform"
+        }
+    }
+]
