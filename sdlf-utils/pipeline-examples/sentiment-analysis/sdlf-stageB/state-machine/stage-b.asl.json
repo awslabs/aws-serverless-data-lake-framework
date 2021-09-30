@@ -1,0 +1,93 @@
+{
+  "Comment": "Simple pseudo flow",
+  "StartAt": "Try",
+  "States": {
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Run Comprehend Job",
+          "States":{
+            "Run Comprehend Job": {
+              "Type": "Task",
+              "Resource": "${lStep1}",
+              "Comment": "Run Comprehend Job",
+              "ResultPath": "$.body.job",
+              "Next": "Wait"
+            },
+            "Wait": {
+                "Type": "Wait",
+                "Seconds": 15,
+                "Next": "Get Job status"
+            },
+            "Get Job status": {
+                "Type": "Task",
+                "Resource": "${lCheckJob}",
+                "ResultPath": "$.body.job",
+                "Next": "Did Job finish?"
+            },
+            "Did Job finish?": {
+                "Type": "Choice",
+                "Choices": [{
+                    "Variable": "$.body.job.jobDetails.jobStatus",
+                    "StringEquals": "COMPLETED",
+                    "Next": "Process Comprehend Output"
+                },{
+                    "Variable": "$.body.job.jobDetails.jobStatus",
+                    "StringEquals": "FAILED",
+                    "Next": "Job Failed"
+                }],
+                "Default": "Wait"
+            },
+              "Job Failed": {
+              "Type": "Fail",
+              "Error": "Job Failed",
+              "Cause": "Job failed, please check the logs"
+            },
+            "Process Comprehend Output": {
+              "Type": "Task",
+              "Resource": "${lStep4}",
+              "Comment": "Process Comprehend Output",
+              "ResultPath": "$.statusCode",
+              "Next": "Run Glue Crawler"
+            },
+            "Run Glue Crawler": {
+              "Type": "Task",
+              "Resource": "${lStep2}",
+              "Comment": "Run Glue Crawler",
+              "ResultPath": "$.statusCode",
+              "Next": "Post-update Comprehensive Catalogue"
+            },
+            "Post-update Comprehensive Catalogue": {
+              "Type": "Task",
+              "Resource": "${lStep3}",
+              "Comment": "Post-update Comprehensive Catalogue",
+              "ResultPath": "$.body.job.jobDetails.tables",
+              "End": true
+            }
+          }
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [ "States.ALL" ],
+          "ResultPath": null,
+          "Next": "Error"
+        }
+      ],
+      "Next": "Done"
+    },
+    "Done": {
+      "Type": "Succeed"
+    },
+    "Error": {
+      "Type": "Task",
+      "Resource": "${lError}",
+      "Comment": "Send Original Payload to DLQ",
+      "Next": "Failed"
+    },
+    "Failed": {
+      "Type": "Fail"
+    }
+  }
+}

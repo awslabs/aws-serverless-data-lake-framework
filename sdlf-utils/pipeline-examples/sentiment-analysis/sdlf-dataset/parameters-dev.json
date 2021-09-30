@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "pTeamName",
+        "ParameterValue": "engineering"
+    },
+    {
+        "ParameterKey": "pPipelineName",
+        "ParameterValue": "ml"
+    },
+    {
+        "ParameterKey": "pDatasetName",
+        "ParameterValue": "paperclips"
+    }
+]
