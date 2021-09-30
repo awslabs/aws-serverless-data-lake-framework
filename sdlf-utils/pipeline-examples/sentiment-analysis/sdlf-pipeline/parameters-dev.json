@@ -17,10 +17,10 @@
     },
     {
         "ParameterKey": "pStageABranch",
-        "ParameterValue": "ml"
+        "ParameterValue": "dev"
     },
     {
         "ParameterKey": "pStageBBranch",
-        "ParameterValue": "ml"
+        "ParameterValue": "dev"
     }
 ]
