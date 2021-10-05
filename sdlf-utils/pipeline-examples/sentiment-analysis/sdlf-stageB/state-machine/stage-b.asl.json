@@ -28,15 +28,34 @@
             },
             "Did Job finish?": {
                 "Type": "Choice",
-                "Choices": [{
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "COMPLETED",
+                "Choices": [
+                  {
+                    "And": [
+                      {
+                        "Variable": "$.body.job.jobDetails.SentimentDetection.jobStatus",
+                        "StringEquals": "COMPLETED",
+                      },
+                      {
+                        "Variable": "$.body.job.jobDetails.KeyPhrasesDetection.jobStatus",
+                        "StringEquals": "COMPLETED",
+                      }
+                    ],
                     "Next": "Process Comprehend Output"
-                },{
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "FAILED",
+                  },
+                  {
+                    "And": [
+                      {
+                        "Variable": "$.body.job.jobDetails.SentimentDetection.jobStatus",
+                        "StringEquals": "FAILED",
+                      },
+                      {
+                        "Variable": "$.body.job.jobDetails.KeyPhrasesDetection.jobStatus",
+                        "StringEquals": "FAILED",
+                      }
+                    ],
                     "Next": "Job Failed"
-                }],
+                  },
+                ],
                 "Default": "Wait"
             },
               "Job Failed": {

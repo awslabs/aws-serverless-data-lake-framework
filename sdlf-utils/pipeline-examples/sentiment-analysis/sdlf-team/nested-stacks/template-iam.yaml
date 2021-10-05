@@ -186,8 +186,11 @@ Resources:
             Effect: Allow
             Action:
               - comprehend:DescribeSentimentDetectionJob
+              - comprehend:DescribeKeyPhrasesDetectionJob
               - comprehend:ListSentimentDetectionJobs
+              - comprehend:ListKeyPhrasesDetectionJobs
               - comprehend:StartSentimentDetectionJob
+              - comprehend:StartKeyPhrasesDetectionJob
               - comprehend:TagResource
               - comprehend:UntagResource
             Resource: "*"

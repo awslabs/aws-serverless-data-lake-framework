@@ -58,12 +58,17 @@ class CustomTransform():
         key = keys[0].rsplit("/", 1)[0]
         s3_input = "s3://{}/pre-stage/{}/{}/reviews".format(
             bucket, team, dataset)
-        s3_output = "s3://{}/post-stage/{}/{}/sentiments".format(
+        s3_sentiments_output = "s3://{}/post-stage/{}/{}/sentiments".format(
+            bucket, team, dataset)
+        s3_key_phrases_output = "s3://{}/post-stage/{}/{}/key_phrases".format(
             bucket, team, dataset)
         aws_account_id = bucket.split("-")[6]  # Get AWS account id from bucket name
-        job_name = "PaperclipReviewsSentimentAnalysis"
         data_access_role = "arn:aws:iam::{}:role/state-machine/sdlf-{}-ml-process-b".format(
             aws_account_id, team)
+
+        job_details = {}
+        sentiments_job_name = "PaperclipReviewsSentimentAnalysis"
+        key_phrases_job_name = "PaperclipReviewsKeyPhrasesDetection"
 
         # Finally let's call our Sentiment Analyis Job to Start
         response = client.start_sentiment_detection_job(
@@ -73,18 +78,39 @@ class CustomTransform():
             },
             OutputDataConfig={
                 "KmsKeyId": kms_key,
-                "S3Uri": s3_output
-
+                "S3Uri": s3_sentiments_output
             },
             VolumeKmsKeyId=kms_key,
             DataAccessRoleArn=data_access_role,
-            JobName=job_name,
+            JobName=sentiments_job_name,
             LanguageCode="en",
         )
 
         # Get our Job Details (including jobStatus so we can later check if Completed)
-        job_details = {
-            "jobName": job_name,
+        job_details["SentimentDetection"] = {
+            "jobName": sentiments_job_name,
+            "jobRunId": response["JobId"],
+            "jobStatus": response["JobStatus"]
+        }
+
+        # Call Key Phrases Detection Job to Start
+        response = client.start_key_phrases_detection_job(
+            InputDataConfig={
+                "S3Uri": s3_input,
+                "InputFormat": "ONE_DOC_PER_FILE"
+            },
+            OutputDataConfig={
+                "KmsKeyId": kms_key,
+                "S3Uri": s3_key_phrases_output
+            },
+            VolumeKmsKeyId=kms_key,
+            DataAccessRoleArn=data_access_role,
+            JobName=key_phrases_job_name,
+            LanguageCode="en",
+        )
+
+        job_details["KeyPhrasesDetection"] = {
+            "jobName": key_phrases_job_name,
             "jobRunId": response["JobId"],
             "jobStatus": response["JobStatus"]
         }
@@ -101,7 +127,7 @@ class CustomTransform():
         # 'jobStatus': 'SUBMITTED'}}
         #######################################################
 
-        processed_keys = "post-stage/{}/{}/sentiments".format(team, dataset)
+        processed_keys = "post-stage/{}/{}/".format(team, dataset)
 
         response = {
             "processedKeysPath": processed_keys,
@@ -112,11 +138,14 @@ class CustomTransform():
 
     def check_job_status(self, bucket, keys, processed_keys_path, job_details):
 
-        # Check on the status of our job to check if completed or still running
-        job_repsonse = client.describe_sentiment_detection_job(
-            JobId=job_details["jobRunId"])
-        job_details["jobStatus"] = job_repsonse["SentimentDetectionJobProperties"]["JobStatus"]
-        job_details["outputDataConfig"] = job_repsonse["SentimentDetectionJobProperties"]["OutputDataConfig"]
+        job_response = client.describe_sentiment_detection_job(JobId=job_details["SentimentDetection"]["jobRunId"])
+        job_details["SentimentDetection"]["jobStatus"] = job_response["SentimentDetectionJobProperties"]["JobStatus"]
+        job_details["SentimentDetection"]["outputDataConfig"] = job_response["SentimentDetectionJobProperties"]["OutputDataConfig"]
+
+        job_response = client.describe_key_phrases_detection_job(JobId=job_details["KeyPhrasesDetection"]["jobRunId"])
+        job_details["KeyPhrasesDetection"]["jobStatus"] = job_response["KeyPhrasesDetectionJobProperties"]["JobStatus"]
+        job_details["KeyPhrasesDetection"]["outputDataConfig"] = job_response["KeyPhrasesDetectionJobProperties"]["OutputDataConfig"]
+
 
         # #######################################################
         # # IMPORTANT
