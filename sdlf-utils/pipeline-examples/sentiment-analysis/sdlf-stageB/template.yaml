@@ -235,12 +235,14 @@ Resources:
                   - !Sub arn:aws:s3:::${pDatasetBucket}/analytics/${pTeamName}/*
               - Effect: Allow
                 Action:
-                  - comprehend:DescribeSentimentDetectionJob
-                  - comprehend:ListSentimentDetectionJobs
-                  - comprehend:StartSentimentDetectionJob
                   - iam:GetRole
                   - iam:PassRole
                   # TODO: Scope Down *
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - comprehend:Describe*
+                  - comprehend:List*
                 Resource: "*"
               - Effect: "Allow"
                 Action:

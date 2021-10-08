@@ -5,7 +5,7 @@
     },
     {
         "ParameterKey": "pPipelineName",
-        "ParameterValue": "ml"
+        "ParameterValue": "main"
     },
     {
         "ParameterKey": "pStageAStateMachineRepository",
