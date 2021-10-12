@@ -792,6 +792,12 @@ Resources:
                   - lambda:AddPermission
                   - lambda:RemovePermission
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - firehose:CreateDeliveryStream
+                  - firehose:DescribeDeliveryStream
+                  - firehose:ListDeliveryStreams
+                Resource: "*"
 
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role
