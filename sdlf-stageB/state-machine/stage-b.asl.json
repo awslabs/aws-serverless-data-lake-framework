@@ -56,23 +56,6 @@
               "Resource": "${lStep3}",
               "Comment": "Post-update Comprehensive Catalogue",
               "ResultPath": "$.statusCode",
-              "Next": "Data Quality"
-            },
-            "Data Quality": {
-              "Type":"Task",
-              "Resource":"arn:aws:states:::states:startExecution",
-              "Parameters":{
-                  "StateMachineArn":"${smDataQuality}",
-                  "Input": {"body.$": "$.body"}
-              },
-              "Retry":[
-                {
-                    "ErrorEquals":[
-                      "StepFunctions.ExecutionLimitExceeded"
-                    ]
-                }
-              ],
-              "Comment": "Data Quality",
               "End": true
             }
           }

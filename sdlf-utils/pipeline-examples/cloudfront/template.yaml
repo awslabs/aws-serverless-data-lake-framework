@@ -59,8 +59,8 @@ Parameters:
     Default: /SDLF/Lambda/UpdateCloudWatchSubscriptionFilterFunctionArn
   pKibanaFunction:
     Description: ARN of the Lambda function that collates logs
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/KibanaLambdaArn
+    Type: String
+    Default: ""
   pStatesExecutionRole:
     Type: AWS::SSM::Parameter::Value<String>
     Description: The ARN of the States Execution Role

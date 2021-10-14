@@ -55,8 +55,8 @@ Parameters:
     Default: /SDLF/ElasticSearch/Enabled
   pUpdateSubscriptionLambda:
     Description: ARN of the Lambda function used by the Custom Resource to update CloudWatch subscription filters
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/UpdateCloudWatchSubscriptionFilterFunctionArn
+    Type: String
+    Default: ""
   pKibanaFunction:
     Description: ARN of the Lambda function that collates logs
     Type: AWS::SSM::Parameter::Value<String>
