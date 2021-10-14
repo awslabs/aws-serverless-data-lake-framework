@@ -874,14 +874,6 @@ Resources:
           RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
           Id: sdlf-cicd-team
 
-  ######## LAKE FORMATION #########
-  rDataLakeSettings:
-    Type: AWS::LakeFormation::DataLakeSettings
-    Properties:
-      Admins:
-        - DataLakePrincipalIdentifier: !GetAtt rCodeBuildRole.Arn
-        - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
-
   ######## SSM #########
   rCFNBucketSsm:
     Type: AWS::SSM::Parameter

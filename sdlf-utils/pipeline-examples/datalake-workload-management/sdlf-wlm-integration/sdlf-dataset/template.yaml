@@ -128,19 +128,6 @@ Resources:
         S3Targets:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
-  rGlueCrawlerLakeFormationPermissions:
-    Type: AWS::LakeFormation::Permissions
-    Properties:
-      DataLakePrincipal:
-        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn:1}}"
-      Permissions:
-        - CREATE_TABLE
-        - ALTER
-        - DROP
-      Resource:
-        DatabaseResource:
-          Name: !Ref rGlueDataCatalog
-
   ######## SSM #########
   #Workload management changes
   #----------------------------

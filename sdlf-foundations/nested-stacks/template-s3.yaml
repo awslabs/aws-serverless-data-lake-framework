@@ -115,13 +115,6 @@ Resources:
                 aws:SecureTransport: False
             Principal: "*"
 
-  rCentralBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Condition: CreateSingleBucket
-    Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rCentralBucket}/
-      UseServiceLinkedRole: True
-
   rRawBucket:
     Type: AWS::S3::Bucket
     Condition: CreateMultipleBuckets
@@ -167,13 +160,6 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
-
-  rRawBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
-    Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rRawBucket}/
-      UseServiceLinkedRole: True
 
   rStageBucket:
     Type: AWS::S3::Bucket
@@ -221,13 +207,6 @@ Resources:
                 aws:SecureTransport: False
             Principal: "*"
 
-  rStageBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
-    Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rStageBucket}/
-      UseServiceLinkedRole: True
-
   rAnalyticsBucket:
     Type: AWS::S3::Bucket
     Condition: CreateMultipleBuckets
@@ -274,13 +253,6 @@ Resources:
                 aws:SecureTransport: False
             Principal: "*"
 
-  rAnalyticsBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
-    Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rAnalyticsBucket}/
-      UseServiceLinkedRole: True
-
   rDataQualityBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -317,12 +289,6 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
-
-  rDataQualityBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rDataQualityBucket}/
-      UseServiceLinkedRole: True
 
   rAthenaBucket:
     Type: AWS::S3::Bucket

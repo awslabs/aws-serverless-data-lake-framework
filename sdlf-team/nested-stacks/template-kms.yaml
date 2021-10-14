@@ -121,20 +121,6 @@ Resources:
             Principal:
               AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
             Resource: "*"
-          - Sid: Allow Lake Formation permissions
-            Action:
-              - kms:Decrypt
-              - kms:DescribeKey
-              - kms:Encrypt
-              - kms:GenerateDataKey*
-              - kms:ReEncrypt*
-            Effect: Allow
-            Principal:
-              AWS:
-                [
-                  !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess",
-                ]
-            Resource: "*"
 
   rKMSDataKeyAlias:
     Type: AWS::KMS::Alias
