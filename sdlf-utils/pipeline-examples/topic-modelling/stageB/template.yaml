@@ -880,7 +880,6 @@ Resources:
         lStep7: !GetAtt rLambdaStep7.Arn
         lCheckJob: !GetAtt rLambdaJobCheckStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
-        smDataQuality: "{{resolve:ssm:/SDLF/SM/DataQualityStateMachine:1}}"
       Role: !Ref pStatesExecutionRole
 
   ######## SSM OUTPUTS #########

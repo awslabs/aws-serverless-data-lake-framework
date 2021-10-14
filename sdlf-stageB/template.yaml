@@ -585,7 +585,6 @@ Resources:
         lStep3: !GetAtt rLambdaStep3.Arn
         lCheckJob: !GetAtt rLambdaJobCheckStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
-        smDataQuality: "{{resolve:ssm:/SDLF/SM/DataQualityStateMachine:1}}"
       Role: !Ref pStatesExecutionRole
       Tracing:
         Enabled: !If [EnableTracing, true, false]

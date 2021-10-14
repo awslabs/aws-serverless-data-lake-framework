@@ -10,8 +10,6 @@ Parameters:
     Type: String
   pCFNBucket:
     Type: String
-  pDataQualityStateMachine:
-    Type: String
   pEnvironment:
     Type: String
   pKMSInfraKeyId:
@@ -840,12 +838,6 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - states:DescribeStateMachine
-                  - states:DescribeStateMachineForExecution
-                  - states:StartExecution
-                Resource: !Ref pDataQualityStateMachine
               - Effect: Allow
                 Action:
                   - states:DescribeExecution
