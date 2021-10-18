@@ -45,7 +45,8 @@ def lambda_handler(event, context):
         
         kms_key = KMSConfiguration(team).get_kms_arn
         name = "MedicalResearchTopicClassifier"
-        data_access_role = 'arn:aws:iam::{ENTER_YOU_AWS_ACCOUNT_ID}:role/sdlf-{}-{}-create-classifier-b'.format(team, pipeline)
+        aws_account_id = context.invoked_function_arn.split(":")[4]
+        data_access_role = 'arn:aws:iam::{}:role/sdlf-{}-{}-create-classifier-b'.format(aws_account_id, team, pipeline)
 
         # Call Multi-Label Classifier Training to Start
         response = comprehend_client.create_document_classifier(

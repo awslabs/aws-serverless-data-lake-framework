@@ -61,7 +61,7 @@ class CustomTransform():
             bucket, team, dataset)
         s3_output = 's3://{}/post-stage/{}/{}/topics'.format(
             bucket, team, dataset)
-        aws_account_id = context.invoked_function_arn.split(":")[4]
+        aws_account_id = bucket.split("-")[-2]
         job_name = 'MedicalResearchTopics'
         number_topics = 20
         data_access_role = 'arn:aws:iam::{}:role/state-machine/sdlf-{}-ml-process-b'.format(
