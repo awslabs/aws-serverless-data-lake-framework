@@ -16,3 +16,7 @@ The src/state_machines/DataLakeTestController.json is the controlling step funct
 The high-level architecture of the data lake testing framework is show in this diagram.
 
 ![Architecture](docs/DataLakeTestingArchitecture.jpg)
+
+**Public Refereces**
+https://www.allthingsdistributed.com/2020/11/how-the-seahawks-are-using-an-aws-data-lake-to-improve-their-game.html
+https://www.forbes.com/sites/amazonwebservices/2020/11/30/how-the-seahawks-are-using-a-data-lake-to-improve-their-game/?sh=790ff357b7b3
