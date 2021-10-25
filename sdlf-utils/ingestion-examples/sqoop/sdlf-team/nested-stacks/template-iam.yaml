@@ -1,0 +1,1322 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Resources to manage a team
+
+Parameters:
+  pArtifactBucket:
+    Description: Name of the artifactory bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+  pCloudtraailBucket:
+    Description: Name of the artifactory bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CloudTrailBucket
+  pAnalyticsBucket:
+    Type: String
+  pAthenaBucket:
+    Type: String
+  pApplicationName:
+    Type: String
+  pCentralBucket:
+    Type: String
+  pCFNBucket:
+    Type: String
+  pDataQualityStateMachine:
+    Type: String
+  pEnvironment:
+    Type: String
+  pKMSInfraKeyId:
+    Type: String
+  pKMSDataKeyId:
+    Type: String
+  pOrganizationName:
+    Type: String
+  pPipelineBucket:
+    Type: String
+  pSharedDevOpsAccountId:
+    Type: String
+  pStageBucket:
+    Type: String
+  pTeamName:
+    Type: String
+
+Conditions:
+  CreateMultipleBuckets:
+    !Not [!Equals [!Ref pCentralBucket, !Ref pAnalyticsBucket]]
+
+Resources:
+  rTeamIAMManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F5
+            reason: Condition Applied
+    Properties:
+      ManagedPolicyName: !Sub sdlf-${pTeamName}-permissions-boundary
+      Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowConsoleListBuckets
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:ListAllMyBuckets
+            Resource: arn:aws:s3:::*
+          - Sid: AllowTeamBucketList
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketLocation
+              - s3:ListBucketMultipartUploads
+            Resource:
+              [
+                !Sub "arn:aws:s3:::${pPipelineBucket}",
+                !Sub "arn:aws:s3:::${pCentralBucket}",
+                !Sub "arn:aws:s3:::${pStageBucket}",
+                !Sub "arn:aws:s3:::${pAnalyticsBucket}",
+                !Sub "arn:aws:s3:::${pAthenaBucket}",
+              ]
+          - Sid: AllowTeamPrefixActions
+            Effect: Allow
+            Action:
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListMultipartUploadParts
+              - s3:AbortMultipartUpload
+              - s3:PutObjectTagging
+            Resource:
+              - !Sub arn:aws:s3:::${pPipelineBucket}/${pTeamName}/*
+              - !Sub arn:aws:s3:::${pPipelineBucket}/*/${pTeamName}/*
+              - !If [
+                  CreateMultipleBuckets,
+                  !Sub "arn:aws:s3:::${pCentralBucket}/${pTeamName}/*",
+                  !Sub "arn:aws:s3:::${pCentralBucket}/raw/${pTeamName}/*",
+                ]
+              - !Sub arn:aws:s3:::${pStageBucket}/${pTeamName}/*
+              - !Sub arn:aws:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
+              - !Sub arn:aws:s3:::${pStageBucket}/stage/${pTeamName}/*
+              - !Sub arn:aws:s3:::${pStageBucket}/post-stage/${pTeamName}/*
+              - !Sub arn:aws:s3:::${pAthenaBucket}/${pTeamName}/*
+              - !If [
+                  CreateMultipleBuckets,
+                  !Sub "arn:aws:s3:::${pAnalyticsBucket}/${pTeamName}/*",
+                  !Sub "arn:aws:s3:::${pAnalyticsBucket}/analytics/*",
+                ]
+          - Sid: Allows3Read
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListMultipartUploadParts
+              - s3:AbortMultipartUpload
+            Resource:
+              - !Sub arn:aws:s3:::${pArtifactBucket}/*
+              - !Sub arn:aws:s3:::${pCloudtraailBucket}/*
+          - Sid: AllowFullCodeCommitOnTeamRepositories
+            Effect: Allow
+            Action:
+              - codecommit:*
+            Resource:
+              - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+          - Sid: AllowTeamKMSDataKeyUsage
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource:
+              - !Ref pKMSDataKeyId
+              - !Ref pKMSInfraKeyId
+          - Sid: AllowSSMGet
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+          - Sid: AllowOctagonDynamoAccess
+            Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+              - dynamodb:GetShardIterator
+              - dynamodb:DescribeStream
+              - dynamodb:ListStreams
+              - dynamodb:ListShards
+            Resource:
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+          - Sid: AllowSQSManagement
+            Effect: Allow
+            Action:
+              - sqs:DeleteMessage
+              - sqs:DeleteMessageBatch
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:ListQueues
+              - sqs:ListDeadLetterSourceQueues
+              - sqs:ListQueueTags
+              - sqs:ReceiveMessage
+              - sqs:SendMessage
+              - sqs:SendMessageBatch
+            Resource:
+              - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource:
+              - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - glue:StartCrawler
+            Resource:
+              - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - glue:GetJobRun
+              - glue:GetJobRuns
+              - glue:StartJobRun
+            Resource:
+              - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+              - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Sid: AllowCloudWatchLogsReadOnlyAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:GetLogEvents
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/jobs/sdlf-${pTeamName}-*
+          - Sid: AllowCloudFormationReadOnlyAccess
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResource
+              - cloudformation:DescribeStackResources
+            Resource:
+              - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack:sdlf-${pTeamName}:*
+          - Sid: AllowAthenaProcessing
+            Effect: Allow
+            Action:
+              - lakeformation:GetDataAccess
+              - glue:Get*
+              - glue:CreateTable
+              - glue:DeleteTable
+              - glue:SearchTables
+              - glue:UpdateTable
+              - glue:CreatePartition
+              - glue:BatchCreatePartition
+              - athena:StartQueryExecution
+              - athena:GetQueryExecution
+              - athena:GetQueryResults
+            Resource:
+              - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:*
+              - !Sub arn:aws:athena:${AWS::Region}:${AWS::AccountId}:*
+              - !Sub arn:aws:lakeformation:${AWS::Region}:${AWS::AccountId}:*
+          - Sid: AllowEMR
+            Effect: Allow
+            Action:
+              - elasticmapreduce:*
+              - iam:PassRole
+            Resource: '*'
+          - Sid: AllowEvents
+            Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:ListTargetsByRule
+              - events:DeleteRule
+              - events:RemoveTargets
+            Resource:
+              - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+          - Sid: GetSecrets
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
+              - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
+          - Sid: CallLambda
+            Effect: Allow
+            Action:
+              - lambda:AddPermission
+              - lambda:InvokeFunction
+            Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}*
+
+  rCodePipelineRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F38
+            reason: Condition Applied
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-codepipeline
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-codepipeline
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: "*"
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - cloudformation.amazonaws.com
+                      - lambda.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !GetAtt rRoleCloudWatchEventRole.Arn
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/EMR*
+              - Effect: Allow
+                Action:
+                  - iam:ListRoles
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref rTeamIAMManagedPolicy
+              - Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                Condition:
+                  ArnEquals:
+                    iam:PolicyARN:
+                      - !Sub arn:aws:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
+                      - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+                      - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+                      - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+                      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PutRolePolicy
+                  - iam:UntagRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                  - iam:TagRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - iam:ListPolicies
+                  - iam:ListPolicyVersions
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:policy/*
+              - Effect: Allow
+                Action:
+                  - iam:CreatePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:DeletePolicy
+                  - iam:DeletePolicyVersion
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:policy/state-machine/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - iam:*InstanceProfile
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:UploadArchive
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:DescribeRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - lambda:GetLayerVersion
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateAlias
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:DeleteFunctionConcurrency
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:InvokeFunction
+                  - lambda:ListTags
+                  - lambda:PublishVersion
+                  - lambda:PutFunctionConcurrency
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateAlias
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-foundations-rKibana*
+              - Effect: Allow
+                Action:
+                  - lambda:CreateEventSourceMapping
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:UpdateEventSourceMapping
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:UpdateStack
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:aws:transform/*
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:CreateProject
+                  - codebuild:StartBuild
+                  - codebuild:UpdateProject
+                Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - states:CreateActivity
+                  - states:CreateStateMachine
+                  - states:ListActivities
+                  - states:ListStateMachines
+                  - states:TagResource
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - states:DeleteStateMachine
+                  - states:DescribeStateMachine
+                  - states:DescribeStateMachineForExecution
+                  - states:UpdateStateMachine
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - states:DescribeActivity
+                  - states:DeleteActivity
+                  - states:GetActivityTask
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:DeleteLogStream
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                  - logs:TagLogGroup
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+              - Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:SetAlarmState
+                Resource:
+                  - !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - sqs:ListQueues
+                Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - sqs:AddPermission
+                  - sqs:ChangeMessageVisibility
+                  - sqs:ChangeMessageVisibilityBatch
+                  - sqs:CreateQueue
+                  - sqs:DeleteQueue
+                  - sqs:GetQueueAttributes
+                  - sqs:SetQueueAttributes
+                  - sqs:TagQueue
+                Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBuckets
+                  - s3:ListObjectsV2
+                  - s3:PutBucketAcl
+                  - s3:PutBucketLogging
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutObject
+                  - s3:SetBucketEncryption
+                Resource:
+                  - !Sub arn:aws:s3:::${pCFNBucket}
+                  - !Sub arn:aws:s3:::${pCFNBucket}/*
+                  - !Sub arn:aws:s3:::${pPipelineBucket}
+                  - !Sub arn:aws:s3:::${pPipelineBucket}/*
+              - Effect: Allow
+                Action:
+                  - ssm:AddTagsToResource
+                  - ssm:DescribeParameters
+                  - ssm:GetOpsSummary
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
+                Action:
+                  - ssm:DeleteParameter
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSInfraKeyId
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              - Effect: Allow
+                Action: ec2:DescribeSubnets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateTable
+                  - dynamodb:*Backup
+                  - dynamodb:*Backups
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-${pTeamName}-*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*-emr-ec2
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*-emr-Role
+
+  rCloudWatchRepositoryTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-cloudwatch-repository-trigger
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-cloudwatch-repository-trigger
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+
+  rTransformValidateRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-transform-validate
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-transform-validate
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:Describe*
+                  - codecommit:Get*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:GitPull
+                  - codecommit:List*
+                  - codecommit:UploadArchive
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:aws:s3:::${pPipelineBucket}/*
+                  - !Sub arn:aws:s3:::${pCFNBucket}/*
+              - Effect: Allow
+                Action:
+                  - lambda:List*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:GetLayer*
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSInfraKeyId
+
+  rCICDCodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-cicd-codebuild
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-cicd-codebuild
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PutRolePolicy
+                  - iam:UntagRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                  - iam:TagRole
+                  - iam:CreateRole
+                  - iam:PassRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:UpdateStack
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:aws:transform/*
+              - Effect: Allow
+                Action:
+                  - ssm:AddTagsToResource
+                  - ssm:DescribeParameters
+                  - ssm:GetOpsSummary
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
+                Action:
+                  - ssm:DeleteParameter
+                  - ssm:DeleteParameters
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Pipelines-${pEnvironment}
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Datasets-${pEnvironment}
+              - Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateTable
+                  - dynamodb:*Backup
+                  - dynamodb:*Backups
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-${pTeamName}-*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - athena:CreateWorkGroup
+                  - athena:DeleteWorkGroup
+                  - athena:UpdateWorkGroup
+                Resource:
+                  - !Sub arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:DescribeRule
+                  - events:DisableRule
+                  - events:EnableRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - codepipeline:CreatePipeline
+                  - codepipeline:DeletePipeline
+                  - codepipeline:GetPipelineState
+                  - codepipeline:GetPipeline
+                  - codepipeline:UpdatePipeline
+                Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetProjects
+                  - codebuild:BatchGetBuilds
+                  - codebuild:CreateProject
+                  - codebuild:DeleteProject
+                  - codebuild:UpdateProject
+                Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Sub arn:aws:s3:::${pCFNBucket}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${pCFNBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSInfraKeyId
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess
+                  - lakeformation:GrantPermissions
+                  - lakeformation:RevokePermissions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - sqs:AddPermission
+                  - sqs:CreateQueue
+                  - sqs:ChangeMessageVisibility
+                  - sqs:ChangeMessageVisibilityBatch
+                  - sqs:DeleteQueue
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListQueueTags
+                  - sqs:RemovePermission
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                  - sqs:SetQueueAttributes
+                  - sqs:TagQueue
+                  - sqs:UntagQueue
+                Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - glue:TagResource
+                  - glue:UntagResource
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - glue:CreateCrawler
+                  - glue:DeleteCrawler
+                  - glue:GetCrawler
+                  - glue:GetCrawlers
+                  - glue:UpdateCrawler
+                Resource: !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - glue:CreateDatabase
+                  - glue:DeleteDatabase
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:UpdateDatabase
+                  - glue:*Table
+                Resource:
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pApplicationName}_${pEnvironment}_${pTeamName}_*
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/*${pTeamName}*
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/*
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:userDefinedFunction/*${pTeamName}*
+                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:userDefinedFunction/${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateAlias
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:DeleteFunctionConcurrency
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:InvokeFunction
+                  - lambda:ListTags
+                  - lambda:PublishVersion
+                  - lambda:PutFunctionConcurrency
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateAlias
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - lambda:CreateEventSourceMapping
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:UpdateEventSourceMapping
+                Resource: "*"
+
+  rCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-codebuild
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-codebuild
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:aws:s3:::${pPipelineBucket}/*
+                  - !Sub arn:aws:s3:::${pCFNBucket}/*
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource:
+                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSInfraKeyId
+
+  rStatesExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-states-execution
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt rCodePipelineRole.Arn
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-states-execution
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - states:DescribeStateMachine
+                  - states:DescribeStateMachineForExecution
+                  - states:StartExecution
+                Resource: !Ref pDataQualityStateMachine
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                  - states:StopExecution
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - events:DescribeRule
+                  - events:PutRule
+                  - events:PutTargets
+                Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
+              - Effect: Allow
+                Action:
+                  - elasticmapreduce:DescribeCluster
+                  - elasticmapreduce:RunJobFlow
+                  - elasticmapreduce:TerminateJobFlows
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - elasticmapreduce:AddJobFlowSteps
+                  - elasticmapreduce:CancelSteps
+                  - elasticmapreduce:DescribeStep
+                  - elasticmapreduce:ListInstanceFleets
+                  - elasticmapreduce:ListInstanceGroups
+                  - elasticmapreduce:ModifyInstanceFleet
+                  - elasticmapreduce:ModifyInstanceGroups
+                  - elasticmapreduce:SetTerminationProtection
+                Resource: !Sub arn:aws:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/EMR*
+              - Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                  - iam:PutRolePolicy
+                  - iam:UpdateRoleDescription
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/elasticmapreduce.amazonaws.com/AWSServiceRoleForEMRCleanup*
+                Condition:
+                  StringLike:
+                    iam:AWSServiceName: elasticmapreduce.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                  - xray:GetSamplingStatisticSummaries
+                Resource: "*"
+
+  rRoleCloudWatchEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-cloudwatch-event
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: events.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-trigger-lambda
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+        - PolicyName: !Sub sdlf-${pTeamName}-describe-state-machines
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:ListStateMachines
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:*
+        - PolicyName: !Sub sdlf-${pTeamName}-dataset-state-machine
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:DescribeStateMachineForExecution
+                  - states:DescribeStateMachine
+                  - states:StartExecution
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                Resource:
+                  - !Sub arn:aws:s3:::${pPipelineBucket}
+                  - !Sub arn:aws:s3:::${pCentralBucket}
+                  - !Sub arn:aws:s3:::${pStageBucket}
+                  - !Sub arn:aws:s3:::${pAnalyticsBucket}
+
+  rCodeBuildPublishLayerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-codebuild-publish-layer
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt rCodeBuildServiceRole.Arn
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-codebuild-publish-layer
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: lambda:PublishLayerVersion
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - dynamodb:Get*
+                  - dynamodb:Update*
+                  - dynamodb:Put*
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - Effect: Allow
+                Action:
+                  - ssm:AddTagsToResource
+                  - ssm:DescribeParameters
+                  - ssm:GetOpsSummary
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetBucketVersioning
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListBucket
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:aws:s3:::${pPipelineBucket}
+                  - !Sub arn:aws:s3:::${pPipelineBucket}/*
+                  - !Sub arn:aws:s3:::${pCFNBucket}
+                  - !Sub arn:aws:s3:::${pCFNBucket}/*
+
+  rDatalakeCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-datalake-crawler
+      Path: /service-role/
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-glue-crawler
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                Resource: arn:aws:s3:::aws-glue-*
+              - Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - arn:aws:s3:::aws-glue-*/*
+                  - arn:aws:s3:::*/*aws-glue-*/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - arn:aws:s3:::crawler-public*
+                  - arn:aws:s3:::aws-glue-*
+              - Effect: Allow
+                Action:
+                  - s3:ListObjectsV2
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:PutObject
+                  - s3:PutObjectVersion
+                Resource:
+                  - !Sub arn:aws:s3:::${pCentralBucket}/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pCentralBucket}/raw/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pStageBucket}/stage/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pStageBucket}/post-stage/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pAnalyticsBucket}/${pTeamName}/*
+                  - !Sub arn:aws:s3:::${pAnalyticsBucket}/analytics/${pTeamName}/*
+              - Effect: Allow
+                Action:
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:CreateGrant
+                Resource:
+                  - !Ref pKMSDataKeyId
+
+  ####### SSM #######
+  rTeamIAMManagedPolicySsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
+      Type: String
+      Value: !Ref rTeamIAMManagedPolicy
+      Description: The permissions boundary IAM Managed policy for the team
+  rCloudWatchEventStateMachineRoleNameSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/CloudWatchEventStateMachineRole
+      Type: String
+      Value: !Ref rRoleCloudWatchEventRole
+      Description: The name of the CloudWatch Event role that triggers the State Machines
+  rCodePipelineRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/CodePipelineRoleArn
+      Type: String
+      Value: !GetAtt rCodePipelineRole.Arn
+      Description: The ARN of the role used by CodePipeline
+  rCloudWatchRepositoryTriggerRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/CloudWatchRepositoryTriggerRoleArn
+      Type: String
+      Value: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
+      Description: The ARN of the CloudWatch Event role that triggers CodePipeline from CodeCommit
+  rStatesExecutionRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/StatesExecutionRoleArn
+      Type: String
+      Value: !GetAtt rStatesExecutionRole.Arn
+      Description: The ARN of the States Execution role
+  rDatalakeCrawlerRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/CrawlerRoleArn
+      Type: String
+      Value: !GetAtt rDatalakeCrawlerRole.Arn
+      Description: The ARN of the Crawler role
+
+Outputs:
+  oCodePipelineRoleArn:
+    Description: The ARN of the role used by CodePipeline
+    Value: !GetAtt rCodePipelineRole.Arn
+  oCodeBuildPublishLayerRoleArn:
+    Description: The ARN of the role used by CodeBuild to publish layers
+    Value: !GetAtt rCodeBuildPublishLayerRole.Arn
+  oCICDCodeBuildRoleArn:
+    Description: The ARN of the CICD role used by CodeBuild
+    Value: !GetAtt rCICDCodeBuildRole.Arn
+  oCodeBuildServiceRoleArn:
+    Description: The ARN of the service role used by CodeBuild
+    Value: !GetAtt rCodeBuildServiceRole.Arn
+  oCloudWatchRepositoryTriggerRoleArn:
+    Description: The ARN of the CloudWatch Event role that triggers CodePipeline from CodeCommit
+    Value: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
+  oStatesExecutionRoleArn:
+    Description: The ARN of the State Machine role
+    Value: !GetAtt rStatesExecutionRole.Arn
+  oTransformValidateRoleArn:
+    Description: The ARN of the Transform Validation role
+    Value: !GetAtt rTransformValidateRole.Arn

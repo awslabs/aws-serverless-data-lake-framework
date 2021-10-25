@@ -1,0 +1,686 @@
+# Copyright 2018 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+#
+# Licensed under the Amazon Software License (the License).
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+#   http://aws.amazon.com/asl/
+#
+# or in the license file accompanying this file. This file is distributed
+# on an AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+# aws cloudformation validate-template --template-body file://templates/sqoop/datalake-sqoop.yaml
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Data Lake Sqoop import tool
+Parameters:
+  version:
+    Type: String
+    Description: Flag version
+    Default: "1.9v"
+  pAthenaBucket:
+    Description: S3 Athena bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AthenaBucket
+  pArtifactsBucket:
+    Description: Name of the artifactory bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+  pAnalyticsBucket:
+    Description: The analytics bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AnalyticsBucket
+  pDatasetBucket:
+    Description:  Name of the raw data bucket
+    Type: String
+  pStageBucket:
+    Description: Name of the stage bucket
+    Type: String
+  pTeamName:
+    Type: String
+    Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
+  pSNSTopic:
+    Type: String
+    Default: Sqoop
+  pEMRsubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet where your EMR cluster will run
+  pEMRtypeMaster:
+    Type: String
+    Description: Instance type for the EMR Master node
+    Default: m4.large
+  pEMRtypeCore:
+    Type: String
+    Description: Instance type for the EMR Core node(s)
+    Default: m4.xlarge
+  pEMRtypeTask:
+    Type: String
+    Description: Instance type for the EMR Task node(s)
+    Default: m4.large
+  pEMRcountCore:
+    Type: Number
+    Default: 2
+    Description: Number of EMR Core Nodes to run
+  pEMRcountTask:
+    Type: Number
+    Default: 0
+    Description: Number of EMR Task Nodes to run
+  # You can get a list of available EMR releases here:
+  # https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-whatsnew-history.htmla
+  pEMRrelease:
+    Type: String
+    Default: emr-5.33.0
+    Description: Define the EMR cluster version to run
+    AllowedValues:
+      - emr-6.3.0
+      - emr-6.2.0
+      - emr-5.33.0
+      - emr-5.32.0
+      - emr-5.31.0
+  pPermissionsBoundaryManagedPolicy:
+    Description: The permissions boundary IAM Managed policy for the team
+    Type: String
+  pPipeline:
+    Description: The name of the pipeline (all lowercase, no symbols or spaces)
+    Type: String
+  pEnv:
+    Description: The name of the environment to deploy the dataset to
+    Type: String
+    Default: dev
+    AllowedValues: [dev, test, prod]
+  pKMSInfraKeyId:
+    Description: The team infrastructure KMS key
+    Type: String
+  pKMSDataKeyId:
+    Description: The team data KMS key
+    Type: String
+  pDatalakeLibLayer:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: The ARN of the latest Datalake Library Lambda Layer
+  pOrg:
+    Description: Name of the organization (all lowercase, no symbols or spaces)
+    Type: String
+  pStatesExecutionRole:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: The ARN of the States Execution Role
+  pApp:
+    Description: Name of the application (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]*"
+  pPipLibLayer:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: The ARN of the latest Pip Library Lambda Layer
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
+
+Globals:
+  Function:
+    Runtime: python3.8
+    Layers:
+      - !Ref pDatalakeLibLayer
+    Handler: lambda_function.lambda_handler
+    KmsKeyArn: !Ref pKMSInfraKeyId
+
+Conditions:
+  Prod: !Equals [!Ref pEnv, "prod"]
+  EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+
+Resources:
+
+  rDeadLetterQueueRoutingStep:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sdlf-${pTeamName}-${pPipeline}-dlq-x.fifo
+      FifoQueue: True
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 60
+      KmsMasterKeyId: !Ref pKMSInfraKeyId
+
+  # DynamoDB Table where crond and StepFunctionARN should be introduced
+  rDynamoSqoopStepFunctionsSchedules:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "job_name"
+          AttributeType: "S"
+      TableName: !Sub octagon-${pTeamName}-${pPipeline}-sqoop-${pEnv}
+      KeySchema:
+        - AttributeName: "job_name"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      SSESpecification:
+        KMSMasterKeyId: !Ref pKMSInfraKeyId
+        SSEEnabled: True
+        SSEType: KMS
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+
+  # LAMBDA
+
+  rSqoopScheduleDynamoTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 100
+      Enabled: True
+      EventSourceArn: !GetAtt rDynamoSqoopStepFunctionsSchedules.StreamArn
+      FunctionName: !GetAtt rLambdaCreateSqoopCron.Arn
+      StartingPosition: LATEST
+  # Lambda Functions Agregadas al script de sqoop
+  # This section has all lambda function to do the ingestion automation and data processing
+  rLambdaCreateSqoopCron:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Creates the cloudwatch rule for the sqoop process
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-create-sqoop-cron-x
+      CodeUri: ./lambda/stage-x-create-sqoop-cron/src
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt rRoleLmbCreateEvents.Arn
+      Environment:
+        Variables:
+         #quitar esto
+          DYNAMO_SCHEDULE_TABLE: !Ref rDynamoSqoopStepFunctionsSchedules
+          CLOUDWATCH_TARGET: !GetAtt rLambdaRouting.Arn
+
+#IAM
+
+  rRoleSqoopEMRcluster:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-emr-Role
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+        #- arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforAutoScalingRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - elasticmapreduce.amazonaws.com
+            - application-autoscaling.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-emr-x
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - athena:List*
+            - athena:Get*
+            - athena:Batch*
+            - athena:*Tag*
+            - athena:Start*
+            - athena:Stop*
+            - athena:CreatePreparedStatement
+            - athena:StartQueryExecution
+            - athena:CreateNamedQuery
+            - athena:UpdatePreparedStatement
+            - athena:StopQueryExecution
+            - athena:DeleteNamedQuery
+            - athena:DeletePreparedStatement
+            Resource: !Sub arn:aws:athena:*:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - kms:Encrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey
+            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+
+  rRoleSqoopEMREC2:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-emr-ec2
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-emr-ec2-x
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - elasticmapreduce:TerminateJobFlows
+            - elasticmapreduce:ModifyCluster
+            Resource: !Sub arn:aws:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
+          - Effect: Allow
+            Action:
+            - athena:List*
+            - athena:Get*
+            - athena:Batch*
+            - athena:*Tag*
+            - athena:Start*
+            - athena:Stop*
+            - athena:CreatePreparedStatement
+            - athena:StartQueryExecution
+            - athena:CreateNamedQuery
+            - athena:UpdatePreparedStatement
+            - athena:StopQueryExecution
+            - athena:DeleteNamedQuery
+            - athena:DeletePreparedStatement
+            Resource: !Sub arn:aws:athena:*:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+            - secretsmanager:GetSecretValue
+            Resource:
+            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/SDLF/credentials/*
+            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
+            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
+          - Effect: Allow
+            Action:
+            - secretsmanager:ListSecrets
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - kms:Encrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey
+            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+
+  rEmrInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref rRoleSqoopEMREC2
+      InstanceProfileName: !Sub sdlf-${pTeamName}-${pPipeline}-emr-ec2
+
+  rLambdaCommonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-common-x
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+          - Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource:
+              - !Ref pKMSInfraKeyId
+
+  # Error Handling Lambda Role
+  rRoleLambdaExecutionErrorStep:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-error-x
+      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /state-machine/
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-error-x
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:DeleteMessageBatch
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListDeadLetterSourceQueues
+                  - sqs:ListQueueTags
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                Resource:
+                  - !GetAtt rDeadLetterQueueRoutingStep.Arn
+
+  rCreateEMRCluster:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Creates the EMR sqoop cluster
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-create-emr-sqoop-cluster
+      CodeUri: ./lambda/stage-x-create-emr-cluster/src
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaEMRsqoop.Arn
+      Environment:
+        Variables:
+          KMS_DATA_KEY: !Ref pKMSDataKeyId
+          CLUSTER_LABEL: !Sub sdlf-sqoop-${pTeamName}-${pPipeline}
+          S3_BOOTSTRAP_BUCKET: !Sub ${pArtifactsBucket}
+          MY_LOG_BUCKET: !Sub ${pArtifactsBucket}
+          SUBNET_ID: !Ref pEMRsubnet
+          EMR_RELEASE: !Sub ${pEMRrelease}
+          INSTANCE_TYPE_MASTER: !Sub ${pEMRtypeMaster}
+          INSTANCE_TYPE_CORE: !If [Prod, !Ref pEMRtypeCore, m4.large]
+          INSTANCE_TYPE_TASK: !If [Prod, !Ref pEMRtypeTask, m4.large]
+          INSTANCE_COUNT_CORE_NODE: !If [Prod, !Ref pEMRcountCore, 2]
+          INSTANCE_COUNT_TASK_NODE: !If [Prod, !Ref pEMRcountTask, 0]
+          ENVIRONMENT: !Sub ${pEnv}
+          EMR_ROLE: !Ref rRoleSqoopEMRcluster
+          EMR_EC2_ROLE: !Ref rRoleSqoopEMREC2
+
+  rLambdaRouting:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Routes events to the Stage X stage machine
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-x
+      CodeUri: ./lambda/stage-x-routing/src
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaEMRsqoop.Arn
+      Environment:
+        Variables:
+          ORG: !Ref pOrg
+          APP: !Ref pApp
+          ENV: !Ref pEnv
+          TEAM: !Ref pTeamName
+          PIPELINE: !Ref pPipeline
+
+  rLambdaClusterExists:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Routes events to the Stage X stage machine
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-list-clusters
+      CodeUri: ./lambda/stage-x-list-available-clusters/src
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaCheckClusters.Arn
+
+  rLambdaJobStatus:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Routes events to the Stage X stage machine
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-job-status
+      CodeUri: ./lambda/stage-x-emr-job-status/src
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaCheckClusters.Arn
+
+  rPermissionCloudwatch2Lambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref rLambdaRouting
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+
+  rLambdaSubmitEMRStep:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lambda/stage-x-submit-step/src
+      Description: Submit Sqoop Programs
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-submit-steps
+      MemorySize: 384
+      Timeout: 600
+      Role: !GetAtt rRoleLambdaEMRsqoop.Arn
+      Environment:
+        Variables:
+          S3_BUCKET_ARTIFACTS: !Sub ${pArtifactsBucket}
+          S3_BUCKET_RAW: !Sub ${pDatasetBucket}
+
+  rLambdaErrorStep:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lambda/stage-x-error/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-x
+      Description: Fallback lambda to handle messages which failed processing
+      MemorySize: 256
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaExecutionErrorStep.Arn
+
+  # Lambda Roles
+  rRoleLmbCreateEvents:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-create-sqoop-cron
+      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-create-sqoop-cron-x
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:ListTargetsByRule
+                  - events:DeleteRule
+                  - events:RemoveTargets
+                Resource:
+                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:DescribeStream
+                  - dynamodb:ListStreams
+                Resource:
+                  - !GetAtt rDynamoSqoopStepFunctionsSchedules.StreamArn
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - lambda:AddPermission
+                Resource: !GetAtt rLambdaRouting.Arn
+
+  rRoleLambdaEMRsqoop:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-interact
+      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-interact-x
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+          - Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}*
+          - Effect: Allow
+            Action:
+            - elasticmapreduce:*
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject*
+            - s3:PutObject*
+            Resource: arn:aws:s3:::*/*
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            Resource: arn:aws:s3:::*
+          - Effect: Allow
+            Action:
+              - events:PutTargets
+              - lambda:AddPermission
+              - events:PutRule
+              - lambda:RemovePermission
+              - lambda:InvokeFunction
+              - dynamodb:Scan
+              - events:DeleteRule
+              - events:RemoveTargets
+              - events:ListTargetsByRule
+              - ssm:GetParameter
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - iam:Passrole
+            Resource:
+            - !GetAtt rRoleSqoopEMRcluster.Arn
+            - !GetAtt rRoleSqoopEMREC2.Arn
+          - Effect: Allow
+            Action:
+            - secretsmanager:GetSecretValue
+            Resource:
+            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
+            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
+          - Effect: Allow
+            Action:
+            - kms:CreateGrant
+            - kms:Decrypt
+            - kms:DescribeKey
+            - kms:Encrypt
+            - kms:GenerateDataKey*
+            - kms:ReEncrypt*
+            Resource:
+            - !Ref pKMSDataKeyId
+            - !Ref pKMSInfraKeyId
+
+  rRoleLambdaCheckClusters:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-list-clusters
+      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-algo-x
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticmapreduce:ListClusters
+                  - elasticmapreduce:DescribeStep
+                Resource: '*'
+
+  rStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-x
+      DefinitionUri: ./state-machine/stage-x.asl.json
+      DefinitionSubstitutions:
+        lStep1: !GetAtt rLambdaClusterExists.Arn
+        lStep2: !GetAtt rCreateEMRCluster.Arn
+        lStep3: !GetAtt rLambdaSubmitEMRStep.Arn
+        lStep4: !GetAtt rLambdaJobStatus.Arn
+        lError: !GetAtt rLambdaErrorStep.Arn
+      Role: !Ref pStatesExecutionRole
+      Tracing:
+        Enabled: !If [EnableTracing, true, false]
+
+  ######## SSM #########
+  rSSMDynamoSqoop:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Dynamo/${pTeamName}/${pPipeline}/SqoopExtraction
+      Type: String
+      Value: !Ref rDynamoSqoopStepFunctionsSchedules
+      Description: Table Name Dynamo for extract data with sqoop
+
+  rStateMachineSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/SM/${pTeamName}/${pPipeline}StageXSM
+      Type: String
+      Value: !Ref rStateMachine
+      Description: !Sub "ARN of the StageX ${pTeamName} ${pPipeline} State Machine"
+
+  # #Secrets Manager
+  # SecretAPIJsonORACLE:
+  #   Type: AWS::SecretsManager::Secret
+  #   Properties:
+  #     Description: "Secret for connection between GoogleAnalytics and AWS S3. Created to be used by lambda  ingestion flow. Required keys: json"
+  #     Name: /SDLF/credentials/oracle/MyDB
+  #     SecretString: {"username": "admin","password": "adminpw","database-engine": "oracle","host": "10.10.10.10","port": "1521","database": "MyDB", "properties": "", "url":"", "driver": ""}
