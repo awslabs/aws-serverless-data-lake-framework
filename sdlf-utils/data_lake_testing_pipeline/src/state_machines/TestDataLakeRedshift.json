@@ -1,0 +1,43 @@
+{
+  "Comment": "A generic template to execute a Lambda function that executes a redshift job",
+  "StartAt": "Trigger Redshift Job",
+  "States": {
+    "Trigger Redshift Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-2:983401557995:function:aws-ps-redshift-util-adhoc-query-lambda",
+      "Parameters": {
+        "secret.$": "$.secret",
+        "params.$":"$.params"
+      },
+      "Next": "Check For Duplicates"
+    },
+    "Check For Duplicates": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status",
+          "StringEquals": "FAILED",
+          "Next": "Failed"
+        },
+        {
+          "Variable": "$.status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "Complete"
+        }
+      ],
+      "Default": "Failed"
+    },
+    "Failed": {
+     "Type": "Task",
+     "Resource": "arn:aws:states:::sns:publish",
+     "Parameters": {
+       "TopicArn.$": "$.input.sns_topic_arn",
+       "Message": "Data Lake Job failed. Check AWS Console for details"
+     },
+     "End": true
+    },
+    "Complete": {
+      "Type": "Succeed"
+    }
+  }
+}
