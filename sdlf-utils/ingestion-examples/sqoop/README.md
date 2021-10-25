@@ -55,7 +55,8 @@ Modifications:
 #### JDBC and scripts installation
 
 * To include a new jar add it to the `sdlf-stageX/emr-sqoop-bootstrap/jdbc_jars` folder
-* Copy the content of the `sdlf-stageX/emr-sqoop-bootstrap` to the artifactory bucket
+* As per [AWS premium suport](https://aws.amazon.com/premiumsupport/knowledge-center/unknown-dataset-uri-pattern-sqoop-emr/) some sqoop versions may need kite-data-s3-1.1.0.jar. Download it and place it in the `sdlf-stageX/emr-sqoop-bootstrap/jdbc_jars` folder
+* Copy the content of the `sdlf-stageX/emr-sqoop-bootstrap` to the artifactory bucket 
 
 #### Cluster and node configuration
 Modify the parameters on the `sdlf-stageX/template.yam` to adjust the number and type of nodes and EMR release version
