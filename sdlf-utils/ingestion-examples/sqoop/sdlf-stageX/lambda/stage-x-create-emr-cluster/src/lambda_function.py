@@ -142,7 +142,6 @@ def lambda_handler(event, context):
                     'Value': env
                 }
             ],
-            SecurityConfiguration=f'sdlf-{team}-emr-security-config',
             StepConcurrencyLevel=3)
 
     except Exception as e:
