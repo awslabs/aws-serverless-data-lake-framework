@@ -173,9 +173,14 @@ Resources:
               },
               "LocalDiskEncryptionConfiguration" : {
                 "EncryptionKeyProviderType" : "AwsKms",
-                "AwsKmsKey" : "${rKMSDataKey}"
+                "AwsKmsKey" : "${rKMSDataKey}",
+                "EnableEbsEncryption" : true
               }
             }
+          },
+          "InstanceMetadataServiceConfiguration":{
+            "MinimumInstanceMetadataServiceVersion": 2,
+            "HttpPutResponseHopLimit": 1
           }
         }
 
