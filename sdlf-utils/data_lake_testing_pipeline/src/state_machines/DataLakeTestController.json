@@ -51,7 +51,7 @@
           "JobName.$": "$.TaskExecution",
           "TaskValidation.$": "$.TaskValidation"
         },
-        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestingGlueJob"
+        "StateMachineArn": "arn:aws:states:us-west-2:111111111111:stateMachine:TestingGlueJob"
       },
       "ResultPath": "$.output",
       "Next": "Next Test"
@@ -72,7 +72,7 @@
         "Input": {
           "ClusterId.$": "$.TaskExecution"
         },
-        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestingEMRJob"
+        "StateMachineArn": "arn:aws:states:us-west-2:111111111111:stateMachine:TestingEMRJob"
       },
       "ResultPath": "$.output",
       "Next": "Next Test"
@@ -87,7 +87,7 @@
           "secret.$": "$.TaskExecution",
           "params.$": "$.params"
         },
-        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestDataLakeRedshift"
+        "StateMachineArn": "arn:aws:states:us-west-2:111111111111:stateMachine:TestDataLakeRedshift"
       },
       "ResultPath": "$.output",
       "Next": "Next Test"

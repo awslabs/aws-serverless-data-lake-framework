@@ -4,7 +4,7 @@
   "States": {
     "Trigger EMR Job": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-west-2:983401557995:function:TestDataLakeEMR",
+      "Resource": "arn:aws:lambda:us-west-2:111111111111:function:TestDataLakeEMR",
       "Parameters": {
         "ClusterId.$": "$.ClusterId"
       },

@@ -4,7 +4,7 @@
   "States": {
     "Trigger Redshift Job": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-west-2:983401557995:function:aws-ps-redshift-util-adhoc-query-lambda",
+      "Resource": "arn:aws:lambda:us-west-2:111111111111:function:aws-ps-redshift-util-adhoc-query-lambda",
       "Parameters": {
         "secret.$": "$.secret",
         "params.$":"$.params"
