@@ -18,7 +18,6 @@ import org.apache.spark.sql.DataFrame
 import scala.collection.JavaConverters._
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.types
-import org.slf4j.LoggerFactory
 
 import com.amazon.deequ.profiles.{ColumnProfilerRunner, NumericColumnProfile}
 
@@ -43,14 +42,11 @@ object GlueApp {
       "targetBucketName").toArray)
 
     Job.init(args("JOB_NAME"), glueContext, args.asJava)
-    val logger = LoggerFactory.getLogger(args("JOB_NAME"))
 
     val team = args("team")
     val dataset = args("dataset")
     val dbName = args("glueDatabase")
     val tabNames = args("glueTables").split(",").map(_.trim)
-
-    logger.info("Starting Data profile Job...")
 
     for (tabName <- tabNames) {
         val profiler_df = glueContext.getCatalogSource(database = dbName,
@@ -79,7 +75,6 @@ object GlueApp {
 
         writeDStoS3(finalDataset, args("targetBucketName"), "profile-results", team, dbName, tabName, getYear, getMonth, getDay, getTimestamp)
     }
-    logger.info("Stop Job")
 
     Job.commit()
 
