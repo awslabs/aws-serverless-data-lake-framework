@@ -19,7 +19,6 @@ import org.apache.spark.sql.DataFrame
 import scala.util.matching.Regex
 import java.util.HashMap
 
-import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
@@ -91,7 +90,6 @@ object GlueApp {
         "targetBucketName").toArray)
 
     Job.init(args("JOB_NAME"), glueContext, args.asJava)
-    val logger = LoggerFactory.getLogger(args("JOB_NAME"))
 
     val dynamodbSuggestionTableName = args("dynamodbSuggestionTableName")
     val dynamodbAnalysisTableName = args("dynamodbAnalysisTableName")
@@ -104,7 +102,6 @@ object GlueApp {
     // Empty dataframe required for successful job compilation
     var analysisDataFrame: Seq[DataFrame] = Seq(spark.createDataFrame(spark.sparkContext.emptyRDD[Row], StructType(Seq())))
 
-    logger.info("Start Job")
     for (tabName <- tabNames) {
       //***********************************************************************//
       // Step2: Extracting suggestions from DynamoDB using input GLUE table
@@ -146,7 +143,6 @@ object GlueApp {
       }
     }
 
-    logger.info("Stop Job")
     Job.commit()
   }
 
