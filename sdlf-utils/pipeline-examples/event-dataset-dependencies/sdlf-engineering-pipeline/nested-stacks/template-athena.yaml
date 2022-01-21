@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: IAM Resources to manage a team
+
+Parameters:
+  pEnvironment:
+    Type: String
+  pKMSInfraKeyId:
+    Type: AWS::SSM::Parameter::Value<String>
+  pKMSDataKeyId:
+    Type: AWS::SSM::Parameter::Value<String>
+  pTeamName:
+    Type: String
+  pAthenaBucket:
+    Type: String
+  pPipelineName:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: python3.8
+    Handler: lambda_function.lambda_handler
+    KmsKeyArn: !Ref pKMSInfraKeyId
+
+Resources:
+  rDynamoDatasetDependenciesByTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub octagon-${pTeamName}-${pPipelineName}-ds-dependencies-by-table-${pEnvironment}
+      AttributeDefinitions:
+        - AttributeName: table_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: table_name
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        KMSMasterKeyId: !Ref pKMSInfraKeyId
+        SSEEnabled: True
+        SSEType: KMS
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    DeletionPolicy: Delete
+
+  rDynamoDatasetDependencies:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub octagon-${pTeamName}-${pPipelineName}-ds-dependencies-${pEnvironment}
+      AttributeDefinitions:
+        - AttributeName: dataset
+          AttributeType: S
+      KeySchema:
+        - AttributeName: dataset
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      SSESpecification:
+        KMSMasterKeyId: !Ref pKMSInfraKeyId
+        SSEEnabled: True
+        SSEType: KMS
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    DeletionPolicy: Delete
+
+  rAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Description: !Sub Athena workgroup for team ${pTeamName}, pipeline ${pPipelineName}
+      Name: !Sub ${pTeamName}_${pPipelineName}_workgroup
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: false
+        EngineVersion:
+          SelectedEngineVersion: Athena engine version 2
+          EffectiveEngineVersion: Athena engine version 2
+        ResultConfiguration:
+          EncryptionConfiguration:
+            EncryptionOption: SSE_KMS
+            KmsKey: !Sub ${pKMSDataKeyId}
+          OutputLocation: !Sub s3://${pAthenaBucket}/${pTeamName}/${pPipelineName}
+
+  rLambdaDependencies:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipelineName}-dependencies-table-athena
+      Description: ReadsDDB dependencies Stream to update DDB dependencies-by-table
+      CodeUri: lambda/craete-dependencies-by-table/src
+      MemorySize: 128
+      Timeout: 30
+      Role: !GetAtt rCreateDependenciesRole.Arn
+      Environment:
+        Variables:
+          DYNAMO_DEPENDENCIES_BYTABLE: !Ref rDynamoDatasetDependenciesByTable
+          DYNAMO_DEPENDENCIES: !Ref rDynamoDatasetDependencies
+
+  rLambdaEventFromDynamo:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt rDynamoDatasetDependencies.StreamArn
+      FunctionName: !GetAtt  rLambdaDependencies.Arn
+      StartingPosition: LATEST
+
+  rLambdaDependenciesPerrmission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref rLambdaDependencies
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+
+  rCreateDependenciesRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-${pPipelineName}-RoleCreateDependencies-by-Table
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipelineName}-dependencies
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:ListTargetsByRule
+                  - events:DeleteRule
+                  - events:RemoveTargets
+                Resource:
+                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:DescribeStream
+                  - dynamodb:ListStreams
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - kms:*
+                Resource:
+                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/*
+
+  ####### SSM #######
+  rAthenaWorkgroupSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/ATHENA/${pTeamName}/${pPipelineName}/WorkgroupName
+      Type: String
+      Value: !Ref rAthenaWorkgroup
+      Description: The ARN of the Crawler role
+  rDDBDependenciesSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/DDB/${pTeamName}/${pPipelineName}/Dependencies
+      Type: String
+      Value: !Ref rDynamoDatasetDependencies
+      Description: Table name of Dataset Dependencies
+  rDDBDependenciesByTableSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/DDB/${pTeamName}/${pPipelineName}/DependenciesByTable
+      Type: String
+      Value: !Ref rDynamoDatasetDependenciesByTable
+      Description: Table name of Dataset Dependencies by Table
