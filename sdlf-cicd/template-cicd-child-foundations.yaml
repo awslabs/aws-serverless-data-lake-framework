@@ -213,6 +213,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - iam:CreateGroup
+                  - iam:DeleteGroup
                   - iam:GetGroup*
                   - iam:AttachGroupPolicy
                   - iam:PutGroupPolicy
