@@ -214,6 +214,7 @@ Resources:
                 Action:
                   - iam:CreateGroup
                   - iam:GetGroup*
+                  - iam:AttachGroupPolicy
                   - iam:PutGroupPolicy
                   - iam:DeleteGroupPolicy
               - Resource: "*"
