@@ -209,6 +209,12 @@ Resources:
                   - iam:DeletePolicyVersion
                   - iam:GetPolicy
                   - iam:GetPolicyVersion
+              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:group/sdlf-*
+                Effect: Allow
+                Action:
+                  - iam:CreateGroup
+                  - iam:GetGroup*
+                  - iam:PutGroupPolicy
               - Resource: "*"
                 Effect: "Allow"
                 Action: lambda:ListFunctions
