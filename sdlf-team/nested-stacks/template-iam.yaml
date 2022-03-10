@@ -28,6 +28,10 @@ Parameters:
     Type: String
   pTeamName:
     Type: String
+  pAthenaBucket:
+    Description: The athena bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AthenaBucket
 
 Conditions:
   CreateMultipleBuckets:
@@ -63,6 +67,7 @@ Resources:
                 !Sub "arn:aws:s3:::${pCentralBucket}",
                 !Sub "arn:aws:s3:::${pStageBucket}",
                 !Sub "arn:aws:s3:::${pAnalyticsBucket}",
+                !Sub "arn:aws:s3:::${pAthenaBucket}"
               ]
           - Sid: AllowTeamPrefixActions
             Effect: Allow
@@ -85,6 +90,11 @@ Resources:
                   CreateMultipleBuckets,
                   !Sub "arn:aws:s3:::${pAnalyticsBucket}/${pTeamName}/*",
                   !Sub "arn:aws:s3:::${pAnalyticsBucket}/analytics/${pTeamName}/*",
+                ]
+              - !If [
+                  CreateMultipleBuckets,
+                  !Sub "arn:aws:s3:::${pAthenaBucket}/${pTeamName}*",
+                  !Sub "arn:aws:s3:::${pAthenaBucket}/analytics/${pTeamName}/*",
                 ]
           - Sid: AllowFullCodeCommitOnTeamRepositories
             Effect: Allow
@@ -182,6 +192,19 @@ Resources:
               - cloudformation:DescribeStackResources
             Resource:
               - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack:sdlf-${pTeamName}:*
+          - Sid: AllowAthenaFullAccess
+            Effect: "Allow"
+            Action:
+              - athena:*
+              - lakeformation:GetDataAccess
+              - glue:GetTable
+              - glue:GetTables
+              - glue:SearchTables
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:GetPartitions
+            Resource:
+              - "*"
 
   rCodePipelineRole:
     Type: AWS::IAM::Role
@@ -1085,6 +1108,48 @@ Resources:
                 Resource:
                   - !Ref pKMSDataKeyId
 
+########## User Management ##########
+  rAnalystsGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub sdlf-${pTeamName}-analysts-group
+      Policies:
+        - PolicyName: !Sub 'sdlf-${pTeamName}-assume-analysts-role'
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "sts:AssumeRole"
+                Resource:
+                  - !GetAtt rAnalystsRole.Arn
+
+  rAnalystsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-analysts-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: !Ref "AWS::AccountId"
+            Action:
+              - "sts:AssumeRole"
+      Description: "Role for SDLF analysts"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonAthenaFullAccess
+      MaxSessionDuration: 43200
+      PermissionsBoundary: !Ref rTeamIAMManagedPolicy
+      Policies:
+        - PolicyName: !Sub 'sdlf-${pTeamName}-athena-policy'
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "s3:*"
+                Resource:
+                  - !Sub arn:aws:s3:::${pAthenaBucket}/${pTeamName}* # athena saved views etc should be named teamname-blahblah
+
   ####### SSM #######
   rTeamIAMManagedPolicySsm:
     Type: AWS::SSM::Parameter
@@ -1128,7 +1193,14 @@ Resources:
       Type: String
       Value: !GetAtt rDatalakeCrawlerRole.Arn
       Description: The ARN of the Crawler role
-
+  rAnalystsRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/IAM/${pTeamName}/AnalystsRoleArn
+      Type: String
+      Value: !GetAtt rAnalystsRole.Arn
+      Description: The ARN of the Analysts role
+      
 Outputs:
   oCodePipelineRoleArn:
     Description: The ARN of the role used by CodePipeline
