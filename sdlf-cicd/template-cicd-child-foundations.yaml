@@ -217,6 +217,7 @@ Resources:
                   - iam:AttachGroupPolicy
                   - iam:PutGroupPolicy
                   - iam:DeleteGroupPolicy
+                  - iam:DetachGroupPolicy
               - Resource: "*"
                 Effect: "Allow"
                 Action: lambda:ListFunctions
