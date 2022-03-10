@@ -215,6 +215,7 @@ Resources:
                   - iam:CreateGroup
                   - iam:GetGroup*
                   - iam:PutGroupPolicy
+                  - iam:DeleteGroupPolicy
               - Resource: "*"
                 Effect: "Allow"
                 Action: lambda:ListFunctions
