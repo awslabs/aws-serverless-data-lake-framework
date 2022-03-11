@@ -200,7 +200,6 @@ Resources:
                   - iam:UntagRole
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
-                  - iam:UpdateAssumeRolePolicy
               - Resource: !Sub arn:aws:iam::${AWS::AccountId}:policy/sdlf-*
                 Effect: Allow
                 Action:
