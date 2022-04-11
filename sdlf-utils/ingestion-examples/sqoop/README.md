@@ -8,7 +8,7 @@ The diagram below illustrates the high-level architecture of the resources deplo
 ![StageX Architecture](docs/Architecture.png)
 
 
-##Dependencies 
+## Dependencies 
 1. A private subnet is required to deploy the EMR cluster
 2. All the connectivity for the EMR cluster needs to be ready (routes to the source DB, rules, VPN etc.)
 3. Create the following VPC endpoints or ensure the subnet has access to:
@@ -16,18 +16,18 @@ The diagram below illustrates the high-level architecture of the resources deplo
 * com.amazonaws.[region].elasticmapreduce
 
 
-##Installation
+## Installation
 This solution is an extension of the SDLF, you need to have an SDLF implementation.
-It will create a new Stage called stageX
-2. Create a new repository named `sdlf-stageX` and add the master/test/dev branches to it
-3. Copy the content of the `sdlf-stageX` folder into those branches
-4. Upload the content of the `sdlf-team`, `sdlf-datalakeLibrary` and `sdlf-datalakeLibrary` folders  into their respective repos. Alternatively you can copy them directly to the team repos if you don't want to include this changes to every new team
-5. Create a new team (engineering is used for this example)
-6. Modify the pipeline parameters to include the new Stage and specify the subnet parameter `pEMRsubnet` with the subnet id where EMR will be started
+Where a new Stage called stageX will be created
+1. Create a new repository named `sdlf-stageX` and add the master/test/dev branches to it
+2. Copy the content of the `sdlf-stageX` folder into those branches
+3. Upload the content of the `sdlf-team`, `sdlf-datalakeLibrary` and `sdlf-datalakeLibrary` folders  into their respective repos. Alternatively you can copy them directly to the team repos if you don't want to include this changes to every new team
+4. Create a new team (engineering is used for this example)
+5. Modify the pipeline parameters to include the new Stage and specify the subnet parameter `pEMRsubnet` with the subnet id where EMR will be started
 EMR needs to be created in a private subnet
 
 
-##Best practices
+## Best practices
 1. Use an S3 endpoint to avoid network traffic over internet.
 2. If connection by SSM is needed include ssm, ec2messages and ssmmessages connection/endpoints
 3. Sqoop usually benefits from multiple small containers. 
@@ -35,7 +35,7 @@ EMR needs to be created in a private subnet
 * E.g: m4 instances can run more mappers or extractions than m5.
 * Choose your instances based on the map/memory ratio or modify your mappers/reducers settings. Check the [default settings](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-hadoop-task-config.html)  for each instance
 
-##Modifications made
+## Modifications made
 Some SDLF repos need to be modified to support the extraction stage. 
 They don't affect the current implementation (unless specified) 
 
@@ -50,7 +50,7 @@ Modifications:
 **NOTE: If you have other stages in the pipeline they must have the same parameters as the StageX**
 
 
-##Configuration 
+## Configuration 
 
 #### JDBC and scripts installation
 
@@ -110,7 +110,7 @@ Add a new item to the table odlSqoopStepFunctionsSchedules
 
 
 
-###Example DynamoDB Item:
+### Example DynamoDB Item:
 Example item to extract yesterday data from my_table and store the delta in a partitioned table in S3
 ```
 {
