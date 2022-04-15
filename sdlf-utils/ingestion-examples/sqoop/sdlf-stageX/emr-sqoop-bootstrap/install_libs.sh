@@ -28,7 +28,7 @@ then
   aws s3 cp s3://"$BUCKET"/"$FOLDER"/ /home/hadoop/ --recursive
   sudo chmod -R +x /home/hadoop/
   mkdir -p /home/hadoop/sdlf/sqoop/
-  aws secretsmanager list-secrets | grep Name | awk '{print $2}' | sed 's/[",]//g' | while read secret ; do aws secretsmanager get-secret-value --secret-id $secret | jq '.SecretString' |  sed 's/\\"//g' | sed 's/"{//g' | sed 's/}"//g' | awk '{split($0,a,"password:"); printf a[2]}' > /home/hadoop/$secret ; done
+  aws secretsmanager list-secrets --filters Key=description,Values=sqoop | grep Name | awk '{print $2}' | sed 's/[",]//g' | while read secret ; do aws secretsmanager get-secret-value --secret-id $secret | jq '.SecretString' |  sed 's/\\"//g' | sed 's/"{//g' | sed 's/}"//g' | awk '{split($0,a,"password:"); printf a[2]}' > /home/hadoop/$secret ; done
   sudo chown hadoop:hadoop -R /home/hadoop/sdlf/sqoop
 
   ## TDCH installation ##

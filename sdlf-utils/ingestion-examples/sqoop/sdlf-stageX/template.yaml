@@ -238,6 +238,8 @@ Resources:
             - kms:Encrypt
             - kms:ReEncrypt*
             - kms:GenerateDataKey
+            - kms:DescribeKey
+            - kms:CreateGrant
             Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
 
   rRoleSqoopEMREC2:
