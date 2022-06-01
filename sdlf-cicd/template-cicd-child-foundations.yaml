@@ -200,6 +200,7 @@ Resources:
                   - iam:UntagRole
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
+                  - iam:UpdateAssumeRolePolicy # so we can update the management account access
               - Resource: !Sub arn:aws:iam::${AWS::AccountId}:policy/sdlf-*
                 Effect: Allow
                 Action:
