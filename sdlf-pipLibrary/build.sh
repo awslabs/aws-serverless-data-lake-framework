@@ -23,7 +23,7 @@ do
         echo "Uploading Lambda Layer as sdlf-$team_name-$dir_name..."
         
         set +e
-        layer=$(aws lambda publish-layer-version --layer-name sdlf-$team_name-$dir_name --description "Contains the libraries specified in requirements.txt" --compatible-runtimes "python3.6" "python3.7" "python3.8" --zip-file fileb://./layer.zip)
+        layer=$(aws lambda publish-layer-version --layer-name sdlf-$team_name-$dir_name --description "Contains the libraries specified in requirements.txt" --compatible-runtimes "python3.7" "python3.8" "python3.9" --zip-file fileb://./layer.zip)
         status=$?
         set -e
 

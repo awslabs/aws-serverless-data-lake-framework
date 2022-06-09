@@ -798,6 +798,7 @@ Resources:
                   - athena:CreateWorkGroup
                   - athena:DeleteWorkGroup
                   - athena:UpdateWorkGroup
+                  - athena:GetWorkGroup
                 Resource:
                   - !Sub arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/${pTeamName}*
               - Effect: Allow
