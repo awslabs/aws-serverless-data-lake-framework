@@ -62,18 +62,6 @@ class CustomTransform():
                 "--run-hive-script",
                 "--args",
                 "-f",
-                "s3://eu-west-1.elasticmapreduce.samples/cloudfront/code/Hive_CloudFront.q",
-                "-d",
-                "INPUT=s3://eu-west-1.elasticmapreduce.samples",
-                "-d",
-                "OUTPUT=s3://{}/{}/".format(bucket,
-                                            processed_keys_path)
-            ],
-            "step3": [
-                "hive-script",
-                "--run-hive-script",
-                "--args",
-                "-f",
                 "s3://{}/{}/{}/elasticmapreduce/scripts/clf_hive.q".format(
                     artifacts_bucket, team, dataset),
                 "-d",

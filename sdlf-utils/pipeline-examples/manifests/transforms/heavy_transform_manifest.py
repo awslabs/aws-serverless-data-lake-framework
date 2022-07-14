@@ -28,7 +28,6 @@ logger = init_logger(__name__)
 # Create a client for the AWS Analytical service to use
 client = boto3.client('glue')
 
-
 def datetimeconverter(o):
     if isinstance(o, dt.datetime):
         return o.__str__()
@@ -43,7 +42,7 @@ def get_manifest_data(bucket,team, dataset,manifest_key):
     items=[]
     with open(local_path, "r") as raw_file:
         file_names = [file_name.strip().split("/")[-1]
-                      for file_name in raw_file]
+                for file_name in raw_file]
         for file in file_names:
             ddb_keys.append({
                 "dataset_name": team+"-"+dataset,
@@ -54,9 +53,9 @@ def get_manifest_data(bucket,team, dataset,manifest_key):
             items.append(dynamo_interface.get_item_from_manifests_control_table(
                 ddb_key["dataset_name"], ddb_key["manifest_file_name"], ddb_key["datafile_name"]))
         except KeyError:
-            logger.error("The manifest file has not been processed in Stage A")    
+            logger.error("The manifest file has not been processed in Stage A")
             raise Exception("Manifest File has not been processed in Stage A")
-    
+
     return items
 
 def get_s3_keys(items):
@@ -73,8 +72,6 @@ def get_ddb_keys(items):
         ddb_keys.append(ddb_key)
     return ddb_keys
 
-
-
 class CustomTransform():
     def __init__(self):
         logger.info("Glue Job Blueprint Heavy Transform initiated")
@@ -88,7 +85,7 @@ class CustomTransform():
 
         ### Create the list of s3 keys to be processed by the glue job
         ### keys will contain a single file for manifest processing
-        
+
         items = get_manifest_data(bucket, team, dataset,keys[0])
 
         s3_keys = get_s3_keys(items)
@@ -112,12 +109,11 @@ class CustomTransform():
 
         for ddb_key in ddb_keys:
             dynamo_interface.update_manifests_control_table_stageb(ddb_key,"PROCESSING")
-        
-
 
         # S3 Path where Glue Job outputs processed keys
         # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
         processed_keys_path = 'post-stage/{}/{}'.format(team, dataset)
+
         # Submitting a new Glue Job
         job_response = client.start_job_run(
             JobName=job_name,
@@ -134,6 +130,7 @@ class CustomTransform():
         # Collecting details about Glue Job after submission (e.g. jobRunId for Glue)
         json_data = json.loads(json.dumps(
             job_response, default=datetimeconverter))
+
         job_details = {
             "jobName": job_name,
             "jobRunId": json_data.get('JobRunId'),

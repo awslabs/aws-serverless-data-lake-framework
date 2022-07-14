@@ -5,7 +5,7 @@ Resources:
   rEMRDefaultRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: EMR_DefaultRole
+      RoleName: EMR_DefaultRole_sdlf
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -21,7 +21,7 @@ Resources:
   rEMREC2DefaultRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: EMR_EC2_DefaultRole
+      RoleName: EMR_EC2_DefaultRole_sdlf
       Description: Allows EC2 instances in an EMR cluster to access other AWS services such as S3.
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -54,7 +54,7 @@ Resources:
   rEMREC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: EMR_EC2_DefaultRole
+      InstanceProfileName: EMR_EC2_DefaultRole_sdlf
       Path: /
       Roles:
         - !Ref rEMREC2DefaultRole

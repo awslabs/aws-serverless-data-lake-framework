@@ -19,7 +19,7 @@ Resources:
   rGlueRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub AWSGlueServiceRole-${pDatasetName}-glue
+      RoleName: !Sub sdlf-AWSGlueServiceRole-${pDatasetName}-glue
       Path: /service-role/
       AssumeRolePolicyDocument:
         Version: 2012-10-17

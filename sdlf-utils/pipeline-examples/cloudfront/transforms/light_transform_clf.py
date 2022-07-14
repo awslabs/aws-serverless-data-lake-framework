@@ -50,11 +50,13 @@ class CustomTransform():
         # Uploading file to Stage bucket at appropriate path
         # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
         s3_path = 'pre-stage/{}/{}/{}'.format(team,
-                                              dataset, output_path.split('/')[2])
+            dataset, output_path.split('/')[2])
+        
         # IMPORTANT: Notice "stage_bucket" not "bucket"
         kms_key = KMSConfiguration(team).get_kms_arn
         s3_interface.upload_object(
             output_path, stage_bucket, s3_path, kms_key=kms_key)
+
         # IMPORTANT S3 path(s) must be stored in a list
         processed_keys = [s3_path]
 

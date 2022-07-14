@@ -113,7 +113,7 @@ else
 
   echo "Waiting for stack update to complete ..."
   aws cloudformation wait stack-update-complete --profile $PROFILE \
-    --stack-name $STACK_NAME 
+    --stack-name $STACK_NAME
   echo "Finished create/update successfully!"
 
   echo "Updating octagon-Pipelines-$ENV DynamoDB entry"
@@ -133,9 +133,9 @@ else
         --condition-expression "attribute_not_exists(#N)" 2>&1)
       status=$?
       set -e
-      
+
       echo "$update_output"
-      
+
       if [ $status -ne 0 ] ; then
         # Don't fail for no-op update
         if [[ $update_output == *"ConditionalCheckFailedException"* ]] ; then
@@ -144,7 +144,7 @@ else
           exit $status;
         fi
       fi
-        
+
       echo "$TEAM_NAME-$PIPELINE_NAME-$PIPELINE_STAGE DynamoDB Pipeline entry created"
   done
 fi
