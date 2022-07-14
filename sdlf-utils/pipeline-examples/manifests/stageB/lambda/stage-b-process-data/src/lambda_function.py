@@ -46,13 +46,15 @@ def lambda_handler(event, context):
             .with_configuration_instance(event['body']['env'])
             .build()
         )
-        
+
         peh.PipelineExecutionHistoryAPI(
             octagon_client).retrieve_pipeline_execution(peh_id)
 
         # Call custom transform created by user and process the file
         logger.info('Calling user custom processing code')
+
         transform_handler = TransformHandler().stage_transform(team, dataset, stage)
+        
         response = transform_handler().transform_object(
             bucket, keys_to_process, team, dataset)  # custom user code called
         response['peh_id'] = peh_id
@@ -62,7 +64,7 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         octagon_client.end_pipeline_execution_failed(component=component,
-                                                     issue_comment="{} {} Error: {}".format(stage, component, repr(e)))
+            issue_comment="{} {} Error: {}".format(stage, component, repr(e)))
         remove_content_tmp()
         raise e
     return response

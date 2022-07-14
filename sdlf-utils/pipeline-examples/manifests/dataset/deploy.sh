@@ -138,7 +138,7 @@ else
 
   echo "Waiting for stack update to complete ..."
   aws cloudformation wait stack-update-complete --profile $PROFILE \
-    --stack-name $STACK_NAME 
+    --stack-name $STACK_NAME
   echo "Finished create/update successfully!"
 
   echo "Updating octagon-Datasets-$ENV DynamoDB entry"

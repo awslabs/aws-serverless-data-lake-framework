@@ -46,6 +46,6 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         octagon_client.end_pipeline_execution_failed(component=component,
-                                                     issue_comment="{} {} Error: {}".format(stage, component, repr(e)))
+            issue_comment="{} {} Error: {}".format(stage, component, repr(e)))
         raise e
     return 200

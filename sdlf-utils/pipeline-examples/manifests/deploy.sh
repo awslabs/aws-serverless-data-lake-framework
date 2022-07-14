@@ -50,28 +50,6 @@ aws s3 cp "$DIRNAME/scripts/weather-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifac
 
 mkdir $DIRNAME/output
 
-function send_weather() 
-{
-  ORIGIN=$DIRNAME/data/
-  
-  CENTRAL_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/CentralBucket --profile $PROFILE --query "Parameter.Value")")
-  STAGE_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/StageBucket --profile $PROFILE --query "Parameter.Value")")
-  KMS_KEY=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/KMS/engineering/DataKeyId --profile $PROFILE --query "Parameter.Value")")
-
-  S3_DESTINATION=s3://$CENTRAL_BUCKET/
-  COUNT=0
-  for FILE in $(ls $ORIGIN | awk '{print $1}');
-  do
-    let COUNT=COUNT+1
-    if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}raw/engineering/weather/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
-    else
-      aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}engineering/weather/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
-    fi
-    echo "transferred $COUNT files"
-  done
-}
-
 aws cloudformation package --template-file $DIRNAME/scripts/weather-glue-job.yaml \
   --s3-bucket $S3_BUCKET \
   --profile $PROFILE \
@@ -88,7 +66,7 @@ if ! aws cloudformation describe-stacks --profile $PROFILE --stack-name $STACK_N
   echo "Waiting for stack to be created ..."
   aws cloudformation wait stack-create-complete --profile $PROFILE \
     --stack-name $STACK_NAME
-  send_weather
+
 else
   echo -e "Stack exists, attempting update ..."
 
@@ -107,7 +85,6 @@ else
     # Don't fail for no-op update
     if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
       echo -e "\nFinished create/update - no updates to be performed";
-      send_weather;
       exit 0;
     else
       exit $status
@@ -116,6 +93,6 @@ else
 
   echo "Waiting for stack update to complete ..."
   aws cloudformation wait stack-update-complete --profile $PROFILE \
-    --stack-name $STACK_NAME 
+    --stack-name $STACK_NAME
   echo "Finished create/update successfully!"
 fi

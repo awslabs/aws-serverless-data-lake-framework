@@ -47,34 +47,34 @@ fi
 
 mkdir $DIRNAME/output
 
-function send_scripts() 
+function send_scripts()
 {
   ARTIFACTS_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket --profile $PROFILE --query "Parameter.Value")")
-  
+
   echo "#!/bin/bash
   aws s3 cp s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/deequ-1.0.1.jar /home/hadoop/deequ-1.0.1.jar" > ./scripts/bootstrap.sh
-  
-  aws s3 sync ./scripts/ s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/  --profile $PROFILE
-  
-  ORIGIN=s3://eu-west-1.elasticmapreduce.samples/cloudfront/data/
-  
-  CENTRAL_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/CentralBucket --profile $PROFILE --query "Parameter.Value")")
-  STAGE_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/StageBucket --profile $PROFILE --query "Parameter.Value")")
-  KMS_KEY=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/KMS/engineering/DataKeyId --profile $PROFILE --query "Parameter.Value")")
 
-  S3_DESTINATION=s3://$CENTRAL_BUCKET/
-  COUNT=0
-  for FILE in $(aws s3 ls $ORIGIN  --profile $PROFILE | awk '{print $4}');
-  do
-    let COUNT=COUNT+1
-    if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}raw/engineering/clf/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
-    else
-      aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}engineering/clf/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
-    fi
-    echo "transferred $COUNT files"
-    sleep 1
-  done
+  aws s3 sync ./scripts/ s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/  --profile $PROFILE
+
+  # ORIGIN=s3://eu-west-1.elasticmapreduce.samples/cloudfront/data/
+
+  # CENTRAL_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/CentralBucket --profile $PROFILE --query "Parameter.Value")")
+  # STAGE_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/StageBucket --profile $PROFILE --query "Parameter.Value")")
+  # KMS_KEY=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/KMS/engineering/DataKeyId --profile $PROFILE --query "Parameter.Value")")
+
+  # S3_DESTINATION=s3://$CENTRAL_BUCKET/
+  # COUNT=0
+  # for FILE in $(aws s3 ls $ORIGIN  --profile $PROFILE | awk '{print $4}');
+  # do
+  #   let COUNT=COUNT+1
+  #   if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
+  #     aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}raw/engineering/clf/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
+  #   else
+  #     aws s3 cp $ORIGIN$FILE "${S3_DESTINATION}engineering/clf/" --profile $PROFILE --sse aws:kms --sse-kms-key-id $KMS_KEY
+  #   fi
+  #   echo "transferred $COUNT files"
+  #   sleep 1
+  # done
 }
 
 aws cloudformation package --template-file $DIRNAME/scripts/clf-emr-roles.yaml \
@@ -83,6 +83,7 @@ aws cloudformation package --template-file $DIRNAME/scripts/clf-emr-roles.yaml \
   --output-template-file $DIRNAME/output/packaged-template.yaml
 
 if ! aws cloudformation describe-stacks --profile $PROFILE --stack-name $STACK_NAME; then
+
   echo -e "Stack does not exist, creating ..."
   aws cloudformation create-stack \
   --profile $PROFILE \
@@ -94,6 +95,7 @@ if ! aws cloudformation describe-stacks --profile $PROFILE --stack-name $STACK_N
   aws cloudformation wait stack-create-complete --profile $PROFILE \
     --stack-name $STACK_NAME
   send_scripts
+
 else
   echo -e "Stack exists, attempting update ..."
 
@@ -121,6 +123,6 @@ else
 
   echo "Waiting for stack update to complete ..."
   aws cloudformation wait stack-update-complete --profile $PROFILE \
-    --stack-name $STACK_NAME 
+    --stack-name $STACK_NAME
   echo "Finished create/update successfully!"
 fi
