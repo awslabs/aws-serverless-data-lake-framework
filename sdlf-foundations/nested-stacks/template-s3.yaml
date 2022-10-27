@@ -119,7 +119,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateSingleBucket
     Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rCentralBucket}/
+      ResourceArn: !Sub arn:aws:s3:::${rCentralBucket}/
       UseServiceLinkedRole: True
 
   rRawBucket:
@@ -172,7 +172,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rRawBucket}/
+      ResourceArn: !Sub arn:aws:s3:::${rRawBucket}/
       UseServiceLinkedRole: True
 
   rStageBucket:
@@ -225,7 +225,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rStageBucket}/
+      ResourceArn: !Sub arn:aws:s3:::${rStageBucket}/
       UseServiceLinkedRole: True
 
   rAnalyticsBucket:
@@ -278,7 +278,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rAnalyticsBucket}/
+      ResourceArn: !Sub arn:aws:s3:::${rAnalyticsBucket}/
       UseServiceLinkedRole: True
 
   rDataQualityBucket:
@@ -321,7 +321,7 @@ Resources:
   rDataQualityBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Properties:
-      ResourceArn: !Sub arn:aws:::s3:${rDataQualityBucket}/
+      ResourceArn: !Sub arn:aws:s3:::${rDataQualityBucket}/
       UseServiceLinkedRole: True
 
   rAthenaBucket:
