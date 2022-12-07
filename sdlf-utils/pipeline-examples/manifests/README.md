@@ -9,7 +9,7 @@ This tutorial shows how a manifest based dataset can be processed using a SDLF p
 
 We assume that you have completed the main tutorial deploying the Serverless Data Lake Framework, that is the foundations and at least one team, pipeline and dataset are in place. It also assumes that the engineering team is in place.
 
-- You must run in a linux like environment, with **python 3.7+** on it
+- You must run in a linux like environment, with **python 3.9+** on it
 - **AWS CLI 2** installed
 - **AWS SAM** installed
 - **jq** linux utility installed, and

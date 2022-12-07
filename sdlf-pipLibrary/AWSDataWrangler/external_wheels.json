@@ -1,7 +1,7 @@
 [
     {
         "awswrangler": {
-            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/2.5.0/awswrangler-2.5.0-py3-none-any.whl"
+            "url": "https://github.com/aws/aws-sdk-pandas/releases/download/2.18.0/awswrangler-2.18.0-py3-none-any.whl"
         }
     }
 ]

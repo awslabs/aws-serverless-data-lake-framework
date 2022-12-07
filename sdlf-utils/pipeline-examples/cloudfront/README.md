@@ -13,7 +13,7 @@ The final output is similar to the step function defined in this [AWS blog](http
 
 We assume that you have completed the main tutorial deploying the Serverless Data Lake Framework, that is the foundations and at least one team, pipeline and dataset are in place.
 
-- You must run in a linux like environment, with **python 3.7+** on it
+- You must run in a linux like environment, with **python 3.9+** on it
 - **AWS CLI 2** installed
 - **AWS SAM** installed
 - **jq** linux utility installed, and

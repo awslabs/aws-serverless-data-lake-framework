@@ -135,7 +135,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - echo Configuring AWS credentials
@@ -244,7 +244,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 512
       Role: !GetAtt rLambdaCodeBuildTriggerRole.Arn
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 300
       Environment:
         Variables:
