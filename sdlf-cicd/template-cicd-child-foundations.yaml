@@ -639,7 +639,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - echo Configuring AWS credentials
@@ -687,7 +687,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - echo Configuring AWS credentials

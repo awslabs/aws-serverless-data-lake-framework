@@ -144,7 +144,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
               commands:
                 - pip3 install boto3
             build:
@@ -193,7 +193,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.7
+                python: 3.9
             build:
               commands:
                 - ls && echo "-----> making artifactory directory"
@@ -204,7 +204,7 @@ Resources:
                 - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
                 - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
                 - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.7" "python3.8" "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
+                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
                 - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
                 - aws ssm put-parameter --name "/SDLF/Lambda/$TEAM_NAME/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
         Type: CODEPIPELINE
@@ -235,7 +235,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - DIR=$CODEBUILD_SRC_DIR/python/datalake_library
@@ -291,7 +291,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
               commands:
                 - pip3 install boto3
             build:
@@ -309,7 +309,7 @@ Resources:
                 - cd layer/
                 - zip -r layer.zip python/ -x \*__pycache__\*
                 - echo "Uploading default Lambda Layer..."
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains a default Pip library layer" --compatible-runtimes "python3.7" "python3.8" "python3.9" --zip-file fileb://./layer.zip)
+                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains a default Pip library layer" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
                 - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
                 - aws ssm put-parameter --name "/SDLF/Lambda/$TEAM_NAME/LatestDefaultPipLibraryLayer" --value $latest_layer_version --type String --overwrite
         Type: CODEPIPELINE
@@ -342,7 +342,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.7
+                python: 3.9
             build:
               commands:
                 - sam package --template-file ./template.yaml --s3-bucket $ARTIFACTORY_BUCKET --s3-prefix $TEAM_NAME --output-template-file template.yaml
@@ -374,7 +374,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - echo Configuring AWS credentials
@@ -412,7 +412,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.7
+                  python: 3.9
             build:
               commands:
                 - echo Configuring AWS credentials

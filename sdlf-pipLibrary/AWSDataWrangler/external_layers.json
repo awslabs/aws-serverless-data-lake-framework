@@ -1,12 +1,8 @@
 [
     {
-        "wrangler37": {
-            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/2.3.0/awswrangler-layer-2.3.0-py3.7.zip",
-            "runtimes": ["python3.7"]
-        },
-        "wrangler38": {
-            "url": "https://github.com/awslabs/aws-data-wrangler/releases/download/2.3.0/awswrangler-layer-2.3.0-py3.8.zip",
-            "runtimes": ["python3.8"]
+        "wrangler39": {
+            "url": "https://github.com/aws/aws-sdk-pandas/releases/download/2.18.0/awswrangler-layer-2.18.0-py3.9.zip",
+            "runtimes": ["python3.9"]
         }
     }
 ]

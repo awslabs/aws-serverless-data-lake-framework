@@ -215,7 +215,7 @@ Resources:
     Properties:
       CodeUri: ../lambda/elasticsearch/src
       Handler: lambda_function.handler
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 60
       Role: !GetAtt rCustomResourceUpdateSubscriptionRole.Arn
 
