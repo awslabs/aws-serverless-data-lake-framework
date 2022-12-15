@@ -36,7 +36,7 @@ class ConfigTableInfo:
         return self.write_capacity
 
     def __str__(self):
-        return f"[ Table name: {self.dynamo_table_name}, TTL: {self.ttl_in_days}, RC: {self.read_capacity}, WC: {self.write_capacity}]"
+        return f"[ Table name: {self.dynamo_table_name}, TTL: {self.ttl_in_days}, RC: {self.read_capacity}, WC: {self.write_capacity}]"  # noqa: E501
 
 
 class MetricInfo:

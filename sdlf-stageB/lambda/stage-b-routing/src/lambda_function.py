@@ -1,7 +1,5 @@
 import json
-import os
 
-import boto3
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import (
     DynamoConfiguration,

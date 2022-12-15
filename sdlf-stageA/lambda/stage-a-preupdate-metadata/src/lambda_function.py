@@ -4,7 +4,6 @@ from datalake_library import octagon
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import DynamoConfiguration
 from datalake_library.interfaces.dynamo_interface import DynamoInterface
-from datalake_library.octagon import Artifact, EventReasonEnum, peh
 
 logger = init_logger(__name__)
 

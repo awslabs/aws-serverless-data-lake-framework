@@ -5,7 +5,6 @@ from datetime import datetime
 from urllib.parse import unquote_plus
 
 import boto3
-from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()

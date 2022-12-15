@@ -45,7 +45,7 @@ class CustomTransform:
         # extracting fields, then saving the file
         # locally and re-uploading to Stage bucket
         def parse(json_data):
-            l = []
+            l = []  # noqa: E741
             for d in json_data:
                 o = d.copy()
                 for k in d:
