@@ -1,0 +1,4 @@
+RulesToSuppress:
+- id: W89
+  reason: SDLF does not support running in VPC by default
+- id: W92
