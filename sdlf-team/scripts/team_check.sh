@@ -1,6 +1,6 @@
 #!/bin/bash
-DIRNAME=$(pwd)
-TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' ${DIRNAME}/../parameters-${ENV}.json)")
+DIRNAME=$PWD
+TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' "$DIRNAME/../parameters-$ENV".json)")
 
 # Retries a command a with backoff.
 #
@@ -17,7 +17,7 @@ function with_backoff {
   local attempt=0
   local exitCode=0
 
-  while [[ $attempt < $max_attempts ]]
+  while [[ $attempt -lt $max_attempts ]]
   do
     "$@"
     exitCode=$?
@@ -28,18 +28,19 @@ function with_backoff {
     fi
 
     echo "Failed... Retrying in $timeout.." 1>&2
-    sleep $timeout
+    sleep "$timeout"
     attempt=$(( attempt + 1 ))
     timeout=$(( timeout * 2 ))
   done
 
   if [[ $exitCode != 0 ]]
   then
+    # shellcheck disable=SC2028,SC2145
     echo "Command ($@) failed all attempts\n Please check that IAM role sdlf-cicd-team-codecommit-${ENV}-${TEAM_NAME} exists in the DevOps account" 1>&2
     exit 1
   fi
 
-  return $exitCode
+  return "$exitCode"
 }
 
-with_backoff aws iam get-role --role-name sdlf-cicd-team-codecommit-${ENV}-${TEAM_NAME} --profile crossaccount
+with_backoff aws iam get-role --role-name sdlf-cicd-team-codecommit-"$ENV-$TEAM_NAME" --profile crossaccount
