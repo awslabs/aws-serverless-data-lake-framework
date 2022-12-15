@@ -1,9 +1,9 @@
-from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import DynamoConfiguration, SQSConfiguration, S3Configuration
-from datalake_library.interfaces.dynamo_interface import DynamoInterface
-from datalake_library.interfaces.sqs_interface import SQSInterface
-from datalake_library.interfaces.s3_interface import S3Interface
 from datalake_library import octagon
+from datalake_library.commons import init_logger
+from datalake_library.configuration.resource_configs import DynamoConfiguration, S3Configuration, SQSConfiguration
+from datalake_library.interfaces.dynamo_interface import DynamoInterface
+from datalake_library.interfaces.s3_interface import S3Interface
+from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.octagon import Artifact, EventReasonEnum, peh
 
 logger = init_logger(__name__)

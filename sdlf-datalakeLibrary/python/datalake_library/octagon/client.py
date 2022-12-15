@@ -1,14 +1,15 @@
 import logging
-import boto3
 import os
+
+import boto3
 import pkg_resources
 
+from .artifact import Artifact, ArtifactAPI
 from .config import ConfigParser
-from .metadata import OctagonMetadata
 from .event import EventAPI
-from .peh import PipelineExecutionHistoryAPI, PEH_STATUS_COMPLETED, PEH_STATUS_FAILED, PEH_STATUS_CANCELED
-from .artifact import ArtifactAPI, Artifact
+from .metadata import OctagonMetadata
 from .metric import MetricAPI
+from .peh import PEH_STATUS_CANCELED, PEH_STATUS_COMPLETED, PEH_STATUS_FAILED, PipelineExecutionHistoryAPI
 
 
 class OctagonClient:

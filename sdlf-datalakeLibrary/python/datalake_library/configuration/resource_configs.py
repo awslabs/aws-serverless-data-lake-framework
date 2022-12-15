@@ -2,8 +2,8 @@ import os
 
 import boto3
 
-from .base_config import BaseConfig
 from ..commons import init_logger
+from .base_config import BaseConfig
 
 
 class S3Configuration(BaseConfig):

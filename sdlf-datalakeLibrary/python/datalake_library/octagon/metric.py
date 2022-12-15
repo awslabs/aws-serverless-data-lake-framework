@@ -1,15 +1,15 @@
-import logging
 import json
+import logging
+
 from .utils import (
-    parse_metrics,
-    throw_none_or_empty,
-    validate_date,
+    get_local_date,
     get_timestamp_iso,
     get_ttl,
+    parse_metrics,
     throw_if_false,
-    get_local_date,
+    throw_none_or_empty,
+    validate_date,
 )
-
 
 METRIC_ROOT = "ROOT"
 METRIC_YEARLY = "YEARLY"

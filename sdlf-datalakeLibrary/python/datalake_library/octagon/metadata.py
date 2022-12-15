@@ -1,7 +1,8 @@
 import json
 import logging
-from .config import ConfigObjectEnum
 import os
+
+from .config import ConfigObjectEnum
 
 
 class FieldMeta:

@@ -8,16 +8,16 @@
 # Author: jaidi
 #######################################################
 
+import datetime as dt
+
 #######################################################
 # Import section
 # common-pipLibrary repository can be leveraged
 # to add external libraries as a layer
 #######################################################
 import json
-import datetime as dt
 
 import boto3
-
 from datalake_library.commons import init_logger
 
 logger = init_logger(__name__)

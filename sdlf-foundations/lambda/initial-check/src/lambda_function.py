@@ -1,12 +1,12 @@
-import os
+import ast
+import datetime as dt
 import json
 import logging
-import ast
+import os
 import time
-import datetime as dt
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()

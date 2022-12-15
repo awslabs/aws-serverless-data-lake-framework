@@ -1,11 +1,10 @@
 import json
-import os
 import logging
+import os
 import traceback
+from urllib.request import Request, urlopen
 
 import boto3
-
-from urllib.request import Request, urlopen
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

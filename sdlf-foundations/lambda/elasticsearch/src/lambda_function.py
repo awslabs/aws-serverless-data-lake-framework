@@ -1,15 +1,14 @@
 from __future__ import print_function
 
-import sys
 import json
 import logging
+import os
+import sys
 import threading
 import traceback
-import os
+from urllib.request import Request, urlopen
 
 import boto3
-
-from urllib.request import Request, urlopen
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

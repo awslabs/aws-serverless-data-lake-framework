@@ -1,10 +1,10 @@
-import os
 import json
+import os
 
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import SQSConfiguration, StateMachineConfiguration
-from datalake_library.interfaces.states_interface import StatesInterface
 from datalake_library.interfaces.sqs_interface import SQSInterface
+from datalake_library.interfaces.states_interface import StatesInterface
 
 logger = init_logger(__name__)
 

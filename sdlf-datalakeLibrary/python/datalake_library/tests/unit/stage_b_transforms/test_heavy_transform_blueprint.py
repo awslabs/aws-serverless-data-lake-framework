@@ -1,8 +1,9 @@
-import pytest
-import sys
 import os
-from pytest import fixture
+import sys
 from unittest.mock import patch
+
+import pytest
+from pytest import fixture
 
 sys.path.insert(0, os.path.join(os.path.abspath(
     os.path.dirname(__file__)), '../../../..'))

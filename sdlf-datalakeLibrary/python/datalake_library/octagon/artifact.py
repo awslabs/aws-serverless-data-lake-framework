@@ -1,7 +1,8 @@
-import logging
 import datetime
+import logging
 import uuid
-from .utils import throw_if_false, throw_if_none, get_timestamp_iso, get_local_date, throw_none_or_empty, get_ttl
+
+from .utils import get_local_date, get_timestamp_iso, get_ttl, throw_if_false, throw_if_none, throw_none_or_empty
 
 
 class Artifact:

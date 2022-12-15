@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-import boto3
 import awswrangler as wr  # Ensure Lambda has an AWS Wrangler Layer configured
+import boto3
 
 from ..commons import init_logger
 

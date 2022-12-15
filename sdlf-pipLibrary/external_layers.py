@@ -7,11 +7,11 @@ MANDATORY args:
 E.g. python3 MY_BUCKET_NAME
 """
 
-import sys
 import json
+import sys
 import urllib
-from time import sleep
 from io import BytesIO
+from time import sleep
 
 import boto3
 import botocore
