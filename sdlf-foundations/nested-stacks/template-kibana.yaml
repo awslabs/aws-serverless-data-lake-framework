@@ -717,7 +717,7 @@ Resources:
     # DeletionPolicy: Retain
     Properties:
       DomainName: !Ref DOMAINNAME
-      ElasticsearchVersion: "6.3"
+      ElasticsearchVersion: "6.8"
       # V5804310 - 10/09/2018 - ES Encryption at rest
       EncryptionAtRestOptions:
         Enabled: true
