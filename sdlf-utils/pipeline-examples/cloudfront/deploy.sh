@@ -52,7 +52,7 @@ function send_scripts()
   ARTIFACTS_BUCKET=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket --profile $PROFILE --query "Parameter.Value")")
 
   echo "#!/bin/bash
-  aws s3 cp s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/deequ-1.0.1.jar /home/hadoop/deequ-1.0.1.jar" > ./scripts/bootstrap.sh
+  aws s3 cp s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/deequ-1.2.2-spark-2.4.jar /home/hadoop/deequ-1.2.2-spark-2.4.jar" > ./scripts/bootstrap.sh
 
   aws s3 sync ./scripts/ s3://$ARTIFACTS_BUCKET/engineering/clf/elasticmapreduce/scripts/  --profile $PROFILE
 

@@ -47,7 +47,7 @@ class CustomTransform():
                 "--deploy-mode",
                 "client",
                       "--conf",
-                      "spark.jars=/home/hadoop/deequ-1.0.1.jar",
+                      "spark.jars=/home/hadoop/deequ-1.2.2-spark-2.4.jar",
                       "--class",
                       "dqs.DqsDriver",
                       "s3://{}/{}/{}/elasticmapreduce/scripts/dqstest_2.11-1.0.jar".format(
