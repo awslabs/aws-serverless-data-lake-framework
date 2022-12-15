@@ -1,7 +1,7 @@
 import boto3
 from datalake_library import octagon
 from datalake_library.commons import init_logger
-from datalake_library.octagon import Artifact, EventReasonEnum, peh
+from datalake_library.octagon import peh
 
 logger = init_logger(__name__)
 client = boto3.client("glue")

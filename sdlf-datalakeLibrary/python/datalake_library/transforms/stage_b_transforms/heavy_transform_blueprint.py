@@ -78,7 +78,8 @@ class CustomTransform:
         # e.g. jobName and jobId for Glue or clusterId and stepId for EMR
         # A jobStatus key MUST be present in jobDetails as it's used to determine the status of the job)
         # Example: {processedKeysPath' = 'post-stage/engineering/legislators',
-        # 'jobDetails': {'jobName': 'sdlf-engineering-legislators-glue-job', 'jobId': 'jr-2ds438nfinev34', 'jobStatus': 'STARTED'}}
+        # 'jobDetails':
+        #   {'jobName': 'sdlf-engineering-legislators-glue-job', 'jobId': 'jr-2ds438nfinev34', 'jobStatus': 'STARTED'}}
         #######################################################
         response = {"processedKeysPath": processed_keys_path, "jobDetails": job_details}
 
@@ -99,7 +100,8 @@ class CustomTransform:
         # e.g. jobName and jobId for Glue or clusterId and stepId for EMR
         # A jobStatus key MUST be present in jobDetails as it's used to determine the status of the job)
         # Example: {processedKeysPath' = 'post-stage/legislators',
-        # 'jobDetails': {'jobName': 'sdlf-engineering-legislators-glue-job', 'jobId': 'jr-2ds438nfinev34', 'jobStatus': 'RUNNING'}}
+        # 'jobDetails':
+        #   {'jobName': 'sdlf-engineering-legislators-glue-job', 'jobId': 'jr-2ds438nfinev34', 'jobStatus': 'RUNNING'}}
         #######################################################
         response = {"processedKeysPath": processed_keys_path, "jobDetails": job_details}
 

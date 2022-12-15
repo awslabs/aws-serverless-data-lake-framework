@@ -2,9 +2,6 @@ from __future__ import print_function
 
 import json
 import logging
-import os
-import sys
-import threading
 import traceback
 from urllib.request import Request, urlopen
 

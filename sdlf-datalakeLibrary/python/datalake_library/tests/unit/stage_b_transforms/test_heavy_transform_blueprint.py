@@ -1,12 +1,15 @@
 import os
 import sys
-from unittest.mock import patch
 
-import pytest
-from pytest import fixture
+# from unittest.mock import patch
+
+# import pytest
+# from pytest import fixture
 
 sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../../.."))
-from python.datalake_library.transforms.stage_b_transforms.heavy_transform_blueprint import CustomTransform
+from python.datalake_library.transforms.stage_b_transforms.heavy_transform_blueprint import (  # noqa: E402
+    CustomTransform,
+)
 
 
 class TestCustomTransform:

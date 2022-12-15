@@ -4,7 +4,7 @@ from datalake_library.configuration.resource_configs import DynamoConfiguration,
 from datalake_library.interfaces.dynamo_interface import DynamoInterface
 from datalake_library.interfaces.s3_interface import S3Interface
 from datalake_library.interfaces.sqs_interface import SQSInterface
-from datalake_library.octagon import Artifact, EventReasonEnum, peh
+from datalake_library.octagon import peh
 
 logger = init_logger(__name__)
 

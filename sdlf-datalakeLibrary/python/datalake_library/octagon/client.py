@@ -271,7 +271,8 @@ class OctagonClient:
 
         Arguments:
             date_str {str} -- ISO 8601 date string to register metric for, e.g. "2019-05-01"
-            metric_code {str} -- Code of the metric. Nested metrics with separator "#" are supported, e.g. "Streams#Stream1#Stream11"
+            metric_code {str} -- Code of the metric.
+                                 Nested metrics with separator "#" are supported, e.g. "Streams#Stream1#Stream11"
             value {int} -- Integer value to add to the metric
 
         Returns:

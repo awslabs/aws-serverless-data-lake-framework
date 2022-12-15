@@ -1,4 +1,3 @@
-import botocore
 from python.datalake_library.data_quality.schema_validator import ParquetSchemaValidator
 
 
