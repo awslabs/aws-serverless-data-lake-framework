@@ -11,29 +11,27 @@ logger = init_logger(__name__)
 
 def lambda_handler(event, context):
     try:
-        team = os.environ['TEAM']
-        pipeline = os.environ['PIPELINE']
-        dataset = event['dataset']
-        stage = os.environ['STAGE']
+        team = os.environ["TEAM"]
+        pipeline = os.environ["PIPELINE"]
+        dataset = event["dataset"]
+        stage = os.environ["STAGE"]
         state_config = StateMachineConfiguration(team, pipeline, stage)
         sqs_config = SQSConfiguration(team, dataset, stage)
         dlq_interface = SQSInterface(sqs_config.get_stage_dlq_name)
 
         messages = dlq_interface.receive_messages(1)
         if not messages:
-            logger.info('No messages found in {}'.format(
-                sqs_config.get_stage_dlq_name))
+            logger.info("No messages found in {}".format(sqs_config.get_stage_dlq_name))
             return
 
-        logger.info('Received {} messages'.format(len(messages)))
+        logger.info("Received {} messages".format(len(messages)))
         for message in messages:
-            logger.info('Starting State Machine Execution')
+            logger.info("Starting State Machine Execution")
             if isinstance(message.body, str):
                 response = json.loads(message.body)
-            StatesInterface().run_state_machine(
-                state_config.get_stage_state_machine_arn, response)
+            StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, response)
             message.delete()
-            logger.info('Delete message succeeded')
+            logger.info("Delete message succeeded")
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e

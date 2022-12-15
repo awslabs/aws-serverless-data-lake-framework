@@ -6,8 +6,7 @@ from .utils import get_local_date, get_timestamp_iso, get_ttl, throw_if_false, t
 
 
 class Artifact:
-    """ Data object to handle Artifact information
-    """
+    """Data object to handle Artifact information"""
 
     def __init__(self, dataset, comment=None, component=None):
         """Artifact object initialization
@@ -25,7 +24,7 @@ class Artifact:
         self.component = component
 
     def with_source_info(self, source_type, source_service_arn, source_location_pointer):
-        """ Set Artifact source information
+        """Set Artifact source information
 
         Arguments:
             source_type {str} -- Artifact source type
@@ -42,7 +41,7 @@ class Artifact:
         self.source_location_pointer = source_location_pointer
 
     def with_target_info(self, target_type, target_service_arn, target_location_pointers):
-        """ Set Artifact target information
+        """Set Artifact target information
 
         Arguments:
             target_type {str} -- Artifact target type

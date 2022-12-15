@@ -29,22 +29,20 @@ def add_wheels(name, info, team_name, bucket, client_s3, client_ssm):
         print(f"url: {url}")
         response = urllib.request.urlopen(url)
         print(f"Uploading wheel: {file_name}")
-        client_s3.put_object(Body=BytesIO(response.read()),
-                             Bucket=bucket,
-                             Key=key)
+        client_s3.put_object(Body=BytesIO(response.read()), Bucket=bucket, Key=key)
         print(f"s3://{bucket}/{key} uploaded")
         sleep(5)
     except botocore.exceptions.ClientError as ex:
         raise ex
-
 
     client_ssm.put_parameter(
         Name=f"/SDLF/Wheels/{team_name}/{name}",
         Description=url,
         Value="s3://{}/{}".format(bucket, key),
         Type="String",
-        Overwrite=True
-    )    
+        Overwrite=True,
+    )
+
 
 def main():
     bucket = sys.argv[1]
@@ -52,7 +50,7 @@ def main():
     print(f"bucket: {bucket}")
     client_s3 = boto3.client(service_name="s3")
     client_ssm = boto3.client(service_name="ssm")
-    with open('external_wheels.json', 'r') as f:
+    with open("external_wheels.json", "r") as f:
         WHEEL_URLS = json.load(f)[0]
 
     for name, info in WHEEL_URLS.items():

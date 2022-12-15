@@ -24,7 +24,7 @@ def main():
     client_s3 = boto3.client(service_name="s3")
     client_lambda = boto3.client(service_name="lambda")
     client_ssm = boto3.client(service_name="ssm")
-    with open('external_layers.json', 'r') as f:
+    with open("external_layers.json", "r") as f:
         LAYERS_URLS = json.load(f)[0]
 
     for name, info in LAYERS_URLS.items():
@@ -46,9 +46,7 @@ def main():
                 print(f"url: {url}")
                 response = urllib.request.urlopen(url)
                 print(f"Uploading layers: {file_name}")
-                client_s3.put_object(Body=BytesIO(response.read()),
-                                     Bucket=bucket,
-                                     Key=key)
+                client_s3.put_object(Body=BytesIO(response.read()), Bucket=bucket, Key=key)
                 print(f"s3://{bucket}/{key} uploaded")
                 sleep(5)
             else:
@@ -64,7 +62,7 @@ def main():
             Description=url,
             Value=res["LayerVersionArn"],
             Type="String",
-            Overwrite=True
+            Overwrite=True,
         )
 
 

@@ -23,10 +23,10 @@ class BaseConfig:
 
     def _get_ssm_param(self, key):
         try:
-            self._logger.info('Obtaining SSM Parameter: {}'.format(key))
-            return self._ssm.get_parameter(Name=key)['Parameter']['Value']
+            self._logger.info("Obtaining SSM Parameter: {}".format(key))
+            return self._ssm.get_parameter(Name=key)["Parameter"]["Value"]
         except ClientError as e:
-            if e.response['Error']['Code'] == 'ThrottlingException':
+            if e.response["Error"]["Code"] == "ThrottlingException":
                 self._logger.error("SSM RATE LIMIT REACHED")
             else:
                 self._logger.error("Unexpected error: %s" % e)
