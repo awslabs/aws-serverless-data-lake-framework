@@ -1,10 +1,10 @@
-import os
 import datetime as dt
+import os
+from decimal import Decimal
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
-from decimal import Decimal
 
 from ..commons import init_logger
 

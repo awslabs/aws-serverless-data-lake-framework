@@ -1,14 +1,14 @@
-import os
 import json
-from datetime import datetime
 import logging
+import os
 import uuid
+from datetime import datetime
 from urllib.parse import unquote_plus
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 session_config = Config(user_agent_extra="awssdlf/1.0.0")
 

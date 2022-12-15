@@ -1,8 +1,9 @@
+import datetime
 import logging
 import uuid
-import datetime
 from enum import Enum
-from .utils import throw_none_or_empty, get_local_date, get_timestamp_iso, get_ttl, throw_if_false
+
+from .utils import get_local_date, get_timestamp_iso, get_ttl, throw_if_false, throw_none_or_empty
 
 
 class EventReasonEnum(Enum):

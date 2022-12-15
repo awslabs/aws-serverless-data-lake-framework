@@ -20,7 +20,7 @@ import json
 # For example to download/upload them
 #######################################################
 from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import S3Configuration, KMSConfiguration
+from datalake_library.configuration.resource_configs import KMSConfiguration, S3Configuration
 from datalake_library.interfaces.s3_interface import S3Interface
 
 s3_interface = S3Interface()
