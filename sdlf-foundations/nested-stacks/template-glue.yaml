@@ -251,7 +251,7 @@ Resources:
     Properties:
       Command:
         Name: "pythonshell"
-        PythonVersion: "3"
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-controller.py"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
@@ -264,7 +264,7 @@ Resources:
         "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
       ExecutionProperty:
         MaxConcurrentRuns: 10
-      GlueVersion: "1.0"
+      GlueVersion: "2.0"
       Timeout: 65
       Name: sdlf-data-quality-controller
       Role: !Ref pDataLakeAdminRoleArn
@@ -274,6 +274,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-suggestion-analysis-verification-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
@@ -305,6 +306,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-analysis-verification-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
@@ -336,6 +338,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-profile-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"

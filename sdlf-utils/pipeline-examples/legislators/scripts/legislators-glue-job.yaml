@@ -56,6 +56,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
+        PythonVersion: "3.9"
         ScriptLocation: !Sub s3://${pPipelineBucket}/artifacts/${pDatasetName}-glue-job.py
       DefaultArguments:
         "--job-bookmark-option": job-bookmark-enable

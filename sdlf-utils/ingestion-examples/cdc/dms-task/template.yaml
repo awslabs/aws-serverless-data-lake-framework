@@ -189,7 +189,7 @@ Resources:
       GlueVersion: "2.0"
       Command:
         Name: glueetl
-        PythonVersion: "3"
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadIncremental.py"
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -208,7 +208,7 @@ Resources:
       GlueVersion: "2.0"
       Command:
         Name: glueetl
-        PythonVersion: "3"
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadInitial.py"
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -222,10 +222,10 @@ Resources:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 1
-      GlueVersion: "1.0"
+      GlueVersion: "2.0"
       Command:
         Name: "pythonshell"
-        PythonVersion: "3"
+        PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_Controller.py"
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
