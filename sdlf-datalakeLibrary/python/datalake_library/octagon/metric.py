@@ -60,7 +60,9 @@ class MetricAPI:
         self.logger.debug(f"create_single_metric() {metric_rec}")
 
         result = self.metrics_table.get_item(
-            Key={"root": metric_rec.root, "metric": metric_rec.metric}, ConsistentRead=True, AttributesToGet=["root", "metric", "version"]
+            Key={"root": metric_rec.root, "metric": metric_rec.metric},
+            ConsistentRead=True,
+            AttributesToGet=["root", "metric", "version"],
         )
 
         utc_time_iso = get_timestamp_iso()
@@ -209,7 +211,9 @@ class MetricAPI:
 
         result = self.metrics_table.get_item(Key={"root": root, "metric": metric}, ConsistentRead=True)
         if "Item" in result:
-            return self.metrics_table.get_item(Key={"root": root, "metric": metric}, ConsistentRead=True)["Item"]["value"]
+            return self.metrics_table.get_item(Key={"root": root, "metric": metric}, ConsistentRead=True)["Item"][
+                "value"
+            ]
         else:
             return 0
 
@@ -256,7 +260,9 @@ class MetricAPI:
         return True
 
     def _is_notification_sent(self, metric_info: MetricRecordInfo):
-        item = self.metrics_table.get_item(Key={"root": metric_info.root, "metric": metric_info.metric}, ConsistentRead=True)["Item"]
+        item = self.metrics_table.get_item(
+            Key={"root": metric_info.root, "metric": metric_info.metric}, ConsistentRead=True
+        )["Item"]
         return "notification_timestamp" in item.keys()
 
     def _send_sns_message(self, message, topic_arn):

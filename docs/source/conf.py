@@ -17,13 +17,13 @@ import sphinx_bootstrap_theme
 
 # -- Project information -----------------------------------------------------
 
-project = 'AWS Serverless Data Lake Framework'
-author = 'Abdel Jaidi'
+project = "AWS Serverless Data Lake Framework"
+author = "Abdel Jaidi"
 
 master_doc = "index"
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release = "0.0.1"
 
 
 # -- General configuration ---------------------------------------------------
@@ -31,15 +31,10 @@ release = '0.0.1'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    "sphinx.ext.autosectionlabel",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.napoleon",
-    'recommonmark'
-]
+extensions = ["sphinx.ext.autosectionlabel", "sphinx.ext.autosummary", "sphinx.ext.napoleon", "recommonmark"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -53,7 +48,7 @@ autosummary_generate = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'bootstrap'
+html_theme = "bootstrap"
 html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
 html_show_copyright = False
@@ -83,8 +78,12 @@ html_theme_options = {
         ("Architecture", "architecture"),
         ("Workshop", "https://sdlf.workshop.aws/", True),
         ("License", "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/LICENSE", True),
-        ("Contributing", "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/CONTRIBUTING.md", True),
-        ("GitHub", "https://github.com/awslabs/aws-serverless-data-lake-framework", True)
+        (
+            "Contributing",
+            "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/CONTRIBUTING.md",
+            True,
+        ),
+        ("GitHub", "https://github.com/awslabs/aws-serverless-data-lake-framework", True),
     ],
     # Render the next and previous page links in navbar. (Default: true)
     "navbar_sidebarrel": False,
@@ -133,4 +132,4 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]

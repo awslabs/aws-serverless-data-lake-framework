@@ -30,7 +30,7 @@ stage_bucket = S3Configuration().stage_bucket
 logger = init_logger(__name__)
 
 
-class CustomTransform():
+class CustomTransform:
     def __init__(self):
         logger.info("S3 Blueprint Light Transform initiated")
 
@@ -56,25 +56,22 @@ class CustomTransform():
             return l
 
         # Reading file locally
-        with open(local_path, 'r') as raw_file:
+        with open(local_path, "r") as raw_file:
             data = raw_file.read()
 
         json_data = json.loads(data)
 
         # Saving file locally to /tmp after parsing
-        output_path = "{}_parsed.json".format(local_path.split('.')[0])
-        with open(output_path, "w", encoding='utf-8') as write_file:
-            json.dump(parse(json_data), write_file,
-                      ensure_ascii=False, indent=4)
+        output_path = "{}_parsed.json".format(local_path.split(".")[0])
+        with open(output_path, "w", encoding="utf-8") as write_file:
+            json.dump(parse(json_data), write_file, ensure_ascii=False, indent=4)
 
         # Uploading file to Stage bucket at appropriate path
         # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
-        s3_path = 'pre-stage/{}/{}/{}'.format(team,
-                                              dataset, output_path.split('/')[2])
+        s3_path = "pre-stage/{}/{}/{}".format(team, dataset, output_path.split("/")[2])
         # IMPORTANT: Notice "stage_bucket" not "bucket"
         kms_key = KMSConfiguration(team).get_kms_arn
-        s3_interface.upload_object(
-            output_path, stage_bucket, s3_path, kms_key=kms_key)
+        s3_interface.upload_object(output_path, stage_bucket, s3_path, kms_key=kms_key)
         # IMPORTANT S3 path(s) must be stored in a list
         processed_keys = [s3_path]
 

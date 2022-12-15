@@ -167,7 +167,7 @@ class PipelineExecutionHistoryAPI:
                 "#St": "status",
                 "#V": "version",
                 "#LUT": "last_updated_timestamp",
-                "#STT": "status_last_updated_timestamp"
+                "#STT": "status_last_updated_timestamp",
             }
 
             if component:
@@ -181,7 +181,8 @@ class PipelineExecutionHistoryAPI:
                 ":STT": status + "#" + utc_time_iso,
                 ":LUT": utc_time_iso,
                 ":INC": 1,
-                ":V": version}
+                ":V": version,
+            }
             update_expr = "SET #H = list_append(#H, :H), #St = :St, #STT = :STT, #V = :V + :INC, #LUT = :LUT"
 
             if is_not_empty(issue_comment):
@@ -242,10 +243,7 @@ class PipelineExecutionHistoryAPI:
 
     def get_peh_record(self, peh_id):
         # self.logger.debug(f"check_peh_active(): {peh_id}")
-        result = self.peh_table.get_item(
-            Key={"id": peh_id},
-            ConsistentRead=True
-        )
+        result = self.peh_table.get_item(Key={"id": peh_id}, ConsistentRead=True)
         # self.logger.debug(f"check_peh_active(): {result}")
 
         if "Item" in result:
@@ -259,7 +257,9 @@ class PipelineExecutionHistoryAPI:
         if pipeline_name not in self.pipelines.keys():  # Pipeline not found in cache
             # Go to DDB and add new pipeline to cache
             self.logger.debug(f"check_pipeline - get from DDB: {pipeline_name}")
-            result = self.pipelines_table.get_item(Key={"name": pipeline_name}, ConsistentRead=True, AttributesToGet=["name", "status"])
+            result = self.pipelines_table.get_item(
+                Key={"name": pipeline_name}, ConsistentRead=True, AttributesToGet=["name", "status"]
+            )
             self.logger.debug("result:" + str(result))
 
             if "Item" in result:  # Pipeline found, check status
