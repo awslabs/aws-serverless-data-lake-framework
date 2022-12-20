@@ -189,7 +189,7 @@ Resources:
       GlueVersion: "2.0"
       Command:
         Name: glueetl
-        PythonVersion: "3.9"
+        PythonVersion: "3"
         ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadIncremental.py"
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -208,7 +208,7 @@ Resources:
       GlueVersion: "2.0"
       Command:
         Name: glueetl
-        PythonVersion: "3.9"
+        PythonVersion: "3"
         ScriptLocation: !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/DMSCDC_LoadInitial.py"
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"

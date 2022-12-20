@@ -274,7 +274,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
-        PythonVersion: "3.9"
+        PythonVersion: "3"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-suggestion-analysis-verification-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
@@ -306,7 +306,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
-        PythonVersion: "3.9"
+        PythonVersion: "3"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-analysis-verification-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
@@ -338,7 +338,7 @@ Resources:
     Properties:
       Command:
         Name: glueetl
-        PythonVersion: "3.9"
+        PythonVersion: "3"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-profile-runner.scala"
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
