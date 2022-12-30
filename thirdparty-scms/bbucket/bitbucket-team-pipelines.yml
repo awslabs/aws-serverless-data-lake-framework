@@ -38,7 +38,7 @@ pipelines:
                 TEST_REPO=$PREFIX-$TEAM-sdlf-stageb
                 apk add curl
                 OUTPUT=$(curl -H "Content-Type: application/json" -u ${BBUSER}:${APP_PASS} https://api.bitbucket.org/2.0/repositories/$BITBUCKET_WORKSPACE/$TEST_REPO 2>&1 )
-                if [[ "$OUTPUT" == *"not found"* ]]; then
+                if [[ "$OUTPUT" == *"not found"* || "$OUTPUT" == *"no longer exists"* ]]; then
                   echo "Team does not exist on Bitbucket"
                   echo -n 1 > team_validation
                 else
