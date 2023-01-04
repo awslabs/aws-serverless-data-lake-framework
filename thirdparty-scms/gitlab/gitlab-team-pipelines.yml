@@ -1,0 +1,85 @@
+default:
+  image: public.ecr.aws/debian/debian:stable-slim
+
+  before_script:
+    - apt update && apt install -y python3 python3-dev python3-pip python3-wheel git curl jq
+    - pip3 install awscli
+    - aws --version
+    - |
+      git config --global user.email "nobody@$GITLAB_HOST"
+      git config --global user.name "GitLab CI"
+stages:
+  - validation
+  - creation
+
+Team Validation:
+  stage: validation
+  script:
+  - |
+    echo "CI_PIPELINE_IID: $CI_PIPELINE_IID"
+    if [ "$CI_PIPELINE_IID" -lt 4 ]; then
+      echo "First execution. The team will not be created"
+      echo -n 0 > team_validation
+      exit 0
+    fi
+  - |
+    echo "CI_COMMIT_BRANCH: $CI_COMMIT_BRANCH"
+    if [[ " master test dev " =~ " $CI_COMMIT_BRANCH " ]]; then
+      if [[ "master" ==  "$CI_COMMIT_BRANCH" ]]; then ENV="prod"; else ENV="$CI_COMMIT_BRANCH"; fi
+      TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-"$ENV".json)
+
+      SUBGROUP_ID=$(curl -sS -H "PRIVATE-TOKEN: $API_TOKEN" \
+        https://"$GITLAB_HOST"/api/v4/groups/"$(echo -n "$GROUP/$TEAM" | jq -s -R -r @uri)" | jq -r '.id // empty')
+      echo "SUBGROUP_ID: $SUBGROUP_ID"
+      if [[ -n "$SUBGROUP_ID" ]] ; then
+        echo "Team already exists on GitLab"
+        echo -n 0 > team_validation
+      else
+        echo "Team does not exist on GitLab"
+        echo -n 1 > team_validation
+      fi
+    else
+      echo "Branch not supported"
+      echo -n 0 > team_validation
+    fi
+  artifacts:
+    paths:
+    - team_validation
+
+Create team repositories:
+  stage: creation
+  script:
+  - if [ "$(cat team_validation)" -eq 0 ]; then echo "Repository not created"; exit 0; fi
+  - if [ "master" ==  "$CI_COMMIT_BRANCH" ]; then ENV="prod"; else ENV="$CI_COMMIT_BRANCH"; fi
+  - export AWS_ACCESS_KEY_ID=$SDLF_AWS_ACCESS_KEY_ID
+  - export AWS_SECRET_ACCESS_KEY=$SDLF_AWS_SECRET_ACCESS_KEY
+  - export AWS_SESSION_TOKEN=$SDLF_AWS_SESSION_TOKEN
+  - export AWS_DEFAULT_REGION=$SDLF_AWS_REGION
+  - |
+    if [ ${#SDLF_AWS_ROLE_TO_ASSUME_NAME} -gt 0 ]; then
+      echo "Assuming role: $SDLF_AWS_ROLE_TO_ASSUME_NAME"
+      aws sts assume-role --role-arn "$SDLF_AWS_ROLE_TO_ASSUME_ARN"  --role-session-name "$SDLF_AWS_ROLE_TO_ASSUME_NAME" > tmp.json
+      export AWS_ACCESS_KEY_ID=$(jq -r .Credentials.AccessKeyId tmp.json)
+      export AWS_SECRET_ACCESS_KEY=$(jq -r .Credentials.SecretAccessKey tmp.json)
+      export AWS_SESSION_TOKEN=$(jq -r .Credentials.SessionToken tmp.json)              
+      rm tmp.json
+    fi
+  - TEAM=$(jq -r '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' parameters-"$ENV".json)
+  - |
+    PARENT_GROUP_ID=$(curl -sS -H "PRIVATE-TOKEN: $API_TOKEN" "https://$GITLAB_HOST/api/v4/groups/$GROUP" | jq -r '.id')
+    echo "PARENT_GROUP_ID: $PARENT_GROUP_ID"
+    GROUP_ID=$(curl -sS --request POST --header "PRIVATE-TOKEN: $API_TOKEN" \
+      --header "Content-Type: application/json" \
+      --data "{\"path\": \"$TEAM\", \"name\": \"$TEAM\", \"parent_id\": \"$PARENT_GROUP_ID\", \"visibility\": \"private\" }" \
+      https://"$GITLAB_HOST"/api/v4/groups/ | jq -r '.id')
+    echo "GROUP_ID: $GROUP_ID"
+  - |
+    declare -a REPOSITORIES=("pipeline" "dataset" "datalakelibrary" "piplibrary" "stagea" "stageb")
+    for REPO in "${REPOSITORIES[@]}"; do
+      git clone --mirror "https://placeholder:$API_TOKEN@$GITLAB_HOST/$GROUP/sdlf-$REPO.git" "sdlf-$TEAM-$REPO"
+    done
+    declare -a REPOSITORIES=("sdlf-$TEAM-pipeline" "sdlf-$TEAM-dataset" "sdlf-$TEAM-datalakelibrary" "sdlf-$TEAM-piplibrary" "sdlf-$TEAM-stagea" "sdlf-$TEAM-stageb")
+  - DIRNAME=$PWD
+  - REGION=$SDLF_AWS_REGION
+  - source scripts/functions.sh
+  - deploy_sdlf_team_repositories

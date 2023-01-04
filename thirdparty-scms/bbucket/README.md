@@ -2,7 +2,7 @@
 
 ## BitBucket
 
-![diagram](SDLF+BitBucket.jpg "Modification")
+![diagram](SDLF_BitBucket.jpg "Modification")
 
 1. The foundations stacks are still created from the deploy script
 2. The git mirroring, and the team repositories creation is delegated to BitBucket using the next features:

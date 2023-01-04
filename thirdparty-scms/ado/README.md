@@ -25,7 +25,7 @@ NOTE: For convenience, the Azure DevOps words will be replaced by ADO.
 3. setup_project: modifies the ADO configuration for the deployment script
 4. The base repositories are created in AWS empty.
 5. The base repositories are created and populated in ADO. So are the pipelines which in the Mirror stage, will use the service connection mentioned in 2.
-6. The team creation is now an ADO pipeline responsability therefore the PAT token is stored as a variable in the sdlf-team pipeline with the porpose to create the team repositories in ADO and AWS 
+6. The team creation is now an ADO pipeline responsability therefore the PAT token is stored as a variable in the sdlf-team pipeline with the purpose to create the team repositories in ADO and AWS
 
 NOTE: From now on, the script **bootstrap_team.sh** from the **sdlf-team** repository will not create any team repository.
 

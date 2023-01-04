@@ -23,7 +23,7 @@ usage () { echo "
     -f -- Deploys SDLF Foundations
     -o -- Deploys Shared DevOps Account CICD Resources
     -c -- Deploys Child Account CICD Resources
-    -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket
+    -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket, gitlab -> GitLab
     -a -- Flag to add CodeCommit Pull Request test infrastructure
 "; }
 options=':s:t:r:x:e:dfocha'
@@ -53,7 +53,7 @@ then
     if "$dflag"; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
     # declare all the external SCMs supported for example: bitbucket github gitlab
     # each one of these should have its directory, config and custom functions
-    declare -a SCMS=(ado bbucket)
+    declare -a SCMS=(ado bbucket gitlab)
     # shellcheck disable=SC2199,SC2076
     if [[ " ${SCMS[@]} " =~ " ${SCM} " ]]; then
         SCM_DIR=${DIRNAME}/thirdparty-scms/${SCM}

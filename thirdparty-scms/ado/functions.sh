@@ -4,17 +4,21 @@ function technical_requirements()
 {
   echo "Verifying technical requirements"
   if [[ "$OSTYPE" == "darwin"* ]]; then
-      SED=$(which gsed)
+    if ! command -v gsed &> /dev/null; then
+        echo "sed binary is necessary to execute the deployment" && exit 1
+    fi
+    SED=$(command -v gsed)
   else
-      SED=$(which sed)
-  fi
-  if [[ $(${SED} --version) -gt 0 ]]; then
-      echo "sed binnary is necessary to execute the deployment" && exit 1
+    if ! command -v sed &> /dev/null; then
+        echo "sed binary is necessary to execute the deployment" && exit 1
+    fi
+    SED=$(command -v sed)
   fi
 
-  if [[ $(jq --version) -gt 0 ]]; then
-      echo "jq binnary is necessary to execute the deployment" && exit 1
+  if ! command -v jq &> /dev/null; then
+      echo "jq binary is necessary to execute the deployment" && exit 1
   fi
+
   echo "Verifying if az cli is authenticated Azure"
   output=$(az account list 2>&1)
   if [[ "$output" == *"Please run"* ]]; then
@@ -51,7 +55,7 @@ function bootstrap_repository_scm()
     git init
     if [[ "$REPOSITORY" == "sdlf-team" ]]; then #remove sdlf-team repositories creation
       # shellcheck disable=SC2016
-      "$SED" -i 's/bootstrap_team_repository ${TEAM_NAME} ${REPOSITORY}/echo "Creation delegated to external SCM"/g' scripts/bootstrap_team.sh
+      "$SED" -i 's/bootstrap_team_repository "$TEAM_NAME" "$REPOSITORY"/echo "Creation delegated to external SCM"/g' scripts/bootstrap_team.sh
     fi
     git add . 
     git commit -m "Initial Commit" > /dev/null
