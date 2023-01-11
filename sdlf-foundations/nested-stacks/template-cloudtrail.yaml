@@ -195,6 +195,7 @@ Resources:
           ],
           !Ref "AWS::NoValue",
         ]
+      KMSKeyId: !Ref pKMSKeyId
       S3BucketName: !Ref pExternalTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
       EnableLogFileValidation: true
