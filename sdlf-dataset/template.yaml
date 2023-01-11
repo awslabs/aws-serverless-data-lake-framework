@@ -108,6 +108,7 @@ Resources:
     Type: AWS::Glue::Crawler
     Properties:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn:1}}"
+      CrawlerSecurityConfiguration: !Sub sdlf-${pTeamName}-glue-security-config
       DatabaseName: !Ref rGlueDataCatalog
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
       Targets:
