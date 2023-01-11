@@ -1083,6 +1083,7 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:CreateGrant
                 Resource:
+                  - !Ref pKMSInfraKeyId
                   - !Ref pKMSDataKeyId
 
   ####### SSM #######
