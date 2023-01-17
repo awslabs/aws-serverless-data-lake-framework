@@ -1,7 +1,7 @@
 #!/bin/bash
 DIRNAME=$(pwd)
 TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' ${DIRNAME}/../parameters-${ENV}.json)")
-function create_approbal_rule()
+function create_approval_rule()
 {
   CA_OUT=$(aws codecommit create-approval-rule-template \
       --region ${AWS_REGION} \
@@ -10,7 +10,7 @@ function create_approbal_rule()
   CA_STATUS=$?
   if [ ${CA_STATUS} -ne 0 ] ; then
       if [[ ${CA_OUT} == *"An error occurred"* && ${CA_OUT} == *"already exists in your AWS account"* ]] ; then
-          echo -e "\nApprobal rule for the ${TEAM_NAME} team already exists.";
+          echo -e "\nApproval rule for the ${TEAM_NAME} team already exists.";
       else
           exit ${STATUS}
       fi
@@ -41,7 +41,7 @@ function bootstrap_team_repository()
 }
 
 declare -a REPOSITORIES=("sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-stageX")
-create_approbal_rule ${TEAM_NAME}
+create_approval_rule ${TEAM_NAME}
 for REPOSITORY in "${REPOSITORIES[@]}"
 do
   bootstrap_team_repository ${TEAM_NAME} ${REPOSITORY}
