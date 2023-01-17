@@ -54,6 +54,10 @@ Parameters:
     Type: String
     Description: The name of the repository containing the code for StageB's State Machine.
     Default: sdlf-stageB
+  pEntryPoint:
+    Type: String
+    Description: The name of the first stage of the pipeline.
+    Default: stage-a
   pTeamName:
     Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -70,6 +74,12 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-statemachine.yaml
       Parameters:
+        pStageName: stage-a
+        pEntryPoint: !Equals [!Ref pEntryPoint, "stage-a"]
+        pEventPattern: !Sub
+          |+
+          {\n            \"source\": [\"sdlf.s3\"],\n            \"detail-type\": [\"SdlfObjectInS3\"],\n            \"detail\": {\n              \"team\": [\"${pTeamName}\"],\n              \"pipeline\": [\"${pPipelineName}\"],\n              \"pipeline_stage\": [\"${pEntryPoint}\"]\n            }\n          }
+        pTriggerType: event
         pAppName: !Ref pApplicationName
         pArtifactoryStore: !Ref pCFNBucket
         pBranchName: !Ref pStageABranch
@@ -79,9 +89,7 @@ Resources:
         pDatasetBucket: !Ref pCentralBucket
         pEnv: !Ref pEnvironment
         pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
-        pKMSDataKeyId: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
         pOrgName: !Ref pOrganizationName
-        pPermissionsBoundaryManagedPolicy: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
         pPipeline: !Ref pPipelineName
         pRepositoryName: !Ref pStageAStateMachineRepository
         pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications
@@ -100,6 +108,12 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-statemachine.yaml
       Parameters:
+        pStageName: stage-b
+        pEntryPoint: !Equals [!Ref pEntryPoint, "stage-b"]
+        pEventPattern: !Sub
+          |+
+          {\n            \"source\": [\"aws.states\"],\n            \"detail-type\": [\"Step Functions Execution Status Change\"],\n            \"detail\": {\n              \"status\": [\"SUCCEEDED\"],\n              \"stateMachineArn\": [\"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-sm-a\"]\n            }\n          }
+        pTriggerType: schedule
         pAppName: !Ref pApplicationName
         pArtifactoryStore: !Ref pCFNBucket
         pBranchName: !Ref pStageBBranch
@@ -109,9 +123,7 @@ Resources:
         pDatasetBucket: !Ref pStageBucket
         pEnv: !Ref pEnvironment
         pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
-        pKMSDataKeyId: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
         pOrgName: !Ref pOrganizationName
-        pPermissionsBoundaryManagedPolicy: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
         pPipeline: !Ref pPipelineName
         pRepositoryName: !Ref pStageBStateMachineRepository
         pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications

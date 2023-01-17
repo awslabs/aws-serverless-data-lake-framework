@@ -44,57 +44,6 @@ Parameters:
     AllowedPattern: "[a-z0-9]*"
 
 Resources:
-  ######## SQS #########
-  rQueueRoutingPostStep:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub sdlf-${pTeamName}-${pDatasetName}-queue-b.fifo
-      FifoQueue: True
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt rDeadLetterQueueRoutingPostStep.Arn
-        maxReceiveCount: 1
-      VisibilityTimeout: 60
-      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
-
-  rDeadLetterQueueRoutingPostStep:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub sdlf-${pTeamName}-${pDatasetName}-dlq-b.fifo
-      FifoQueue: True
-      MessageRetentionPeriod: 1209600
-      VisibilityTimeout: 60
-      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
-
-  ######## TRIGGERS #########
-  rPostStateRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-b
-      Description: Trigger StageB Routing Lambda every 5 minutes
-      State: ENABLED
-      ScheduleExpression: "cron(*/5 * * * ? *)"
-      Targets:
-        - Id: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-b
-          Arn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipelineName}-routing-b
-          Input: !Sub |
-            {
-              "team": "${pTeamName}",
-              "pipeline": "${pPipelineName}",
-              "pipeline_stage": "StageB",
-              "dataset": "${pDatasetName}",
-              "org": "${pOrg}",
-              "app": "${pApp}",
-              "env": "${pEnvironment}"
-            }
-
-  rPermissionEventsInvokeRoutingLambda:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipelineName}-routing-b
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt rPostStateRule.Arn
-
   ######## GLUE #########
   rGlueDataCatalog:
     Type: AWS::Glue::Database
@@ -129,22 +78,6 @@ Resources:
           Name: !Ref rGlueDataCatalog
 
   ######## SSM #########
-  rQueueRoutingPostStepSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/SQS/${pTeamName}/${pDatasetName}StageBQueue
-      Type: String
-      Value: !GetAtt rQueueRoutingPostStep.QueueName
-      Description: !Sub "Name of the StageB ${pTeamName} ${pDatasetName} Queue"
-
-  rDeadLetterQueueRoutingPostStepSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/SQS/${pTeamName}/${pDatasetName}StageBDLQ
-      Type: String
-      Value: !GetAtt rDeadLetterQueueRoutingPostStep.QueueName
-      Description: !Sub "Name of the StageB ${pTeamName} ${pDatasetName} DLQ"
-
   rGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
     Properties:

@@ -1,9 +1,8 @@
 from datalake_library import octagon
 from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import DynamoConfiguration, S3Configuration, SQSConfiguration
+from datalake_library.configuration.resource_configs import DynamoConfiguration, S3Configuration
 from datalake_library.interfaces.dynamo_interface import DynamoInterface
 from datalake_library.interfaces.s3_interface import S3Interface
-from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.octagon import peh
 
 logger = init_logger(__name__)
@@ -59,11 +58,6 @@ def lambda_handler(event, context):
             }
 
             dynamo_interface.update_object_metadata_catalog(object_metadata)
-
-        logger.info("Sending messages to next SQS queue if it exists")
-        sqs_config = SQSConfiguration(team, dataset, "".join([stage[:-1], chr(ord(stage[-1]) + 1)]))
-        sqs_interface = SQSInterface(sqs_config.get_stage_queue_name)
-        sqs_interface.send_batch_messages_to_fifo_queue(processed_keys, 10, "{}-{}".format(team, dataset))
 
         octagon_client.update_pipeline_execution(
             status="{} {} Processing".format(stage, component), component=component

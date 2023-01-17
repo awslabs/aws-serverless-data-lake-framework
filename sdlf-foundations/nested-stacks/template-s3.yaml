@@ -600,6 +600,11 @@ Resources:
                   - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
               - Effect: Allow
                 Action:
+                  - events:PutEvents
+                Resource:
+                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
+              - Effect: Allow
+                Action:
                   - dynamodb:BatchGetItem
                   - dynamodb:BatchWriteItem
                   - dynamodb:DeleteItem

@@ -3,10 +3,17 @@ Transform: AWS::Serverless-2016-10-31
 Description: Contains StageA StateMachine Definition
 
 Parameters:
+  pRandomSource:
+    Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
+    Type: String
   pArtifactsBucket:
     Description: S3 Artifacts bucket
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/ArtifactsBucket
+  pCfnBucket:
+    Description: S3 Cfn bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
   pDatasetBucket:
     Description: The dataset bucket
     Type: String
@@ -25,9 +32,6 @@ Parameters:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
-  pPermissionsBoundaryManagedPolicy:
-    Description: The permissions boundary IAM Managed policy for the team
-    Type: String
   pPipeline:
     Description: The name of the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -37,18 +41,22 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, test, prod]
-  pKMSInfraKeyId:
-    Description: The team infrastructure KMS key
+  pStageName:
+    Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
-  pKMSDataKeyId:
-    Description: The team data KMS key
+    AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+  pTriggerType:
+    Description: Trigger type of the stage (event or schedule)
     Type: String
-  pDatalakeLibLayer:
-    Type: AWS::SSM::Parameter::Value<String>
-    Description: The ARN of the latest Datalake Library Lambda Layer
-  pPipLibLayer:
-    Type: AWS::SSM::Parameter::Value<String>
-    Description: The ARN of the latest Pip Library Lambda Layer
+    Default: event
+    AllowedValues: [event, schedule]
+  pSchedule:
+    Description: Cron expression when trigger type is schedule
+    Type: String
+    Default: "cron(*/5 * * * ? *)"
+  pEventPattern:
+    Description: Event pattern to match from previous stage
+    Type: String
   pElasticSearchEnabled:
     Description: Boolean for wether ElasticSearch is enabled
     Type: AWS::SSM::Parameter::Value<String>
@@ -98,44 +106,24 @@ Parameters:
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+  EventBased: !Equals [!Ref pTriggerType, "event"]
+  ScheduleBased: !Equals [!Ref pTriggerType, "schedule"]
 
 Globals:
   Function:
+    Tags:
+      WorkaroundSubSsm: !Ref pRandomSource
     Runtime: python3.9
     Handler: lambda_function.lambda_handler
     Layers:
-      - !Ref pDatalakeLibLayer
-    KmsKeyArn: !Ref pKMSInfraKeyId
+      - !Sub "{{resolve:ssm:/SDLF/Lambda/${pTeamName}/LatestDatalakeLibraryLayer}}"
+    KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
 Resources:
-  ######## SQS #########
-  rQueueRoutingStep:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub sdlf-${pTeamName}-${pPipeline}-queue-a.fifo
-      FifoQueue: True
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt rDeadLetterQueueRoutingStep.Arn
-        maxReceiveCount: 1
-      VisibilityTimeout: 60
-      KmsMasterKeyId: !Ref pKMSInfraKeyId
-
-  rDeadLetterQueueRoutingStep:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub sdlf-${pTeamName}-${pPipeline}-dlq-a.fifo
-      FifoQueue: True
-      MessageRetentionPeriod: 1209600
-      VisibilityTimeout: 60
-      KmsMasterKeyId: !Ref pKMSInfraKeyId
-
-  rQueueLambdaEventSourceMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      BatchSize: 10
-      Enabled: True
-      EventSourceArn: !GetAtt rQueueRoutingStep.Arn
-      FunctionName: !GetAtt rLambdaRoutingStep.Arn
+  Fn::Transform:
+    Name: AWS::Include
+    Parameters:
+      Location: !Sub s3://${pCfnBucket}/pipeline/template-stage-interface.yaml
 
   ######## IAM #########
   rLambdaCommonPolicy:
@@ -182,14 +170,14 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - !Ref pKMSInfraKeyId
+              - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   # Routing Role
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-a
-      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
       AssumeRolePolicyDocument:
@@ -231,7 +219,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
-      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
       AssumeRolePolicyDocument:
@@ -266,7 +254,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-process-a
-      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
       AssumeRolePolicyDocument:
@@ -310,14 +298,14 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:CreateGrant
                 Resource:
-                  - !Ref pKMSDataKeyId
+                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
 
   # Step3 Role
   rRoleLambdaExecutionStep3:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-a
-      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
       AssumeRolePolicyDocument:
@@ -363,7 +351,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
-      PermissionsBoundary: !Ref pPermissionsBoundaryManagedPolicy
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
       AssumeRolePolicyDocument:
@@ -466,7 +454,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterRoutingStep:
     Type: Custom::UpdateSubscriptionFilter
@@ -502,7 +490,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterRedriveStep:
     Type: Custom::UpdateSubscriptionFilter
@@ -519,7 +507,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterStep1:
     Type: Custom::UpdateSubscriptionFilter
@@ -536,7 +524,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterStep2:
     Type: Custom::UpdateSubscriptionFilter
@@ -553,7 +541,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterStep3:
     Type: Custom::UpdateSubscriptionFilter
@@ -570,7 +558,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSInfraKeyId
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rUpdateSubscriptionFilterErrorStep:
     Type: Custom::UpdateSubscriptionFilter

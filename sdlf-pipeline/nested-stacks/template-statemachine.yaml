@@ -2,6 +2,17 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CodePipeline templates for the Lambda functions
 
 Parameters:
+  pStageName:
+    Type: String
+  pEntryPoint:
+    Type: String
+  pSchedule:
+    Type: String
+    Default: "cron(*/5 * * * ? *)"
+  pEventPattern:
+    Type: String
+  pTriggerType:
+    Type: String
   pAppName:
     Type: String
   pArtifactoryStore:
@@ -20,14 +31,10 @@ Parameters:
     Type: String
   pKMSInfraKeyId:
     Type: AWS::SSM::Parameter::Value<String>
-  pKMSDataKeyId:
-    Type: AWS::SSM::Parameter::Value<String>
   pOrgName:
     Type: String
   pPipeline:
     Type: String
-  pPermissionsBoundaryManagedPolicy:
-    Type: AWS::SSM::Parameter::Value<String>
   pRepositoryName:
     Type: String
   pSNSTopic:
@@ -105,39 +112,24 @@ Resources:
                 TemplateConfiguration: "BuildArtifact::tags.json"
                 TemplatePath: "BuildArtifact::template.yaml"
                 ParameterOverrides: !Sub
-                - |+
+                  |+
                   {
-                    "pDatasetBucket" : "${BucketName}",
-                    "pStageBucket": "${StageBucket}",
-                    "pApp": "${Application}",
-                    "pOrg": "${Organization}",
-                    "pTeamName": "${Team}",
-                    "pPermissionsBoundaryManagedPolicy": "${PermissionsBoundary}",
-                    "pPipeline": "${PipelineName}",
-                    "pEnv": "${Environment}",
-                    "pDatalakeLibLayer": "${DatalakeLayerArn}",
-                    "pPipLibLayer": "${PipLayerArn}",
-                    "pKMSInfraKeyId": "${KMSInfraKeyId}",
-                    "pKMSDataKeyId": "${KMSDataKeyId}",
-                    "pStatesExecutionRole": "${StatesExecutionRole}",
-                    "pSNSTopic": "${SNSTopic}",
-                    "pEnableTracing": "${EnableTracing}"
+                    "pRandomSource": "#{codepipeline.PipelineExecutionId}",
+                    "pStageName": "${pStageName}",
+                    "pSchedule": "${pSchedule}",
+                    "pEventPattern": "${pEventPattern}",
+                    "pTriggerType": "${pTriggerType}",
+                    "pDatasetBucket" : "${pDatasetBucket}",
+                    "pStageBucket": "${pStageBucket}",
+                    "pApp": "${pAppName}",
+                    "pOrg": "${pOrgName}",
+                    "pTeamName": "${pTeamName}",
+                    "pPipeline": "${pPipeline}",
+                    "pEnv": "${pEnv}",
+                    "pStatesExecutionRole": "/SDLF/IAM/${pTeamName}/StatesExecutionRoleArn",
+                    "pSNSTopic": "${pSNSTopic}",
+                    "pEnableTracing": "${pEnableTracing}"
                   }
-                - { "BucketName": !Ref pDatasetBucket,
-                "StageBucket": !Ref pStageBucket,
-                "Application": !Ref pAppName,
-                "Organization": !Ref pOrgName,
-                "Team": !Ref pTeamName,
-                "PermissionsBoundary": !Ref pPermissionsBoundaryManagedPolicy,
-                "PipelineName": !Ref pPipeline,
-                "Environment": !Ref pEnv,
-                "DatalakeLayerArn": !Sub "/SDLF/Lambda/${pTeamName}/LatestDatalakeLibraryLayer",
-                "PipLayerArn": !Sub "/SDLF/Lambda/${pTeamName}/LatestDefaultPipLibraryLayer",
-                "KMSInfraKeyId": !Ref pKMSInfraKeyId,
-                "KMSDataKeyId": !Ref pKMSDataKeyId,
-                "StatesExecutionRole": !Sub "/SDLF/IAM/${pTeamName}/StatesExecutionRoleArn",
-                "SNSTopic": !Ref pSNSTopic,
-                "EnableTracing": !Ref pEnableTracing }
               RunOrder: 1
       ArtifactStore:
         Type: S3
