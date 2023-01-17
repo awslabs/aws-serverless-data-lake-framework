@@ -134,7 +134,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pCodeBuildPublishLayerRoleArn
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref pCodeBuildServiceRoleArn
@@ -183,7 +183,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pCodeBuildPublishLayerRoleArn
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref pCodeBuildServiceRoleArn
@@ -224,7 +224,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pMinimumTestCoverage
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       ServiceRole: !Ref pCodeBuildServiceRoleArn
       TimeoutInMinutes: 20
@@ -281,7 +281,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pCodeBuildPublishLayerRoleArn
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref pCodeBuildServiceRoleArn
@@ -332,7 +332,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pTeamName
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref pTransformValidateRoleArn
@@ -363,7 +363,7 @@ Resources:
       EncryptionKey: !Ref pKMSInfraKeyId
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       ServiceRole: !Ref pCICDCodeBuildRoleArn
       TimeoutInMinutes: 20
@@ -401,7 +401,7 @@ Resources:
       EncryptionKey: !Ref pKMSInfraKeyId
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       ServiceRole: !Ref pCICDCodeBuildRoleArn
       TimeoutInMinutes: 20
