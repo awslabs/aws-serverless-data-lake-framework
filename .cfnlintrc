@@ -1,0 +1,4 @@
+include_checks:
+  - I
+ignore_checks:
+  - W3002
