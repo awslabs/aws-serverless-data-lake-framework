@@ -301,6 +301,7 @@ Resources:
                   - sns:SetTopicAttributes
                   - sns:Subscribe
                   - sns:Unsubscribe
+                  - sns:TagResource
               - Resource: "*"
                 Effect: Allow
                 Action:
