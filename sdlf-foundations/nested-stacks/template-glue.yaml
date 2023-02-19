@@ -284,7 +284,7 @@ Resources:
         "--enable-continuous-log-filter": "true"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.2.2-spark-2.4.jar"
+        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
         "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
         "--dynamodbAnalysisTableName": !Sub octagon-DataQualityAnalysis-${pEnvironment}
         "--team": "default"
@@ -316,7 +316,7 @@ Resources:
         "--enable-continuous-log-filter": "true"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.2.2-spark-2.4.jar"
+        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
         "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
         "--dynamodbAnalysisTableName": !Sub octagon-DataQualityAnalysis-${pEnvironment}
         "--team": "default"
@@ -348,7 +348,7 @@ Resources:
         "--enable-continuous-log-filter": "true"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.2.2-spark-2.4.jar"
+        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
         "--team": "default"
         "--dataset": "default"
         "--glueDatabase": "default"
