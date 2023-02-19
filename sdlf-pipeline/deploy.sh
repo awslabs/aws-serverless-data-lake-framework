@@ -74,7 +74,7 @@ if ! aws cloudformation describe-stacks --profile "$PROFILE" --stack-name "$STAC
     --stack-name "$STACK_NAME"
 
   echo "Creating octagon-Pipelines-$ENV DynamoDB entry"
-  for s in "${STAGES[@]}"
+  while IFS= read -r s
   do
       PIPELINE_STAGE=$(echo stage-"$s" | awk '{print tolower($0)}')
       PIPELINE_JSON=$( jq -n \
@@ -84,7 +84,7 @@ if ! aws cloudformation describe-stacks --profile "$PROFILE" --stack-name "$STAC
         --table-name octagon-Pipelines-"$ENV" \
         --item "$PIPELINE_JSON"
       echo "$TEAM_NAME-$PIPELINE_NAME-$PIPELINE_STAGE DynamoDB Pipeline entry created"
-  done
+  done <<< "$STAGES"
 else
   echo -e "Stack exists, attempting update ..."
 
@@ -117,7 +117,7 @@ else
   echo "Finished create/update successfully!"
 
   echo "Updating octagon-Pipelines-$ENV DynamoDB entry"
-  for s in "${STAGES[@]}"
+  while IFS= read -r s
   do
       PIPELINE_STAGE=$(echo stage-"$s" | awk '{print tolower($0)}')
       PIPELINE_JSON=$( jq -n \
@@ -146,5 +146,5 @@ else
       fi
         
       echo "$TEAM_NAME-$PIPELINE_NAME-$PIPELINE_STAGE DynamoDB Pipeline entry created"
-  done
+  done <<< "$STAGES"
 fi
