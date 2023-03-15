@@ -2,9 +2,8 @@
 set -ex
 
 # python
-isort --check .
 black --check .
-flake8 .
+ruff check .
 # pylint $(git ls-files --exclude-standard '*.py') # pylint is disabled for now
 trivy fs --security-checks vuln .
 
