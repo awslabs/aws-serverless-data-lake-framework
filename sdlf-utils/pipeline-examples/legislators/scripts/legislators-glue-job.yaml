@@ -64,7 +64,7 @@ Resources:
       ExecutionProperty:
         MaxConcurrentRuns: 3
       MaxRetries: 0
-      AllocatedCapacity: 2
+      MaxCapacity: 2.0
       GlueVersion: "2.0"
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-glue-job
       SecurityConfiguration: !Sub sdlf-${pTeamName}-glue-security-config

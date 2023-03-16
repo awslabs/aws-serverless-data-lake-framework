@@ -19,12 +19,15 @@ import json
 
 import boto3
 from datalake_library.commons import init_logger
+from datalake_library.configuration.resource_configs import DynamoConfiguration
+from datalake_library.interfaces.dynamo_interface import DynamoInterface
 
 logger = init_logger(__name__)
 
 # Create a client for the AWS Analytical service to use
 client = boto3.client("glue")
-
+dynamo_config = DynamoConfiguration()
+dynamo_interface = DynamoInterface(dynamo_config)
 
 def datetimeconverter(o):
     if isinstance(o, dt.datetime):
@@ -35,7 +38,16 @@ class CustomTransform:
     def __init__(self):
         logger.info("Glue Job Blueprint Heavy Transform initiated")
 
-    def transform_object(self, bucket, keys, team, dataset):
+    def transform_object(self, bucket, keys, team, dataset, pipeline, stage):
+        transform_info = dynamo_interface.get_transform_table_item("{}-{}".format(team, dataset))
+        glue_capacity = { "WorkerType": "G.1X", "NumberOfWorkers": 10}
+        glue_extra_arguments = {}
+        stage_entry = "stage_{}".format(stage[-1].lower())
+        logger.info(f"Stage is {stage_entry}")
+        if stage_entry in transform_info.get(pipeline, {}):
+            logger.info(f"Details from DynamoDB: {transform_info[pipeline]}")
+            glue_capacity = transform_info[pipeline][stage_entry].get("glue_capacity", glue_capacity)
+            glue_extra_arguments = transform_info[pipeline][stage_entry].get("glue_extra_arguments", glue_extra_arguments)
         #######################################################
         # We assume a Glue Job has already been created based on
         # customer needs. This function makes an API call to start it
@@ -58,8 +70,10 @@ class CustomTransform:
                 "--SOURCE_LOCATION": "s3://{}/{}".format(bucket, keys[0].rsplit("/", 1)[0]),
                 "--OUTPUT_LOCATION": "s3://{}/{}".format(bucket, processed_keys_path),
                 "--job-bookmark-option": "job-bookmark-enable",
+                **glue_extra_arguments,
             },
-            MaxCapacity=2.0,
+            WorkerType=glue_capacity["WorkerType"],
+            NumberOfWorkers=int(glue_capacity["NumberOfWorkers"]),
         )
         # Collecting details about Glue Job after submission (e.g. jobRunId for Glue)
         json_data = json.loads(json.dumps(job_response, default=datetimeconverter))

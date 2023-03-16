@@ -51,7 +51,7 @@ def lambda_handler(event, context):
         logger.info("Calling user custom processing code")
         transform_handler = TransformHandler().stage_transform(team, dataset, stage)
         response = transform_handler().transform_object(
-            bucket, keys_to_process, team, dataset
+            bucket, keys_to_process, team, dataset, pipeline, stage
         )  # custom user code called
         response["peh_id"] = peh_id
         remove_content_tmp()
