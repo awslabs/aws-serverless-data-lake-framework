@@ -93,7 +93,7 @@ Resources:
       ScheduleExpression: !Ref pScheduleExpression
       Targets:
         - Id: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-b
-          Arn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipelineName}-routing-b
+          Arn: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipelineName}-routing-b
           Input: !Sub |
             {
               "team": "${pTeamName}",

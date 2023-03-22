@@ -30,11 +30,12 @@ then
     echo "-p not specified, using default..." >&2
     PROFILE="default"
 fi
+AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "PROFILE" | cut -d':' -f2)
 ACCOUNT_ID=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/DevOpsAccountId --profile $PROFILE --query "Parameter.Value")")
 ENV=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/pEnv --profile $PROFILE --query "Parameter.Value")")
 
 # Devops role for cicd
-aws sts assume-role --role-arn "arn:aws:iam::$ACCOUNT_ID:role/sdlf-cicd-team-codecommit-$ENV-engineering" \
+aws sts assume-role --role-arn "arn:"$AWS_PARTITION":iam::$ACCOUNT_ID:role/sdlf-cicd-team-codecommit-$ENV-engineering" \
   --role-session-name codecommit_access | jq -r .Credentials > tmp_credentials.json
 
 export AWS_ACCESS_KEY_ID="$(jq -r '.AccessKeyId' tmp_credentials.json)"

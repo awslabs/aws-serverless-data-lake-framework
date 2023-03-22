@@ -36,7 +36,7 @@ Resources:
               - sts:AssumeRole
       Path: /
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
 
   rDMSVPCRole:
     Type: AWS::IAM::Role
@@ -53,7 +53,7 @@ Resources:
               - sts:AssumeRole
       Path: /
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
 
   rExecutionRole:
     Type: AWS::IAM::Role
@@ -72,9 +72,9 @@ Resources:
               - sts:AssumeRole
       Path: /
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonS3FullAccess
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       Policies:
         - PolicyName: DMSCDCExecutionPolicy
           PolicyDocument:
@@ -96,14 +96,14 @@ Resources:
                   - iam:PassRole
                   - lambda:InvokeFunction
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DMSCDC_Controller
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-ObjectMetadata-${pEnvironment}
-                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
-                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
-                  - !Sub arn:aws:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
-                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:endpoint:*
-                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:task:*
-                  - !Sub arn:aws:dms:${AWS::Region}:${AWS::AccountId}:rep:*
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DMSCDC_Controller
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-ObjectMetadata-${pEnvironment}
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+                  - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:endpoint:*
+                  - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:task:*
+                  - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:rep:*
               - Effect: Allow
                 Action:
                   - dms:DescribeConnections

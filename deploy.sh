@@ -103,6 +103,7 @@ fi
 
 DEVOPS_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile "$DEVOPS_PROFILE")
 CHILD_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile "$CHILD_PROFILE")
+AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "$DEVOPS_PROFILE" | cut -d':' -f2)
 
 function bootstrap_repository()
 {
@@ -242,7 +243,7 @@ fi
 if "$cflag"
 then
     # Increase SSM Parameter Store throughput to 1,000 requests/second
-    aws ssm update-service-setting --setting-id arn:aws:ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
+    aws ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
     DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
     STACK_NAME=sdlf-cicd-child-foundations
     aws cloudformation deploy \

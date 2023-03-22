@@ -67,7 +67,7 @@ Resources:
                   - logs:AssociateKmsKey
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-pr-function*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-pr-function*
               - Effect: Allow
                 Action:
                   - codecommit:BatchGet*
@@ -75,7 +75,7 @@ Resources:
                   - codecommit:Describe*
                   - codecommit:PostCommentForPullRequest
                 Resource:
-                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -169,7 +169,7 @@ Resources:
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
               - Effect: "Allow"
                 Action:
                   - codecommit:BatchGet*
@@ -179,7 +179,7 @@ Resources:
                   - codecommit:List*
                   - codecommit:GitPull
                 Resource:
-                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
 
   rPRCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -242,7 +242,7 @@ Resources:
         detail-type:
           - "CodeCommit Pull Request State Change"
         resources:
-          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
         detail:
           event:
             - "pullRequestSourceBranchUpdated"
@@ -316,7 +316,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:AssociateKmsKey
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-cb-result-function*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pTargetRepositoryName}-cb-result-function*
               - Effect: Allow
                 Action:
                   - codecommit:BatchGet*
@@ -324,7 +324,7 @@ Resources:
                   - codecommit:Describe*
                   - codecommit:PostCommentForPullRequest
                 Resource:
-                  - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTargetRepositoryName}
               - Effect: Allow
                 Action:
                   - kms:CreateGrant

@@ -60,27 +60,27 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
                 Sid: LogAccessPolicy
               - Action:
                   - sns:Unsubscribe
                   - sns:Subscribe
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
                 Sid: SNSSubscription
               - Action:
                   - ssm:GetParameter
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
                 Sid: SSMGetParameter
               - Action:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Teams-${pEnvironment}
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Teams-${pEnvironment}
                 Sid: DynamoDBControl
             Version: 2012-10-17
 
@@ -170,7 +170,7 @@ Resources:
           state:
             - FAILED
           pipeline:
-            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-foundations
+            - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-foundations
       State: ENABLED
       Targets:
         - Arn: !Ref rSNSTopic
@@ -194,7 +194,7 @@ Resources:
           state:
             - FAILED
           pipeline:
-            - !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-team
+            - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-team
       State: ENABLED
       Targets:
         - Arn: !Ref rSNSTopic
