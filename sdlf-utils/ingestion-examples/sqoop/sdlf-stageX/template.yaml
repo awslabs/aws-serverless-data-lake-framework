@@ -198,8 +198,8 @@ Resources:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-sqoop-emr-Role
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
-        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
-        #- arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforAutoScalingRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+        #- arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonElasticMapReduceforAutoScalingRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -231,7 +231,7 @@ Resources:
             - athena:StopQueryExecution
             - athena:DeleteNamedQuery
             - athena:DeletePreparedStatement
-            Resource: !Sub arn:aws:athena:*:${AWS::AccountId}:*
+            Resource: !Sub arn:${AWS::Partition}:athena:*:${AWS::AccountId}:*
           - Effect: Allow
             Action:
             - kms:Decrypt
@@ -240,7 +240,7 @@ Resources:
             - kms:GenerateDataKey
             - kms:DescribeKey
             - kms:CreateGrant
-            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+            Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
 
   rRoleSqoopEMREC2:
     Type: AWS::IAM::Role
@@ -248,9 +248,9 @@ Resources:
       RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-emr-ec2
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
-        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonS3FullAccess
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -270,11 +270,11 @@ Resources:
             Action:
             - elasticmapreduce:TerminateJobFlows
             - elasticmapreduce:ModifyCluster
-            Resource: !Sub arn:aws:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
+            Resource: !Sub arn:${AWS::Partition}:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
           - Effect: Allow
             Action:
             - ssm:GetParameter
-            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
           - Effect: Allow
             Action:
             - athena:List*
@@ -290,14 +290,14 @@ Resources:
             - athena:StopQueryExecution
             - athena:DeleteNamedQuery
             - athena:DeletePreparedStatement
-            Resource: !Sub arn:aws:athena:*:${AWS::AccountId}:*
+            Resource: !Sub arn:${AWS::Partition}:athena:*:${AWS::AccountId}:*
           - Effect: Allow
             Action:
             - secretsmanager:GetSecretValue
             Resource:
-            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/SDLF/credentials/*
-            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
-            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
+            - !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/SDLF/credentials/*
+            - !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
+            - !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
           - Effect: Allow
             Action:
             - secretsmanager:ListSecrets
@@ -308,7 +308,7 @@ Resources:
             - kms:Encrypt
             - kms:ReEncrypt*
             - kms:GenerateDataKey
-            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+            Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
 
   rEmrInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -327,17 +327,17 @@ Resources:
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
           - Effect: Allow
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
           - Effect: Allow
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
           - Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -351,7 +351,7 @@ Resources:
               - dynamodb:Scan
               - dynamodb:UpdateItem
             Resource:
-              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
           - Effect: Allow
             Action:
               - kms:CreateGrant
@@ -524,7 +524,7 @@ Resources:
                   - events:DeleteRule
                   - events:RemoveTargets
                 Resource:
-                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/*
               - Effect: Allow
                 Action:
                   - dynamodb:GetRecords
@@ -564,11 +564,11 @@ Resources:
           - Effect: Allow
             Action:
               - lambda:InvokeFunction
-            Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+            Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/*
           - Effect: Allow
             Action:
               - states:StartExecution
-            Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}*
+            Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}*
           - Effect: Allow
             Action:
             - elasticmapreduce:*
@@ -577,11 +577,11 @@ Resources:
             Action:
             - s3:GetObject*
             - s3:PutObject*
-            Resource: arn:aws:s3:::*/*
+            Resource: !Sub arn:${AWS::Partition}:s3:::*/*
           - Effect: Allow
             Action:
             - s3:ListBucket
-            Resource: arn:aws:s3:::*
+            Resource: !Sub arn:${AWS::Partition}:s3:::*
           - Effect: Allow
             Action:
               - events:PutTargets
@@ -605,8 +605,8 @@ Resources:
             Action:
             - secretsmanager:GetSecretValue
             Resource:
-            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
-            - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
+            - !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SDLF/SQOOP/*
+            - !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sdlf/sqoop/*
           - Effect: Allow
             Action:
             - kms:CreateGrant

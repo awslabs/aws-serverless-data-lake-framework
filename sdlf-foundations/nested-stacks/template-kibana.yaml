@@ -191,7 +191,7 @@ Resources:
                   - logs:DescribeLogStreams
                   - logs:DescribeSubscriptionFilters
                   - logs:PutSubscriptionFilter
-                Resource: arn:aws:logs:*:*:log-group:*:log-stream*
+                Resource: !Sub arn:${AWS::Partition}:logs:*:*:log-group:*:log-stream*
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
@@ -208,7 +208,7 @@ Resources:
                   - kms:ReEncrypt*
                 Resource: !Ref KMSKeyId
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   rUpdateCloudWatchSubscriptionFilterFunction:
     Type: AWS::Serverless::Function
@@ -244,7 +244,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
               - Effect: Allow
                 Action:
                   - es:DescribeElasticsearchDomain
@@ -253,7 +253,7 @@ Resources:
                   - es:ESHttpPost
                   - es:ESHttpGet
                   - es:ESHttpPut
-                Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*
+                Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/*
               - Effect: "Allow"
                 Action:
                   - dynamodb:DescribeStream
@@ -501,7 +501,7 @@ Resources:
                   - "cognito-sync:ListIdentityPoolUsage"
                   - "cognito-sync:SetCognitoEvents"
                   - "cognito-sync:SetIdentityPoolConfiguration"
-                Resource: !Sub "arn:aws:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/${IdentityPool}"
+                Resource: !Sub "arn:${AWS::Partition}:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/${IdentityPool}"
 
   # Create a role for authorized access to AWS resources.
   # Only allows users in the previously created Identity Pool
@@ -547,14 +547,14 @@ Resources:
                   - "cognito-identity:MergeDeveloperIdentities"
                   - "cognito-identity:UnlikeDeveloperIdentity"
                   - "cognito-identity:UpdateIdentityPool"
-                Resource: !Sub "arn:aws:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/${IdentityPool}"
+                Resource: !Sub "arn:${AWS::Partition}:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/${IdentityPool}"
 
   CognitoESAccessRole:
     Type: "AWS::IAM::Role"
     # DeletionPolicy: Retain
     Properties:
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonESCognitoAccess
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -652,11 +652,11 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: arn:aws:logs:*:*:*
+                Resource: !Sub arn:${AWS::Partition}:logs:*:*:*
               - Effect: Allow
                 Action:
                   - es:UpdateElasticsearchDomainConfig
-                Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DOMAINNAME}"
+                Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DOMAINNAME}"
               - Effect: Allow
                 Action:
                   - cognito-idp:CreateUserPoolDomain
@@ -708,7 +708,7 @@ Resources:
           - Effect: Allow
             Action:
               - es:ESHttpPost
-            Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*
+            Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/*
       Roles:
         - !Ref LoggingMasterRole
 
@@ -743,16 +743,16 @@ Resources:
               AWS:
                 - !Sub ${LoggingMasterRole.Arn}
             Effect: Allow
-            Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/* #removing domain name due to cyclic dependency
+            Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/* #removing domain name due to cyclic dependency
           - Action: "es:*"
             Principal:
               AWS:
                 - !Sub
-                  - arn:aws:sts::${AWS::AccountId}:assumed-role/${AuthRole}/CognitoIdentityCredentials
+                  - arn:${AWS::Partition}:sts::${AWS::AccountId}:assumed-role/${AuthRole}/CognitoIdentityCredentials
                   - { AuthRole: !Ref CognitoAuthorizedRole }
                 - !Sub ${rLogStreamerRole.Arn}
             Effect: Allow
-            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DOMAINNAME}/*"
+            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DOMAINNAME}/*"
       # V57095985 - 10/08/2018 - ES Domain needed configurations
       # https://github.com/awslabs/aws-centralized-logging/issues/2
       AdvancedOptions:

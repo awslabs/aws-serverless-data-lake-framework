@@ -158,17 +158,17 @@ Resources:
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
           - Effect: Allow
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
           - Effect: Allow
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
           - Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -182,7 +182,7 @@ Resources:
               - dynamodb:Scan
               - dynamodb:UpdateItem
             Resource:
-              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
           - Effect: Allow
             Action:
               - kms:CreateGrant
@@ -261,15 +261,15 @@ Resources:
                 Action:
                   - s3:ListBucket
                 Resource:
-                  - !Sub arn:aws:s3:::${pStageBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
                 Resource:
-                  - !Sub arn:aws:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/post-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
 
   # Step2 Role
   rRoleLambdaExecutionStep2:
@@ -299,10 +299,10 @@ Resources:
                   - s3:GetBucketLocation
                   - s3:ListBucketMultipartUploads
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}
-                  - !Sub arn:aws:s3:::${pStageBucket}
-                  - !Sub arn:aws:s3:::${pArtifactsBucket}
-                  - !Sub arn:aws:s3:::${pAthenaBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pAthenaBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -311,13 +311,13 @@ Resources:
                   - s3:AbortMultipartUpload
                   - s3:DeleteObject
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/raw/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/post-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pAthenaBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/raw/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pAthenaBucket}/${pTeamName}/*
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -380,7 +380,7 @@ Resources:
                   - sqs:SendMessage
                   - sqs:SendMessageBatch
                 Resource:
-                  - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - s3:GetBucketVersioning
@@ -388,10 +388,10 @@ Resources:
                   - s3:GetBucketLocation
                   - s3:ListBucketMultipartUploads
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}
-                  - !Sub arn:aws:s3:::${pStageBucket}
-                  - !Sub arn:aws:s3:::${pArtifactsBucket}
-                  - !Sub arn:aws:s3:::${pAthenaBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pAthenaBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -401,13 +401,13 @@ Resources:
                   - s3:DeleteObject
                   - s3:PutObjectTagging
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/raw/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pStageBucket}/post-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pAthenaBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/raw/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pAthenaBucket}/${pTeamName}/*
               - Effect: Allow
                 Action:
                   - kms:DescribeKey

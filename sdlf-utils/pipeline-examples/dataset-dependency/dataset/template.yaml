@@ -65,7 +65,7 @@ Resources:
                 Action:
                   - states:StartExecution
                 Resource:
-                  - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-*
+                  - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-*
       Path: /state-machine/
 
   rStateRule:
@@ -77,7 +77,7 @@ Resources:
       ScheduleExpression: cron(*/5 * * * ? *)
       Targets:
         - Id: !Sub sdlf-${pTeamName}-${pDatasetName}-rule-a
-          Arn: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-sm-a
+          Arn: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-sm-a
           Input: !Sub |
             {
               "body": {

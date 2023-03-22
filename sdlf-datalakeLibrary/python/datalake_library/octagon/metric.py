@@ -291,7 +291,8 @@ class MetricAPI:
             raise ValueError(f"Wrong evaluation operation: {evaluation}")
 
     def _get_topic_arn(self, name):
-        if "arn:aws:sns:" in name:
+        partition = self.client.get_partition_for_region(self.client.region)
+        if name.startswith(f"arn:{partition}:"):
             return name
         else:
-            return ":".join(["arn", "aws", "sns", self.client.region, self.client.account_id, name])
+            return ":".join(["arn", partition, "sns", self.client.region, self.client.account_id, name])

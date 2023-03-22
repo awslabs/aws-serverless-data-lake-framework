@@ -52,7 +52,7 @@ Resources:
             Resource: !GetAtt rQueueRouting.Arn
             Condition:
               StringEquals:
-                aws:SourceArn: !Sub "arn:aws:s3:::workload-management-${AWS::Region}-${AWS::AccountId}-landing-bucket"
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:s3:::workload-management-${AWS::Region}-${AWS::AccountId}-landing-bucket"
   
       Queues:
         - !Ref rQueueRouting
@@ -128,18 +128,18 @@ Resources:
             - Effect: Allow
               Action:
               - logs:*
-              Resource: arn:aws:logs:*:*:*
+              Resource: !Sub arn:${AWS::Partition}:logs:*:*:*
             - Effect: Allow
               Action: 'sns:Publish'
               Resource:
-                - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
+                - !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
             - Effect: Allow
               Action:
                 - "dynamodb:Get*"
                 - "dynamodb:Query"
                 - "dynamodb:Scan"
               Resource:
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/workload-management-ddb"
+                - !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/workload-management-ddb"
             - Effect: Allow
               Action:
                 - "kms:DescribeKey"
@@ -157,7 +157,7 @@ Resources:
                 - "sqs:DeleteMessage*"
                 - "sqs:GetQueue*"
               Resource:
-                - !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:wlm-*"
+                - !Sub "arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:wlm-*"
             -
               Effect: "Allow"
               Action:
@@ -175,7 +175,7 @@ Resources:
                 - "states:StartExecution"
                 - "states:ListStateMachines"
                 - "states:ListExecutions"
-              Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:wlm-*"
+              Resource: !Sub "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:wlm-*"
           
 
 
@@ -341,11 +341,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - "lambda:InvokeFunction"
-                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:wlm-*"
+                Resource: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:wlm-*"
               - Effect: Allow
                 Action: 'sns:Publish'
                 Resource:
-                  - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
+                  - !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:wlm-*"
 
 
   ######## STATE MACHINE #########
@@ -391,7 +391,7 @@ Resources:
                     },
                     "SNS": {
                       "Type": "Task",
-                      "Resource": "arn:aws:states:::sns:publish",
+                      "Resource": "arn:${AWS::Partition}:states:::sns:publish",
                       "Parameters": {
                         "Message": {
                           "Input.$": "$"

@@ -60,7 +60,7 @@
             },
             "Data Quality": {
               "Type":"Task",
-              "Resource":"arn:aws:states:::states:startExecution",
+              "Resource":"arn:${awsPartition}:states:::states:startExecution",
               "Parameters":{
                   "StateMachineArn":"${smDataQuality}",
                   "Input": {"body.$": "$.body"}

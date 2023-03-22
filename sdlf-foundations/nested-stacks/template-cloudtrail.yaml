@@ -93,7 +93,7 @@ Resources:
             Principal:
               Service: cloudtrail.amazonaws.com
             Action: s3:GetBucketAcl
-            Resource: !Sub arn:aws:s3:::${rTrailBucket}
+            Resource: !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}
           - Sid: AWSCloudTrailWrite
             Effect: Allow
             Principal:
@@ -102,8 +102,8 @@ Resources:
             Resource:
               !If [
                 HasLogFilePrefix,
-                !Sub "arn:aws:s3:::${rTrailBucket}/${pLogFilePrefix}/AWSLogs/${AWS::AccountId}/*",
-                !Sub "arn:aws:s3:::${rTrailBucket}/AWSLogs/${AWS::AccountId}/*",
+                !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/${pLogFilePrefix}/AWSLogs/${AWS::AccountId}/*",
+                !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/AWSLogs/${AWS::AccountId}/*",
               ]
             Condition:
               StringEquals:
@@ -113,8 +113,8 @@ Resources:
             Principal: "*"
             Action: s3:*
             Resource:
-              - !Sub arn:aws:s3:::${rTrailBucket}/*
-              - !Sub arn:aws:s3:::${rTrailBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -156,18 +156,16 @@ Resources:
       IsLogging: true
       IsMultiRegionTrail: false
       EventSelectors:
-        !If [
-          IsS3DataEvents,
-          [
-            {
-              DataResources:
-                [{ Type: "AWS::S3::Object", Values: ["arn:aws:s3:::"] }],
-              IncludeManagementEvents: true,
-              ReadWriteType: All,
-            },
-          ],
-          !Ref "AWS::NoValue",
-        ]
+      EventSelectors: !If
+        - IsS3DataEvents
+        -
+          - DataResources:
+            - Type: AWS::S3::Object
+              Values:
+                - !Sub "arn:${AWS::Partition}:s3"
+            IncludeManagementEvents: true
+            ReadWriteType: All
+        - !Ref "AWS::NoValue"
       KMSKeyId: !Ref pKMSKeyId
       S3BucketName: !Ref rTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
@@ -182,19 +180,16 @@ Resources:
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: true
-      EventSelectors:
-        !If [
-          IsS3DataEvents,
-          [
-            {
-              DataResources:
-                [{ Type: "AWS::S3::Object", Values: ["arn:aws:s3:::"] }],
-              IncludeManagementEvents: true,
-              ReadWriteType: All,
-            },
-          ],
-          !Ref "AWS::NoValue",
-        ]
+      EventSelectors: !If
+        - IsS3DataEvents
+        -
+          - DataResources:
+            - Type: AWS::S3::Object
+              Values:
+                - !Sub "arn:${AWS::Partition}:s3"
+            IncludeManagementEvents: true
+            ReadWriteType: All
+        - !Ref "AWS::NoValue"
       KMSKeyId: !Ref pKMSKeyId
       S3BucketName: !Ref pExternalTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix

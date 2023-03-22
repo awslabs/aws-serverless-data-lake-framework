@@ -30,6 +30,7 @@ then
     echo "-p not specified, using default..." >&2
     PROFILE="default"
 fi
+AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "PROFILE" | cut -d':' -f2)
 ENV=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/pEnv --profile "$PROFILE" --query "Parameter.Value")")
 TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' "$DIRNAME/parameters-$ENV".json)")
 if ! "$sflag"
@@ -146,13 +147,13 @@ function add_lf_permissions()
       --resource "$LOCATION_JSON"
 }
 if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${CENTRAL_BUCKET}/raw/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${CENTRAL_BUCKET}/pre-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${CENTRAL_BUCKET}/post-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${CENTRAL_BUCKET}/analytics/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/raw/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/pre-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/post-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/analytics/${TEAM_NAME}/"
 else
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${CENTRAL_BUCKET}/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${STAGE_BUCKET}/pre-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${STAGE_BUCKET}/post-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:aws:s3:::${ANALYTICS_BUCKET}/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${STAGE_BUCKET}/pre-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${STAGE_BUCKET}/post-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${ANALYTICS_BUCKET}/${TEAM_NAME}/"
 fi

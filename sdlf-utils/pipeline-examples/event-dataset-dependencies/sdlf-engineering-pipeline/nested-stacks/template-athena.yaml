@@ -137,7 +137,7 @@ Resources:
                   - events:DeleteRule
                   - events:RemoveTargets
                 Resource:
-                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*
+                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/*
               - Effect: Allow
                 Action:
                   - dynamodb:GetRecords
@@ -150,18 +150,18 @@ Resources:
                   - dynamodb:DeleteItem
                   - dynamodb:UpdateItem
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - logs:*
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
               - Effect: Allow
                 Action:
                   - kms:*
                 Resource:
-                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
-                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/*
+                  - !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                  - !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:alias/*
 
   ####### SSM #######
   rAthenaWorkgroupSsm:

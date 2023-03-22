@@ -16,7 +16,7 @@ Resources:
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonElasticMapReduceRole
 
   rEMREC2DefaultRole:
     Type: AWS::IAM::Role
@@ -33,7 +33,7 @@ Resources:
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
       Policies:
         - PolicyName: kms-emr-security-config
           PolicyDocument:

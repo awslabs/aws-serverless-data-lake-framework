@@ -61,8 +61,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rPipelineBucket}/*
-              - !Sub arn:aws:s3:::${rPipelineBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rPipelineBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rPipelineBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -110,8 +110,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rCentralBucket}/*
-              - !Sub arn:aws:s3:::${rCentralBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -121,7 +121,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateSingleBucket
     Properties:
-      ResourceArn: !Sub arn:aws:s3:::${rCentralBucket}/
+      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}/
       UseServiceLinkedRole: True
 
   rRawBucket:
@@ -165,8 +165,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rRawBucket}/*
-              - !Sub arn:aws:s3:::${rRawBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rRawBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rRawBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -176,7 +176,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:s3:::${rRawBucket}/
+      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rRawBucket}/
       UseServiceLinkedRole: True
 
   rStageBucket:
@@ -220,8 +220,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rStageBucket}/*
-              - !Sub arn:aws:s3:::${rStageBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rStageBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rStageBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -231,7 +231,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:s3:::${rStageBucket}/
+      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rStageBucket}/
       UseServiceLinkedRole: True
 
   rAnalyticsBucket:
@@ -275,8 +275,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rAnalyticsBucket}/*
-              - !Sub arn:aws:s3:::${rAnalyticsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rAnalyticsBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -286,7 +286,7 @@ Resources:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
     Properties:
-      ResourceArn: !Sub arn:aws:s3:::${rAnalyticsBucket}/
+      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/
       UseServiceLinkedRole: True
 
   rDataQualityBucket:
@@ -319,8 +319,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rDataQualityBucket}/*
-              - !Sub arn:aws:s3:::${rDataQualityBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -329,7 +329,7 @@ Resources:
   rDataQualityBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Properties:
-      ResourceArn: !Sub arn:aws:s3:::${rDataQualityBucket}/
+      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}/
       UseServiceLinkedRole: True
 
   rAthenaBucket:
@@ -362,8 +362,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${rAthenaBucket}/*
-              - !Sub arn:aws:s3:::${rAthenaBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rAthenaBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rAthenaBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -522,20 +522,20 @@ Resources:
                     !If [
                       CreateMultipleBuckets,
                       [
-                        !Sub "arn:aws:s3:::${pCustomBucketPrefix}-raw",
-                        !Sub "arn:aws:s3:::${pCustomBucketPrefix}-stage",
-                        !Sub "arn:aws:s3:::${pCustomBucketPrefix}-analytics",
+                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-raw",
+                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-stage",
+                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-analytics",
                       ],
-                      !Sub "arn:aws:s3:::${pCustomBucketPrefix}",
+                      !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}",
                     ],
                     !If [
                       CreateMultipleBuckets,
                       [
-                        !Sub "arn:aws:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
-                        !Sub "arn:aws:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
-                        !Sub "arn:aws:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
                       ],
-                      !Sub "arn:aws:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+                      !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
                     ],
                   ]
               StringEquals:
@@ -578,12 +578,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
@@ -597,7 +597,7 @@ Resources:
                   - sqs:SendMessage
                   - sqs:SendMessageBatch
                 Resource:
-                  - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
               - Effect: Allow
                 Action:
                   - dynamodb:BatchGetItem
@@ -611,7 +611,7 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:UpdateItem
                 Resource:
-                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant

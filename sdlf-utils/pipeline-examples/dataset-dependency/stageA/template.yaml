@@ -116,17 +116,17 @@ Resources:
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
           - Effect: Allow
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
           - Effect: Allow
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
           - Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -140,7 +140,7 @@ Resources:
               - dynamodb:Scan
               - dynamodb:UpdateItem
             Resource:
-              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
           - Effect: Allow
             Action:
               - kms:CreateGrant
@@ -192,23 +192,23 @@ Resources:
                 Action:
                   - s3:ListBucket
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
                   - s3:PutObject
                 Resource:
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/post-stage/${pTeamName}/*
-                  - !Sub arn:aws:s3:::${pDatasetBucket}/analytics/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/pre-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/post-stage/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/analytics/${pTeamName}/*
               - Effect: Allow
                 Action:
                   - glue:GetJobRun
                   - glue:StartJobRun
                 Resource:
-                  - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
 
   rLambdaStep1:
     Type: AWS::Serverless::Function

@@ -30,7 +30,7 @@ Resources:
           - Sid: Allow administration of the key
             Effect: Allow
             Principal:
-              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+              AWS: [!Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"]
             Action: kms:*
             Resource: "*"
           - Sid: Allow CloudWatch alarms access
@@ -72,8 +72,8 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-routing
-                - !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
+                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
             Action:
               - kms:Decrypt
               - kms:Describe*
@@ -87,8 +87,8 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                - !Sub arn:aws:iam::${AWS::AccountId}:role/sdlf-routing
-                - !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
+                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
             Action:
               - kms:CreateGrant
               - kms:ListGrants
@@ -119,7 +119,7 @@ Resources:
             Action: kms:*
             Effect: Allow
             Principal:
-              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+              AWS: [!Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"]
             Resource: "*"
           - Sid: Allow Lake Formation permissions
             Action:
@@ -132,7 +132,7 @@ Resources:
             Principal:
               AWS:
                 [
-                  !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess",
+                  !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess",
                 ]
             Resource: "*"
 

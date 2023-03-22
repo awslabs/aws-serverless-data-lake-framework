@@ -130,8 +130,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:aws:s3:::${pS3LandingBucketName}/*
-              - !Sub arn:aws:s3:::${pS3LandingBucketName}
+              - !Sub arn:${AWS::Partition}:s3:::${pS3LandingBucketName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pS3LandingBucketName}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -174,7 +174,7 @@ Resources:
             Resource: !GetAtt "rLandingSQSQueue.Arn"
             Condition:
               ArnLike:
-                aws:SourceArn: !Sub "arn:aws:s3:::${pS3LandingBucketName}"
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:s3:::${pS3LandingBucketName}"
       Queues:
         - !Ref "rLandingSQSQueue"
 
@@ -331,14 +331,14 @@ Resources:
               - Effect: "Allow"
                 Action: "s3:GetObject"
                 Resource:
-                  - !Sub "arn:aws:s3:::${rS3LandingBucket}/*"
-                  - !Sub "arn:aws:s3:::${rS3LandingBucket}/"
-                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/*"
-                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/"
+                  - !Sub "arn:${AWS::Partition}:s3:::${rS3LandingBucket}/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::${rS3LandingBucket}/"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pS3RawBucketName}/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pS3RawBucketName}/"
               - Effect: "Allow"
                 Action: "s3:PutObject"
                 Resource:
-                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/*"
-                  - !Sub "arn:aws:s3:::${pS3RawBucketName}/"
-                  - !Sub "arn:aws:s3:::${pAthenaBucketName}/*"
-                  - !Sub "arn:aws:s3:::${pAthenaBucketName}/"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pS3RawBucketName}/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pS3RawBucketName}/"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pAthenaBucketName}/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::${pAthenaBucketName}/"

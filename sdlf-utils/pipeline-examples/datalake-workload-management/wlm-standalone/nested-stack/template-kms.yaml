@@ -15,7 +15,7 @@ Resources:
           - Sid: Allow administration of the key
             Effect: Allow
             Principal:
-              AWS: [!Sub "arn:aws:iam::${AWS::AccountId}:root"]
+              AWS: [!Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"]
             Action: "kms:*"
             Resource: "*"
           - Sid: Allow CloudTrail/CloudWatch alarms access

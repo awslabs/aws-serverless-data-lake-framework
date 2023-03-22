@@ -58,7 +58,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:aws:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnv}-${pTeamName}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnv}-${pTeamName}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -161,7 +161,7 @@ Resources:
         detail-type:
           - CodeCommit Repository State Change
         resources:
-          - !Sub arn:aws:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pRepositoryName}
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pRepositoryName}
         detail:
           event:
             - referenceCreated
@@ -171,7 +171,7 @@ Resources:
           referenceName:
             - !Ref pBranchName
       Targets:
-        - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStateMachinePipeline}
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStateMachinePipeline}
           Id: !Sub sdlf-${pTeamName}-${pPipeline}-${pRepositoryName}-trigger
           RoleArn: !Ref pCloudWatchRepositoryTriggerRoleArn
 
@@ -190,7 +190,7 @@ Resources:
           project-name:
             - !Ref pBuildDatalakeLibrary
       Targets:
-        - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStateMachinePipeline}
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStateMachinePipeline}
           Id: !Sub sdlf-${pTeamName}-${pPipeline}-${pRepositoryName}-update
           RoleArn: !Ref pCloudWatchRepositoryTriggerRoleArn
 
