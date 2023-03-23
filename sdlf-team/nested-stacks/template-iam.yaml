@@ -861,6 +861,7 @@ Resources:
                 Action:
                   - elasticmapreduce:DescribeCluster
                   - elasticmapreduce:RunJobFlow
+                  - elasticmapreduce:AddTags
                   - elasticmapreduce:TerminateJobFlows
                 Resource: "*"
               - Effect: Allow
