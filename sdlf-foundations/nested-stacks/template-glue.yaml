@@ -100,7 +100,16 @@ Resources:
                 Action:
                   - glue:GetJobRun
                   - glue:StartJobRun
-                Resource: "*"
+                Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-data-quality-*
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Glue/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
 
   # Step2 Role
   rRoleLambdaExecutionStep2:
@@ -125,7 +134,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - glue:StartCrawler
-                Resource: "*"
+                Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-data-quality-*
 
   rStatesExecutionRole:
     Type: AWS::IAM::Role
