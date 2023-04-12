@@ -34,6 +34,11 @@ Conditions:
 Resources:
   rCodeCommitRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
       Description: Role assumed by CodeBuild/CodePipeline in child AWS account
       Path: /
@@ -54,15 +59,15 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - codecommit:CreateApprovalRuleTemplate
-                  - codecommit:DeleteApprovalRuleTemplate
-                  - codecommit:GetApprovalRuleTemplate
-                  - codecommit:ListApprovalRuleTemplates
-                  - codecommit:ListRepositories
-                  - codecommit:ListRepositoriesForApprovalRuleTemplate
-                  - codecommit:UpdateApprovalRuleTemplateContent
-                  - codecommit:UpdateApprovalRuleTemplateDescription
-                  - codecommit:UpdateApprovalRuleTemplateName
+                  - codecommit:CreateApprovalRuleTemplate # W11 exception
+                  - codecommit:DeleteApprovalRuleTemplate # W11 exception
+                  - codecommit:GetApprovalRuleTemplate # W11 exception
+                  - codecommit:ListApprovalRuleTemplates # W11 exception
+                  - codecommit:ListRepositories # W11 exception
+                  - codecommit:ListRepositoriesForApprovalRuleTemplate # W11 exception
+                  - codecommit:UpdateApprovalRuleTemplateContent # W11 exception
+                  - codecommit:UpdateApprovalRuleTemplateDescription # W11 exception
+                  - codecommit:UpdateApprovalRuleTemplateName # W11 exception
                 Resource: "*"
               - Effect: Allow
                 Action:
