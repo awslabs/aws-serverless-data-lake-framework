@@ -656,7 +656,10 @@ Resources:
                 Action:
                   - logs:AssociateKmsKey
                   - logs:CreateLogGroup
-                Resource: "*"
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
               - Sid: CreateLogStream
                 Effect: Allow
                 Action:
