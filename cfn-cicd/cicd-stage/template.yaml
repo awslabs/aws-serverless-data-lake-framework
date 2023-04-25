@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD pipelines to automate SDLF workflows
+
+Parameters:
+  pBranchName:
+    Type: String
+    Default: master
+  pCFNBucket:
+    Description: The CloudFormation bucket for the solution
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+  pArtifactsBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
+  pSharedDevOpsAccountId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/DevOpsAccountId
+  pEnvironment:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pTeamName:
+    Type: String
+    Default: engineering
+
+Resources:
+  rStageStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !Sub "{{resolve:ssm:/SDLF/CodeBuild/${pTeamName}/CodePipelineRole}}"
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Sub sdlf-${pTeamName}-stageA-todo
+                BranchName: !Ref pBranchName
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !Sub "{{resolve:ssm:/SDLF/CodeBuild/${pTeamName}/BuildCloudformationModuleStage}}"
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"stageA", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          Type: KMS
+        Location: !Ref pArtifactsBucket
