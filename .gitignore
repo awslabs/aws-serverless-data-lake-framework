@@ -2,6 +2,7 @@
 .vscode/
 *.code-workspace
 .idea/
+.devcontainer/
 
 # Mac/OSX
 .DS_Store
@@ -19,6 +20,7 @@ __pycache__/
 
 # Misc
 automated-deployment/
+rpdk.log
 
 # Distribution / packaging
 output/

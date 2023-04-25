@@ -435,140 +435,21 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: iam:PassRole
-                Resource: "*"
-                Condition:
-                  StringEqualsIfExists:
-                    iam:PassedToService:
-                      - cloudformation.amazonaws.com
-                      - lambda.amazonaws.com
+                Action: sts:AssumeRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
               - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-states-execution
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-                  - !GetAtt rRoleCloudWatchEventRole.Arn
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR*
-              - Effect: Allow
-                Action:
-                  - iam:ListRoles
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
-              - Effect: Allow
-                Action:
-                  - iam:CreateRole
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !GetAtt rCICDCloudFormationRole.Arn
                 Condition:
-                  StringEquals:
-                    iam:PermissionsBoundary: !Ref rTeamIAMManagedPolicy
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - cloudformation.amazonaws.com
               - Effect: Allow
                 Action:
-                  - iam:AttachRolePolicy
-                  - iam:DetachRolePolicy
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-                Condition:
-                  ArnEquals:
-                    iam:PolicyARN:
-                      - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - iam:DeleteRole
-                  - iam:DeleteRolePolicy
-                  - iam:GetRole
-                  - iam:GetRolePolicy
-                  - iam:ListRolePolicies
-                  - iam:PutRolePolicy
-                  - iam:UntagRole
-                  - iam:UpdateRole
-                  - iam:UpdateRoleDescription
-                  - iam:TagRole
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - iam:ListPolicies
-                  - iam:ListPolicyVersions
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/*
-              - Effect: Allow
-                Action:
-                  - iam:CreatePolicy
-                  - iam:CreatePolicyVersion
-                  - iam:DeletePolicy
-                  - iam:DeletePolicyVersion
-                  - iam:GetPolicy
-                  - iam:GetPolicyVersion
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/state-machine/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - codecommit:CancelUploadArchive
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:UploadArchive
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - events:DeleteRule
-                  - events:DescribeRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - lambda:GetLayerVersion
-                  - lambda:ListFunctions
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - lambda:AddPermission
-                  - lambda:CreateAlias
-                  - lambda:CreateFunction
-                  - lambda:DeleteFunction
-                  - lambda:DeleteFunctionConcurrency
-                  - lambda:GetFunction
-                  - lambda:GetFunctionConfiguration
                   - lambda:InvokeFunction
-                  - lambda:ListTags
-                  - lambda:PublishVersion
-                  - lambda:PutFunctionConcurrency
-                  - lambda:RemovePermission
-                  - lambda:TagResource
-                  - lambda:UntagResource
-                  - lambda:UpdateAlias
-                  - lambda:UpdateFunctionCode
-                  - lambda:UpdateFunctionConfiguration
-                  - lambda:UpdateFunctionConfiguration
                 Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-foundations-rKibana*
-              - Effect: Allow
-                Action:
-                  - lambda:CreateEventSourceMapping
-                  - lambda:DeleteEventSourceMapping
-                  - lambda:GetEventSourceMapping
-                  - lambda:UpdateEventSourceMapping
-                Resource: "*"
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -581,45 +462,6 @@ Resources:
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:ExecuteChangeSet
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/*
-              - Effect: Allow
-                Action:
-                  - cloudformation:ValidateTemplate
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:StartBuild
-                  - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - states:CreateActivity
-                  - states:CreateStateMachine
-                  - states:ListActivities
-                  - states:ListStateMachines
-                  - states:TagResource
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
-                  - states:DeleteStateMachine
-                  - states:DescribeStateMachine
-                  - states:DescribeStateMachineForExecution
-                  - states:UpdateStateMachine
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - states:DescribeActivity
-                  - states:DeleteActivity
-                  - states:GetActivityTask
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -648,21 +490,6 @@ Resources:
                   - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
-                  - sqs:ListQueues
-                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
-                  - sqs:AddPermission
-                  - sqs:ChangeMessageVisibility
-                  - sqs:ChangeMessageVisibilityBatch
-                  - sqs:CreateQueue
-                  - sqs:DeleteQueue
-                  - sqs:GetQueueAttributes
-                  - sqs:SetQueueAttributes
-                  - sqs:TagQueue
-                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
                   - s3:CreateBucket
                   - s3:DeleteBucket
                   - s3:DeleteBucketPolicy
@@ -685,23 +512,6 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
               - Effect: Allow
                 Action:
-                  - ssm:AddTagsToResource
-                  - ssm:DescribeParameters
-                  - ssm:GetOpsSummary
-                  - ssm:GetParameter
-                  - ssm:GetParameterHistory
-                  - ssm:GetParameters
-                  - ssm:GetParametersByPath
-                  - ssm:ListTagsForResource
-                  - ssm:RemoveTagsFromResource
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-              - Effect: Allow
-                Action:
-                  - ssm:DeleteParameter
-                  - ssm:PutParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
-              - Effect: Allow
-                Action:
                   - kms:CreateGrant
                   - kms:Decrypt
                   - kms:DescribeKey
@@ -710,9 +520,6 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !GetAtt rKMSInfraKey.Arn
-              - Effect: Allow
-                Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
 
   rCloudWatchRepositoryTriggerRole:
     Type: AWS::IAM::Role
@@ -1697,6 +1504,10 @@ Resources:
                 RoleArn: !GetAtt rCICDCloudFormationRole.Arn
                 StackName: !Sub sdlf-${pTeamName}-pipelines-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::pipelines-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: '1'
             - Name: CreateDynamodbEntry

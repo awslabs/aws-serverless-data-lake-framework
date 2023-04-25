@@ -7,13 +7,13 @@ Parameters:
     Default: sdlf-main
   pCicdRepository:
     Type: String
-    Default: cfn-cicd
+    Default: sdlf-cicd
   pTeamRepository:
     Type: String
-    Default: cfn-team
+    Default: sdlf-team
   pDatalakeAdminMainRepository:
     Type: String
-    Default: cfn-main
+    Default: sdlf-main
 
 Mappings:
   pCodeCommitBranch:

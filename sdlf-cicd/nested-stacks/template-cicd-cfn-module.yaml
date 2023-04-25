@@ -9,22 +9,19 @@ Parameters:
   pSharedDevOpsAccountId:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/DevOpsAccountId
-  pDevops:
-    Type: String
-    Default: ""
 
   pEnvironment:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pEnv
   pTeamRepository:
     Type: String
-    Default: cfn-team
+    Default: sdlf-team
   pPipelineRepository:
     Type: String
-    Default: cfn-pipeline
+    Default: sdlf-pipeline
   pDatasetRepository:
     Type: String
-    Default: cfn-dataset
+    Default: sdlf-dataset
   pSharedDevOpsAccountKmsKeyArn:
     Description: Arn of the KMS key in the Shared DevOps account
     Type: String
@@ -107,10 +104,13 @@ Resources:
                   - "*"
               - Effect: Allow
                 Action:
+                  - iam:GetRole
                   - iam:CreateRole
                   - iam:GetRolePolicy
                   - iam:PutRolePolicy
-                  - iam:*
+                  - iam:DeleteRolePolicy
+                  - iam:DeleteRole
+                  - iam:PassRole
                 Resource:
                   - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/CloudFormationManagedUplo-LogAndMetricsDeliveryRol-*"
               - Effect: Allow
@@ -149,8 +149,13 @@ Resources:
                   - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
                   - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
               - Effect: Allow
-                Action: # TODO CreateKey + d'autres trucs
-                  - kms:*
+                Action:
+                  - kms:CreateKey
+                  - kms:PutKeyPolicy
+                  - kms:TagResource
+                  - kms:EnableKeyRotation
+                  - kms:GenerateDataKey*
+                  - kms:Decrypt
                 Resource:
                   - "*"
               - Effect: Allow
@@ -162,7 +167,7 @@ Resources:
   rBuildCloudformationModuleStage:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub sdlf-cicd-${pDevops}build-cfn-module-codebuild
+      Name: !Sub sdlf-cicd-build-cfn-module-codebuild
       Artifacts:
         Type: CODEPIPELINE
       Description: Build a CloudFormation module from Serverless templates
@@ -173,7 +178,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pArtifactsBucket
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref rBuildCloudformationModuleRole
@@ -226,7 +231,7 @@ Resources:
   rBuildCloudformationModuleStageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeBuild/${pDevops}BuildCloudformationModuleStage
+      Name: !Sub /SDLF/CodeBuild/BuildCloudformationModuleStage
       Type: String
       Value: !Ref rBuildCloudformationModuleStage
       Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template

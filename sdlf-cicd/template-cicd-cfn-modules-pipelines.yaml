@@ -8,12 +8,21 @@ Parameters:
   pSharedDevOpsAccountId:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/DevOpsAccountId
+  pCicdRepository:
+    Type: String
+    Default: sdlf-cicd
+  pFoundationsRepository:
+    Type: String
+    Default: sdlf-foundations
+  pTeamRepository:
+    Type: String
+    Default: sdlf-team
   pPipelineRepository:
     Type: String
-    Default: cfn-pipeline
+    Default: sdlf-pipeline
   pDatasetRepository:
     Type: String
-    Default: cfn-dataset
+    Default: sdlf-dataset
   pSharedDevOpsAccountKmsKeyArn:
     Description: Arn of the KMS key in the Shared DevOps account
     Type: String
@@ -64,8 +73,6 @@ Mappings:
       branch: master
 
 Conditions:
-  CrossAccount:
-    !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
   RunUnitTestingStage: !Equals
     - !Ref pRunCodeCoverage
     - "true"
@@ -382,6 +389,154 @@ Resources:
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
 
+  rFoundationsStateMachinePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pFoundationsRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rFoundationsStateMachineTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Foundations State Machine on ${pFoundationsRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsStateMachinePipeline}
+          Id: !Sub sdlf-${pFoundationsRepository}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
+  rTeamStateMachinePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pTeamRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rTeamStateMachineTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Team State Machine on ${pTeamRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamStateMachinePipeline}
+          Id: !Sub sdlf-${pTeamRepository}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
   rPipelineStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage TODO
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -538,7 +693,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
-        pStageRepository: cfn-stageA
+        pStageRepository: sdlf-stageA
         pStageName: stageA
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
@@ -551,7 +706,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
-        pStageRepository: cfn-stageB
+        pStageRepository: sdlf-stageB
         pStageName: stageB
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
@@ -679,7 +834,7 @@ Resources:
             Type: PLAINTEXT
             Value: !GetAtt rCodeBuildPublishLayerRole.Arn
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
@@ -723,7 +878,7 @@ Resources:
             Type: PLAINTEXT
             Value: !GetAtt rCodeBuildPublishLayerRole.Arn
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
@@ -1027,7 +1182,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pMinTestCoverage
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       TimeoutInMinutes: 20

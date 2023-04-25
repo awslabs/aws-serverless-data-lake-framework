@@ -11,7 +11,7 @@ xflag=false
 aflag=false
 
 DIRNAME=$PWD
-declare -a REPOSITORIES=("cfn-cicd" "cfn-foundations" "cfn-team" "cfn-pipeline" "cfn-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "cfn-stageA" "cfn-stageB" "sdlf-utils")
+declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
 
 usage () { echo "
     -h -- Opens up this help message
@@ -164,11 +164,11 @@ then
     else
         deploy_sdlf_foundations
     fi
-    # TODO back to create
+
     STACK_NAME=sdlf-cicd-team-repos
-    aws cloudformation update-stack \
+    aws cloudformation create-stack \
         --stack-name "$STACK_NAME" \
-        --template-body file://"$DIRNAME"/cfn-cicd/template-cicd-team-repos.yaml \
+        --template-body file://"$DIRNAME"/sdlf-cicd/template-cicd-team-repos.yaml \
         --tags Key=Framework,Value=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
@@ -182,9 +182,9 @@ fi
 if "$oflag"
 then
     ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/DevOpsCFNBucket --query "Parameter.Value" --output text)
-    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/cfn-cicd/sam-translate.py
+    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
     mkdir "$DIRNAME"/output
-    sam package --profile "$DEVOPS_PROFILE" --template-file "$DIRNAME"/cfn-cicd/template-cicd-shared-foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-shared-foundations --output-template-file "$DIRNAME"/output/packaged-template.yaml
+    sam package --profile "$DEVOPS_PROFILE" --template-file "$DIRNAME"/sdlf-cicd/template-cicd-shared-foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-shared-foundations --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
     STACK_NAME=sdlf-cicd-shared-foundations-${ENV}
     aws cloudformation deploy \
@@ -227,7 +227,7 @@ then
                 STACK_NAME="$REPOSITORY-pr-check-stack"
                 aws cloudformation deploy \
                     --stack-name "$STACK_NAME" \
-                    --template-file "$DIRNAME"/cfn-cicd/template-codecommit-pr-check.yaml \
+                    --template-file "$DIRNAME"/sdlf-cicd/template-codecommit-pr-check.yaml \
                     --parameter-overrides \
                         pTargetRepositoryName="$REPOSITORY" \
                         pKMSKeyArn="$DEVOPS_ACCOUNT_KMS" \
@@ -253,7 +253,7 @@ then
     STACK_NAME=sdlf-cicd-child-foundations
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/cfn-cicd/template-cicd-child-foundations.yaml \
+        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-child-foundations.yaml \
         --parameter-overrides \
             pDemo="$DEMO" \
             pEnvironment="$ENV" \
@@ -267,9 +267,9 @@ then
     template_protection "$ENV" "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
 
     ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/CFNBucket --query "Parameter.Value" --output text)
-    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/cfn-cicd/sam-translate.py
+    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
     mkdir "$DIRNAME"/output
-    sam package --profile "$CHILD_PROFILE" --template-file "$DIRNAME"/cfn-cicd/template-cicd-cfn-modules-pipelines.yaml  --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines --output-template-file "$DIRNAME"/output/packaged-template.yaml
+    sam package --profile "$CHILD_PROFILE" --template-file "$DIRNAME"/sdlf-cicd/template-cicd-cfn-modules-pipelines.yaml  --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
     STACK_NAME=sdlf-cicd-cfn-modules-pipelines
     aws cloudformation deploy \
