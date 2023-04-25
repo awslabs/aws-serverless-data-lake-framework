@@ -37,6 +37,9 @@ Parameters:
   pStageRepositoryPrefix:
     Type: String
     Default: sdlf-stage*
+  pTeamStageRepositoryPrefix:
+    Type: String
+    Default: sdlf-*-stage-*
   pDatalakeLibraryRepositoryName:
     Description: Name of the repository containing the code for the Datalake Library.
     Type: String
@@ -261,11 +264,13 @@ Resources:
                   - codecommit:List*
                   - codecommit:UploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageRepositoryPrefix}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamStageRepositoryPrefix}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepositoryName}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipLibrariesRepositoryName}
               - Effect: Allow

@@ -23,6 +23,9 @@ Parameters:
   pDatasetRepository:
     Type: String
     Default: sdlf-dataset
+  pCicdRepository:
+    Type: String
+    Default: sdlf-cicd
   pSharedDevOpsAccountKmsKeyArn:
     Description: Arn of the KMS key in the Shared DevOps account
     Type: String
@@ -710,6 +713,80 @@ Resources:
         pStageName: stageB
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
+
+  rStageCicdStateMachinePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"stagecicd", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rStageCicdStateMachineTriggerEventRule: # TODO this is not a state machine, remove from name..
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Stage CICD State Machine on ${pCicdRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pCicdRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageCicdStateMachinePipeline}
+          Id: !Sub sdlf-${pCicdRepository}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
 
   ######## LAMBDA LAYERS ########
   rCodeBuildServiceRole:
