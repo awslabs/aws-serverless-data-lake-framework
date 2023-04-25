@@ -85,3 +85,11 @@ Resources:
       Type: String
       Value: !Ref rGlueDataCatalog
       Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
+
+  rDatasetSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Datasets/${pTeamName}/${pDatasetName}
+      Type: String
+      Value: !Ref pPipelineName # bit of a hack for datasets lambda
+      Description: !Sub "Placeholder ${pTeamName} ${pDatasetName}"

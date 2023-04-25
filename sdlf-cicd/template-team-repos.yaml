@@ -32,6 +32,16 @@ Conditions:
     - "prod"
 
 Resources:
+  rMainCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+#      Code:
+#        S3:
+#          Bucket:
+#          Key: zip
+      RepositoryDescription: !Sub ${pTeamName} main repository
+      RepositoryName: !Sub sdlf-${pTeamName}-main
+
   rCodeCommitRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -116,13 +126,7 @@ Resources:
               "CodeCommit Repository State Change"
             ],
             "resources": [
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC"
+              "${rMainCodeCommit.Arn}",
             ],
             "source": [
               "aws.codecommit"
@@ -160,13 +164,7 @@ Resources:
               "CodeCommit Pull Request State Change"
             ],
             "resources": [
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipeline",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-dataset",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-datalakeLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-pipLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageA",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageB",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-stageC"
+              "${rMainCodeCommit.Arn}",
             ],
             "source": [
               "aws.codecommit"
