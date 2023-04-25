@@ -10,7 +10,7 @@ Parameters:
     Default: /SDLF/Misc/pEnv
   pStageRepository:
     Type: String
-    Default: cfn-stageA
+    Default: sdlf-stageA
   pStageName:
     Type: String
     Default: stageA

@@ -24,18 +24,9 @@ Parameters:
   pSharedDevOpsAccountKmsKeyArn:
     Description: Arn of the KMS key in the Shared DevOps account
     Type: String
-  pFoundationsRepository:
-    Type: String
-    Default: cfn-foundations
   pMainRepository:
     Type: String
     Default: sdlf-main
-  pPipelineRepository:
-    Type: String
-    Default: cfn-pipeline
-  pDatasetRepository:
-    Type: String
-    Default: cfn-dataset
 
 Mappings:
   pCodeCommitBranch:
@@ -676,12 +667,6 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack
-              - Resource:
-                  - !GetAtt rFoundationsCodeBuildProject.Arn
-                Effect: Allow
-                Action:
-                  - codebuild:StartBuild
-                  - codebuild:BatchGetBuilds
               - Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pEnvironment}
                 Effect: Allow
                 Action: sts:AssumeRole
@@ -715,7 +700,6 @@ Resources:
               - Effect: Allow
                 Action: codepipeline:StartPipelineExecution
                 Resource:
-                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsCodePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-cfn-modules-*
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-*
@@ -782,91 +766,7 @@ Resources:
                   - ssm:GetParameters
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/DataLakeAdminRoleArn
 
-  ######## CODEBUILD #########
-  rFoundationsCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: sdlf-cicd-foundations-codebuild
-      Artifacts:
-        Type: CODEPIPELINE
-      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
-        Type: LINUX_CONTAINER
-      ServiceRole: !Ref rCodeBuildRole
-      TimeoutInMinutes: 40
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-            build:
-              commands:
-                - echo Configuring AWS credentials
-                - echo AWS_CONTAINER_CREDENTIALS_RELATIVE_URI $AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-                - curl -qL -o aws_credentials.json http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI > aws_credentials.json
-                - aws configure set aws_access_key_id `jq -r '.AccessKeyId' aws_credentials.json`
-                - aws configure set aws_secret_access_key `jq -r '.SecretAccessKey' aws_credentials.json`
-                - aws configure set aws_session_token `jq -r '.Token' aws_credentials.json`
-                - |-
-                  if  [ "${CODEBUILD_BUILD_NUMBER}" -gt "1" ]; then
-                      ./deploy.sh
-                  fi
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-
   ######## CODEPIPELINE #########
-  rFoundationsCodePipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      Name: sdlf-cicd-foundations
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: cicd-foundations
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pEnvironment}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: Source1
-              Configuration:
-                RepositoryName: !Ref pFoundationsRepository
-                BranchName:
-                  !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-        - Name: Foundations
-          Actions:
-            - Name: Build
-              InputArtifacts:
-                - Name: Source1
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              OutputArtifacts:
-                - Name: Source2
-              Configuration:
-                ProjectName: !Ref rFoundationsCodeBuildProject
-              RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        Location: !Ref rArtifactsBucket
-        EncryptionKey:
-          Id: !Ref pSharedDevOpsAccountKmsKeyArn
-          Type: KMS
-
   rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -948,30 +848,6 @@ Resources:
       Action: events:PutEvents
       Principal: !Ref pSharedDevOpsAccountId
       StatementId: sdlf-cicd-eventbus
-
-  rFoundationsCodePipelineTriggerRule:
-    Type: AWS::Events::Rule
-    Properties:
-      State: !FindInMap [pDemoMode, !Ref pDemo, state]
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pFoundationsRepository}
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-      Targets:
-        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsCodePipeline}
-          RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
-          Id: sdlf-cicd-foundations
 
   rTeamCodePipelineTriggerRule:
     Type: AWS::Events::Rule
