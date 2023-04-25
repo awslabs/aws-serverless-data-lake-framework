@@ -42,6 +42,10 @@ Parameters:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
     AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+  pEntryPoint:
+    Description: Whether the stage is the first stage of the pipeline.
+    Type: String
+    Default: false
   pTriggerType:
     Description: Trigger type of the stage (event or schedule)
     Type: String
@@ -126,6 +130,7 @@ Resources:
       pTeamName: !Ref pTeamName
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
+      pEntryPoint: !Ref pEntryPoint
       pTriggerType: !Ref pTriggerType
       pSchedule: !Ref pSchedule
       pEventPattern: !Ref pEventPattern

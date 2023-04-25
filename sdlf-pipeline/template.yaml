@@ -30,6 +30,10 @@ Parameters:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
     AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+  pEntryPoint:
+    Type: String
+    Description: Whether the stage is the first stage of the pipeline.
+    Default: false
   pTriggerType:
     Description: Trigger type of the stage (event or schedule)
     Type: String
@@ -47,6 +51,7 @@ Parameters:
     Type: String
 
 Conditions:
+  StartStage: !Equals [!Ref pEntryPoint, "true"]
   EventBased: !Equals [!Ref pTriggerType, "event"]
   ScheduleBased: !Equals [!Ref pTriggerType, "schedule"]
 
@@ -282,6 +287,35 @@ Resources:
       Description:
         Fn::Sub:
           - "Name of the ${pStageName} ${pTeamName} ${pPipelineName} DLQ"
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+
+  rPipelineStageSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub:
+          - /SDLF/Pipelines/${pTeamName}/${pPipelineName}/${pStageName}
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      Type: String
+      Value:
+        !If [
+          StartStage,
+          "entrypoint",
+          ""
+        ] # bit of a hack for the pipelines lambda to work
+      Description:
+        Fn::Sub:
+          - "Placeholder ${pTeamName} ${pPipelineName} ${pStageName}"
           - pTeamName:
               Ref: pTeamName
             pPipelineName:

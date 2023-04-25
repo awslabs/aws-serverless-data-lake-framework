@@ -11,7 +11,7 @@ xflag=false
 aflag=false
 
 DIRNAME=$PWD
-declare -a REPOSITORIES=("sdlf-foundations" "cfn-team" "cfn-pipeline" "cfn-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "cfn-stageA" "cfn-stageB" "sdlf-utils")
+declare -a REPOSITORIES=("cfn-cicd" "sdlf-foundations" "cfn-team" "cfn-pipeline" "cfn-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "cfn-stageA" "cfn-stageB" "sdlf-utils")
 
 usage () { echo "
     -h -- Opens up this help message
@@ -130,6 +130,7 @@ function deploy_sdlf_foundations()
     do
         bootstrap_repository "$REPOSITORY"
     done
+    aws codecommit create-repository --region "$REGION" --profile "$DEVOPS_PROFILE" --repository-name "sdlf-main"
     cd "$DIRNAME" || exit
 }
 
@@ -163,8 +164,9 @@ then
     else
         deploy_sdlf_foundations
     fi
+    # TODO back to create
     STACK_NAME=sdlf-cicd-team-repos
-    aws cloudformation create-stack \
+    aws cloudformation update-stack \
         --stack-name "$STACK_NAME" \
         --template-body file://"$DIRNAME"/cfn-cicd/template-cicd-team-repos.yaml \
         --tags Key=Framework,Value=sdlf \
