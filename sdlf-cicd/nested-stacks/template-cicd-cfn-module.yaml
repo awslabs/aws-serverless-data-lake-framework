@@ -127,6 +127,8 @@ Resources:
                 Resource:
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/awslabs::sdlf::*"
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/awslabs-sdlf-*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/*"
               - Effect: Allow
                 Action:
                   - s3:CreateBucket # necessary for CfnUploadInfra stack
@@ -206,7 +208,7 @@ Resources:
                 - |-
                     mkdir module
                     cd module
-                    cfn init --artifact-type MODULE --type-name "awslabs::sdlf::$MODULE_NAME::MODULE" && rm fragments/sample.json
+                    cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
                     cp -i -a ../translated-template.json fragments/
                     cfn submit > cfn.log 2>&1
                     if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
