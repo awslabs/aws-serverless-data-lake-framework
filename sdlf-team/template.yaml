@@ -29,7 +29,7 @@ Parameters:
     Description: Name of the organization owning the datalake
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
-  pPipelineBucket:
+  pArtifactsBucket:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
@@ -288,7 +288,7 @@ Resources:
               - s3:ListBucket
             Resource:
               [
-                !Sub "arn:${AWS::Partition}:s3:::${pPipelineBucket}",
+                !Sub "arn:${AWS::Partition}:s3:::${pArtifactsBucket}",
                 !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}",
                 !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}",
                 !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}",
@@ -300,7 +300,7 @@ Resources:
               - s3:GetObject
               - s3:PutObject
             Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/${pTeamName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pTeamName}/*
               - !If [
                   CreateMultipleBuckets,
                   !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*",
@@ -508,8 +508,8 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -580,7 +580,7 @@ Resources:
                   - s3:GetObjectVersion
                   - s3:PutObject
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
               - Effect: Allow
                 Action: codecommit:GitPull
@@ -756,8 +756,8 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -1034,7 +1034,7 @@ Resources:
                   - s3:GetObjectVersion
                   - s3:GetBucketVersioning
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
