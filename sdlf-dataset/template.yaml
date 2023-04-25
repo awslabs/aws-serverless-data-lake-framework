@@ -5,10 +5,10 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
-  pApp:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pDatasetName:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -49,7 +49,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pApp}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
+        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueCrawler:
     Type: AWS::Glue::Crawler

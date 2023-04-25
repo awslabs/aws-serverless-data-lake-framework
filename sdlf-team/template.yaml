@@ -5,10 +5,14 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
-  pApplicationName:
-    Description: Name of the application
+  pOrganizationName:
+    Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pAnalyticsBucket:
     Description: The analytics bucket for the solution
     Type: String
@@ -25,10 +29,6 @@ Parameters:
     Description: Environment name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
-  pOrganizationName:
-    Description: Name of the organization owning the datalake
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pArtifactsBucket:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: String
@@ -49,9 +49,6 @@ Parameters:
     Description: Name of the team (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,12}"
-  pTeamMainRepository:
-    Type: String
-    Default: sdlf-engineering-main
   pLakeFormationDataAccessRole:
     Type: String
     Default: "{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn}}"
@@ -136,7 +133,7 @@ Resources:
             Principal:
               AWS:
                 - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
-                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pDomain}-${pEnvironment}-${pTeamName}
             Action:
               - kms:Decrypt
               - kms:Describe*
@@ -151,7 +148,7 @@ Resources:
             Principal:
               AWS:
                 - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
-                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pDomain}-${pEnvironment}-${pTeamName}
             Action:
               - kms:CreateGrant
               - kms:ListGrants
@@ -386,7 +383,7 @@ Resources:
               - glue:StartJobRun
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}-*
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
@@ -436,7 +433,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pDomain}-${pEnvironment}-${pTeamName}
               - Effect: Allow
                 Action:
                   - iam:PassRole
@@ -841,7 +838,7 @@ Resources:
                   - glue:UpdateDatabase
                 Resource:
                   - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pApplicationName}_${pEnvironment}_${pTeamName}_*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pDomain}_${pEnvironment}_${pTeamName}_*
               - Effect: Allow
                 Action:
                   - lambda:GetLayerVersion
@@ -1452,7 +1449,7 @@ Resources:
         detail-type:
           - CodeCommit Repository State Change
         resources:
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-main
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pDomain}-${pTeamName}-main
         detail:
           event:
             - referenceCreated
@@ -1475,7 +1472,7 @@ Resources:
         - Name: Source
           Actions:
             - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pDomain}-${pEnvironment}-${pTeamName}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -1484,7 +1481,7 @@ Resources:
               OutputArtifacts:
                 - Name: TemplateSource
               Configuration:
-                RepositoryName: !Ref pTeamMainRepository
+                RepositoryName: !Sub sdlf-${pDomain}-${pTeamName}-main
                 BranchName:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
@@ -1569,9 +1566,7 @@ Resources:
               "CodeCommit Pull Request State Change"
             ],
             "resources": [
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-datalakeLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-pipLibrary",
-              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pTeamMainRepository}"
+              "arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pDomain}-${pTeamName}-main"
             ],
             "source": [
               "aws.codecommit"

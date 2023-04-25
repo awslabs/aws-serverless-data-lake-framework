@@ -53,7 +53,7 @@ def lambda_handler(event, context):
             stage = os.environ["PIPELINE_STAGE"]
             dataset = event_body["dataset"]
             org = event_body["org"]
-            app = event_body["app"]
+            domain = event_body["domain"]
             env = event_body["env"]
             stage_bucket = S3Configuration().stage_bucket
             keys_to_process.extend(event_body["processedKeys"])
@@ -71,7 +71,7 @@ def lambda_handler(event, context):
                     "pipeline_stage": stage,
                     "dataset": dataset,
                     "org": org,
-                    "app": app,
+                    "domain": domain,
                     "env": env,
                 },
             }

@@ -19,10 +19,10 @@ Parameters:
     Description: Name of the organization owning the datalake
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pOrg
-  pApp:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Default: /SDLF/Misc/pDomain
   pDBEngine:
     Description: Choose the source DB engine to stream changes.
     Type: String
@@ -123,7 +123,7 @@ Resources:
           ]
         BucketName:
           Ref: pCentralBucket
-        ServiceAccessRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+        ServiceAccessRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
 
   DMSReplicationTask:
     Type: AWS::DMS::ReplicationTask
@@ -143,7 +143,7 @@ Resources:
   InitDMS:
     Type: Custom::InitDMS
     Properties:
-      ServiceToken: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+      ServiceToken: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
       taskArn: !Ref DMSReplicationTask
       sourceArn: !Ref DMSSourceEndpoint
       targetArn: !Ref DMSTargetEndpoint
@@ -155,7 +155,7 @@ Resources:
     DependsOn:
       - InitDMS
     Properties:
-      ServiceToken: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+      ServiceToken: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
       dmsBucket: !Ref pCentralBucket
       dmsPath: !Sub
         - "${prefix}/${schema}/"
@@ -175,13 +175,13 @@ Resources:
           !Sub "post-stage/${pTeamName}/${pDatasetName}/${pDMSSchemaFilter}/",
           !Sub "post-stage/${pTeamName}/${pDatasetName}/${pDMSSchemaFilter}/",
         ]
-      jobName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
+      jobName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
 
   ### Glue ###
   rGlueJobLoadIncremental:
     Type: AWS::Glue::Job
     Properties:
-      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-load-incremental
+      Name: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-dms-cdc-load-incremental
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 20
@@ -200,7 +200,7 @@ Resources:
   rGlueJobLoadInitial:
     Type: AWS::Glue::Job
     Properties:
-      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-load-initial
+      Name: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-load-initial
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 20
@@ -218,7 +218,7 @@ Resources:
   rGlueJobController:
     Type: AWS::Glue::Job
     Properties:
-      Name: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
+      Name: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-${pDatasetName}-dms-cdc-controller
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 1
@@ -232,7 +232,7 @@ Resources:
         "--TempDir": !Sub "s3://${pArtifactsBucket}/artifacts/${pTeamName}/dms-cdc/"
         "--enable-metrics": ""
         "--org": !Ref pOrg
-        "--app": !Ref pApp
+        "--app": !Ref pDomain
         "--env": !Ref pEnvironment
         "--team": !Ref pTeamName
         "--dataset": !Ref pDatasetName

@@ -5,6 +5,9 @@ Parameters:
   pSharedDevOpsAccountId:
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/DevOpsAccountId}}"
+  pDomain:
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pEnvironment:
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
@@ -48,7 +51,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS

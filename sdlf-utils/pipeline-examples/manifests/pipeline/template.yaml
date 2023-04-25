@@ -6,10 +6,10 @@ Parameters:
     Description: The analytics bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/AnalyticsBucket
-  pApplicationName:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Default: /SDLF/Misc/pDomain
   pCentralBucket:
     Description: The central bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
@@ -66,7 +66,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-statemachine.yaml
       Parameters:
-        pAppName: !Ref pApplicationName
+        pAppName: !Ref pDomain
         pArtifactoryStore: !Ref pCFNBucket
         pBranchName: !Ref pStageABranch
         pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
@@ -87,7 +87,7 @@ Resources:
         pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
       Tags:
         - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
+          Value: !Sub ${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}-${pPipelineName}
 
   stageBStateMachinePipeline:
     Type: AWS::CloudFormation::Stack
@@ -95,7 +95,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-statemachine.yaml
       Parameters:
-        pAppName: !Ref pApplicationName
+        pAppName: !Ref pDomain
         pArtifactoryStore: !Ref pCFNBucket
         pBranchName: !Ref pStageBBranch
         pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
@@ -116,4 +116,4 @@ Resources:
         pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
       Tags:
         - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
+          Value: !Sub ${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}-${pPipelineName}

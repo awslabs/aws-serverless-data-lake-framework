@@ -97,11 +97,12 @@ Resources:
                   - codecommit:UploadArchive
                   - codecommit:AssociateApprovalRuleTemplateWithRepository
                   - codecommit:CreateApprovalRuleTemplate
-              - Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*main
+              - Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*-main
                 Effect: Allow
                 Action:
                   - codecommit:CreateRepository
                   - codecommit:TagResource
+                  - codecommit:DeleteRepository
               - Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-repo-notifications-*
                 Effect: Allow
                 Action:
@@ -274,6 +275,7 @@ Resources:
                   - codecommit:GetReferences
                   - codecommit:GetTree
                   - codecommit:GetFile
+                  - codecommit:GetFolder
                   - codecommit:AssociateApprovalRuleTemplateWithRepository
                 Effect: Allow
                 Resource:
@@ -297,6 +299,7 @@ Resources:
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
+                  - ssm:GetParametersByPath
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
               - Effect: Allow
                 Action:
@@ -361,8 +364,8 @@ Resources:
           eventbridge = boto3.client("events")
 
 
-          def delete_team_devops_role_stack(environment, team_name, cloudformation_role):
-              stack_name = f"sdlf-crossaccount-role-{environment}-{team_name}"
+          def delete_team_devops_role_stack(domain, environment, team_name, cloudformation_role):
+              stack_name = f"sdlf-crossaccount-role-{domain}-{environment}-{team_name}"
               cloudformation.delete_stack(
                   StackName=stack_name,
                   RoleARN=cloudformation_role,
@@ -370,10 +373,10 @@ Resources:
               return (stack_name, "stack_delete_complete")
 
 
-          def create_team_devops_role_stack(environment, team_name, template_body, child_account, cloudformation_role):
+          def create_team_devops_role_stack(domain, environment, team_name, template_body, child_account, cloudformation_role):
               response = {}
               cloudformation_waiter_type = None
-              stack_name = f"sdlf-crossaccount-role-{environment}-{team_name}"
+              stack_name = f"sdlf-crossaccount-role-{domain}-{environment}-{team_name}"
               try:
                   response = cloudformation.create_stack(
                       StackName=stack_name,
@@ -382,6 +385,11 @@ Resources:
                           {
                               "ParameterKey": "pChildAccountId",
                               "ParameterValue": child_account,
+                              "UsePreviousValue": False,
+                          },
+                          {
+                              "ParameterKey": "pDomain",
+                              "ParameterValue": domain,
                               "UsePreviousValue": False,
                           },
                           {
@@ -414,6 +422,11 @@ Resources:
                               {
                                   "ParameterKey": "pChildAccountId",
                                   "ParameterValue": child_account,
+                                  "UsePreviousValue": False,
+                              },
+                              {
+                                  "ParameterKey": "pDomain",
+                                  "ParameterValue": domain,
                                   "UsePreviousValue": False,
                               },
                               {
@@ -474,88 +487,108 @@ Resources:
               cicd_repository = os.getenv("CICD_REPOSITORY")
               cloudformation_role = os.getenv("CLOUDFORMATION_ROLE")
 
-              child_account = ssm.get_parameter(
-                  Name=f"/SDLF/Misc/{environment}/AccountId",
-              )[
-                  "Parameter"
-              ]["Value"]
-
               template_team_repos = codecommit.get_file(
                   repositoryName=cicd_repository, commitSpecifier=branch_name, filePath="template-team-repos.yaml"
               )
+              repo_files = codecommit.get_folder(
+                  repositoryName=main_repository, commitSpecifier=branch_name, folderPath="/"
+              )["files"]
+              logger.info("REPOSITORY FILES: %s", repo_files)
 
-              template_teams = codecommit.get_file(
-                  repositoryName=main_repository, commitSpecifier=branch_name, filePath=f"teams-{environment}.yaml"
-              )
-
-              # very naive way of getting the list of teams to deploy
-              teams = []
-              for line in template_teams["fileContent"].decode("utf-8").split("\n"):
-                  if "pTeamName:" in line:
-                      teams.append(line.split(":", 1)[-1].strip())
-              logger.info("TEAMS: %s", teams)
-              paginator = cloudformation.get_paginator('list_stacks')
-              existing_stacks_pages = paginator.paginate(
-                  StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
-                  PaginationConfig={'MaxItems': 30}
-              )
-              existing_teams = [
-                  existing_stack["StackName"].removeprefix(f"sdlf-crossaccount-role-{environment}-")
-                  for existing_stack_page in existing_stacks_pages
-                  for existing_stack in existing_stack_page["StackSummaries"]
-                  if existing_stack["StackName"].startswith(f"sdlf-crossaccount-role-{environment}-")
-              ]
-
-              # remove stacks for teams that are no longer in git
-              # note this whole lambda assumes teams aren't defined in files other than teams-{environment}.yaml
-              legacy_teams = list(set(existing_teams) - set(teams))
-              logger.info("LEGACY TEAMS: %s", legacy_teams)
-              cloudformation_waiters = {
-                  "stack_delete_complete": [],
-              }
-              for legacy_team in legacy_teams:
-                  stack_details = delete_team_devops_role_stack(environment, legacy_team, cloudformation_role)
-                  cloudformation_waiters[stack_details[1]].append(stack_details[0])
-                  codecommit.delete_approval_rule_template(approvalRuleTemplateName=f"{team}-approval-to-production")
-              cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
-              for stack in cloudformation_waiters["stack_delete_complete"]:
-                  cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
-
-              # create/update stacks for teams defined in git
-              cloudformation_waiters = {"stack_create_complete": [], "stack_update_complete": []}
-              for team in teams:
-                  stack_details = create_team_devops_role_stack(
-                      environment, team, template_team_repos["fileContent"].decode("utf-8"), child_account, cloudformation_role
+              team_files = [repo_file["absolutePath"] for repo_file in repo_files if repo_file["absolutePath"].endswith(f"-{environment}.yaml") and repo_file["absolutePath"].startswith("teams-")]
+              logger.info("TEAM FILES: %s", team_files)
+  
+              for team_file in team_files:
+                  domain = team_file.split("-")[1]
+                  child_account = ssm.get_parameter(
+                      Name=f"/SDLF/Misc/Domains/{domain}/{environment}/AccountId",
+                  )["Parameter"]["Value"]
+                  template_teams = codecommit.get_file(
+                      repositoryName=main_repository, commitSpecifier=branch_name, filePath=team_file
                   )
-                  if stack_details[1]:
+
+                  # very naive way of getting the list of teams to deploy
+                  teams = []
+                  for line in template_teams["fileContent"].decode("utf-8").split("\n"):
+                      if "pTeamName:" in line:
+                          teams.append(line.split(":", 1)[-1].strip())
+                  logger.info("TEAMS: %s", teams)
+                  paginator = cloudformation.get_paginator('list_stacks')
+                  existing_stacks_pages = paginator.paginate(
+                      StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
+                      PaginationConfig={'MaxItems': 30}
+                  )
+                  existing_teams = [
+                      existing_stack["StackName"].removeprefix(f"sdlf-crossaccount-role-{domain}-{environment}-")
+                      for existing_stack_page in existing_stacks_pages
+                      for existing_stack in existing_stack_page["StackSummaries"]
+                      if existing_stack["StackName"].startswith(f"sdlf-crossaccount-role-{domain}-{environment}-")
+                  ]
+
+                  # remove stacks for teams that are no longer in git
+                  # note this whole lambda assumes teams aren't defined in files other than teams-{domain}-{environment}.yaml
+                  legacy_teams = list(set(existing_teams) - set(teams))
+                  logger.info("LEGACY TEAMS: %s", legacy_teams)
+                  cloudformation_waiters = {
+                      "stack_delete_complete": [],
+                  }
+                  for legacy_team in legacy_teams:
+                      stack_details = delete_team_devops_role_stack(domain, environment, legacy_team, cloudformation_role)
                       cloudformation_waiters[stack_details[1]].append(stack_details[0])
-                  create_codecommit_approval_rule(team, main_repository)
-              cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
-              cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
-              for stack in cloudformation_waiters["stack_create_complete"]:
-                  cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
-              for stack in cloudformation_waiters["stack_update_complete"]:
-                  cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+                      codecommit.delete_approval_rule_template(approvalRuleTemplateName=f"{domain}-{team}-approval-to-production")
+                  cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
+                  for stack in cloudformation_waiters["stack_delete_complete"]:
+                      cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
-              # forward input event to the child event bus, that will be matched by a different rule
-              # due to the addition of forwarded = from-lambda
-              if child_account != account_id:
-                  logger.info("DevOps account and Child account are different, forwarding CodeCommit event to Child account")
-              else:
-                  logger.info("Forwarding CodeCommit event to the account's event bus")
+                  # create/update stacks for teams defined in git
+                  cloudformation_waiters = {"stack_create_complete": [], "stack_update_complete": []}
+                  for team in teams:
+                      stack_details = create_team_devops_role_stack(
+                          domain, environment, team, template_team_repos["fileContent"].decode("utf-8"), child_account, cloudformation_role
+                      )
+                      if stack_details[1]:
+                          cloudformation_waiters[stack_details[1]].append(stack_details[0])
+                      create_codecommit_approval_rule(team, main_repository)
+                  cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
+                  cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
+                  for stack in cloudformation_waiters["stack_create_complete"]:
+                      cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+                  for stack in cloudformation_waiters["stack_update_complete"]:
+                      cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
-              forwarded_event = {
-                  "Time": event["time"],
-                  "Source": "custom.aws.codecommit",
-                  "Resources": event["resources"],
-                  "DetailType": str(event["detail-type"]),
-                  "Detail": json.dumps(event["detail"]),
-                  "EventBusName": f"arn:aws:events:{event['region']}:{child_account}:event-bus/default",
-              }
-              logger.info("FORWARDED EVENT: %s", forwarded_event)
-              entries = eventbridge.put_events(
-                  Entries=[forwarded_event],
+              # forward event to all child accounts
+              paginator = ssm.get_paginator("get_parameters_by_path")
+              domains_pages = paginator.paginate(
+                  Path=f"/SDLF/Misc/Domains",
+                  Recursive=True,
+                  PaginationConfig={"MaxItems": 30},
               )
-              logger.info("FORWARDING RESULT: %s", entries)
+              child_accounts = []
+              for domains_page in domains_pages:
+                  for domain in domains_page["Parameters"]:
+                      if domain["Name"].split("/")[-2] == environment:
+                          child_accounts.append(domain["Value"])
+              logger.info("CHILD ACCOUNTS: %s", child_accounts)
+              for child_account in child_accounts:
+                  # forward input event to the child event bus, that will be matched by a different rule
+                  # due to the slightly different source
+                  if child_account != account_id:
+                      logger.info("DevOps account and Child account are different, forwarding CodeCommit event to Child account")
+                  else:
+                      logger.info("Forwarding CodeCommit event to the account's event bus")
+
+                  forwarded_event = {
+                      "Time": event["time"],
+                      "Source": "custom.aws.codecommit",
+                      "Resources": event["resources"],
+                      "DetailType": str(event["detail-type"]),
+                      "Detail": json.dumps(event["detail"]),
+                      "EventBusName": f"arn:aws:events:{event['region']}:{child_account}:event-bus/default",
+                  }
+                  logger.info("FORWARDED EVENT: %s", forwarded_event)
+                  entries = eventbridge.put_events(
+                      Entries=[forwarded_event],
+                  )
+                  logger.info("FORWARDING RESULT: %s", entries)
 
               return "Success"

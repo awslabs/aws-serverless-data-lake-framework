@@ -14,17 +14,17 @@ Parameters:
     Description: Name of the organization owning the datalake
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pOrg
-  pApp:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Default: /SDLF/Misc/pDomain
 
 Resources:
   ### IAM ###
   rDMSCloudWatchLogsRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cloudwatch-logs-role
+      RoleName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cloudwatch-logs-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -41,7 +41,7 @@ Resources:
   rDMSVPCRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-vpc-role
+      RoleName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-vpc-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -58,7 +58,7 @@ Resources:
   rExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+      RoleName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -98,9 +98,9 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DMSCDC_Controller
                   - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-ObjectMetadata-${pEnvironment}
-                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
-                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-execution-role
                   - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:endpoint:*
                   - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:task:*
                   - !Sub arn:${AWS::Partition}:dms:${AWS::Region}:${AWS::AccountId}:rep:*
@@ -117,14 +117,14 @@ Resources:
       - rDMSVPCRole
       - rDMSCloudWatchLogsRole
     Properties:
-      ReplicationInstanceIdentifier: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-replication-instance
+      ReplicationInstanceIdentifier: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-replication-instance
       ReplicationInstanceClass: dms.c4.xlarge
 
   ### Lambda ###
   rLambdaFunctionInitController:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
+      FunctionName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-controller
       Description: Initiates the Init Controller Glue Job
       Timeout: 600
       Code:
@@ -196,7 +196,7 @@ Resources:
   rLambdaFunctionInitDMS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub ${pOrg}-${pApp}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
+      FunctionName: !Sub ${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-dms-cdc-init-dms
       Description: Initiates the DMS replication from source to target
       Timeout: 600
       Code:

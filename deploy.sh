@@ -19,14 +19,14 @@ usage () { echo "
     -t -- Name of the AWS profile to use for the Child Account
     -r -- AWS Region to deploy to (e.g. eu-west-1)
     -e -- Environment to deploy to (dev, test or prod)
-    -d -- Demo mode
+    -d -- Data domain to deploy to (all lowercase, no symbols or spaces, 9 characters maximum)
     -f -- Deploys SDLF Foundations
     -o -- Deploys Shared DevOps Account CICD Resources
     -c -- Deploys Child Account CICD Resources
     -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket, gitlab -> GitLab
     -a -- Flag to add CodeCommit Pull Request test infrastructure
 "; }
-options=':s:t:r:x:e:dfocha'
+options=':s:t:r:e:d:x:focha'
 while getopts "$options" option
 do
     case "$option" in
@@ -34,8 +34,8 @@ do
         t  ) tflag=true; CHILD_PROFILE=${OPTARG};;
         r  ) rflag=true; REGION=${OPTARG};;
         e  ) eflag=true; ENV=${OPTARG};;
+        d  ) dflag=true; DOMAIN=${OPTARG};;
         x  ) xflag=true; SCM=${OPTARG};;
-        d  ) dflag=true;;
         f  ) fflag=true;;
         o  ) oflag=true;;
         c  ) cflag=true;;
@@ -50,7 +50,6 @@ done
 # external SCMs config
 if "$xflag"
 then
-    if "$dflag"; then echo "Demo mode not compatible with -x option"; exit 1; fi #validate no demo
     # declare all the external SCMs supported for example: bitbucket github gitlab
     # each one of these should have its directory, config and custom functions
     declare -a SCMS=(ado bbucket gitlab)
@@ -87,17 +86,8 @@ then
 fi
 if ! "$dflag"
 then
-    echo "-d not specified, demo mode off..." >&2
-    DEMO=false
-else
-    echo "-d specified, demo mode on..." >&2
-    DEMO=true
-    fflag=true
-    oflag=true
-    cflag=true
-    git config --global user.email "robot@example.com"
-    git config --global user.name "robot"
-    echo y | sudo yum install jq
+    echo "-d not specified, using 'datalake' domain..." >&2
+    DOMAIN=datalake
 fi
 
 
@@ -150,7 +140,7 @@ function template_protection()
             --region "$CURRENT_REGION" \
             --profile "$CURRENT_PROFILE_NAME"
     else
-        echo "Target is the dev account. Not applying template protection"
+        echo "Target is a dev account. Not applying template protection"
     fi
 }
 
@@ -166,15 +156,13 @@ then
     fi
 
     STACK_NAME=sdlf-cicd-team-repos
-    aws cloudformation create-stack \
+    aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
-        --template-body file://"$DIRNAME"/sdlf-cicd/template-cicd-team-repos.yaml \
-        --tags Key=Framework,Value=sdlf \
+        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-team-repos.yaml \
+        --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$DEVOPS_PROFILE"
-    echo "Waiting for stack to be created ..."
-    aws cloudformation wait stack-create-complete --profile "$DEVOPS_PROFILE" --region "$REGION" --stack-name "$STACK_NAME"
 
     template_protection "$ENV" "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
 fi
@@ -186,11 +174,12 @@ then
     mkdir "$DIRNAME"/output
     sam package --profile "$DEVOPS_PROFILE" --template-file "$DIRNAME"/sdlf-cicd/template-cicd-shared-foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-shared-foundations --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
-    STACK_NAME=sdlf-cicd-shared-foundations-${ENV}
+    STACK_NAME="sdlf-cicd-shared-foundations-$DOMAIN-$ENV"
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template.yaml \
         --parameter-overrides \
+            pDomain="$DOMAIN" \
             pEnvironment="$ENV" \
             pChildAccountId="$CHILD_ACCOUNT" \
         --tags Framework=sdlf \
@@ -202,7 +191,7 @@ then
     # Adding in CodeCommit Pull Request tests. Pass / Fail comments are injected into the 'Activity' tab of CodeCommit
     if [ "$xflag" == "false" ] && [ "$aflag" == "true" ]
     then
-        DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
+        DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$DOMAIN"/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
         for REPOSITORY in "${REPOSITORIES[@]}"
         do
             # Currently the tests focus on cfn-lint and cfn_nag scans. Ignoring repositories
@@ -248,15 +237,15 @@ fi
 if "$cflag"
 then
     # Increase SSM Parameter Store throughput to 1,000 requests/second
-    aws ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
-    DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
+    aws ssm update-service-setting --setting-id arn:${AWS::Partition}:ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
+    DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$DOMAIN"/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
     STACK_NAME=sdlf-cicd-child-foundations
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/sdlf-cicd/template-cicd-child-foundations.yaml \
         --parameter-overrides \
-            pDemo="$DEMO" \
             pEnvironment="$ENV" \
+            pDomain="$DOMAIN" \
             pSharedDevOpsAccountId="$DEVOPS_ACCOUNT" \
             pSharedDevOpsAccountKmsKeyArn="$DEVOPS_ACCOUNT_KMS" \
         --tags Framework=sdlf \
@@ -275,7 +264,9 @@ then
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template.yaml \
+        --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines \
         --parameter-overrides \
+            pDomain="$DOMAIN" \
             pEnvironment="/SDLF/Misc/pEnv" \
             pSharedDevOpsAccountId="/SDLF/Misc/DevOpsAccountId" \
             pSharedDevOpsAccountKmsKeyArn="$DEVOPS_ACCOUNT_KMS" \

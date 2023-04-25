@@ -7,18 +7,17 @@ Parameters:
     Type: String
     Default: none
   pOrg:
-    Description: Name of the organization (all lowercase, no symbols or spaces)
+    Description: Name of the organization owning the datalake
     Type: String
-    AllowedPattern: "[a-z0-9]*"
-  pApp:
-    Description: Name of the application (all lowercase, no symbols or spaces)
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
     Type: String
-    AllowedPattern: "[a-z0-9]*"
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pEnv:
-    Description: The name of the environment to deploy the pipeline to
+    Description: Environment name
     Type: String
-    Default: dev
-    AllowedValues: [dev, test, prod]
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pTeamName:
     Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -216,7 +215,7 @@ Resources:
                   "pipeline_stage": "${pStageName}",
                   "trigger_type": "${pTriggerType}",
                   "org": "${pOrg}",
-                  "app": "${pApp}",
+                  "domain": "${pDomain}",
                   "env": "${pEnv}"
                 }
               - pTeamName:
@@ -229,8 +228,8 @@ Resources:
                   Ref: pTriggerType
                 pOrg:
                   Ref: pOrg
-                pApp:
-                  Ref: pApp
+                pDomain:
+                  Ref: pDomain
                 pEnv:
                   Ref: pEnv
 

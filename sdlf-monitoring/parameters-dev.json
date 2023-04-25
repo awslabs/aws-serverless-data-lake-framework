@@ -4,7 +4,7 @@
         "ParameterValue": "forecourt"
     },
     {
-        "ParameterKey": "pApplicationName",
+        "ParameterKey": "pDomain",
         "ParameterValue": "datalake"
     },
     {

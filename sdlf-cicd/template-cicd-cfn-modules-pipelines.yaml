@@ -390,7 +390,7 @@ Resources:
                   - !Ref pSharedDevOpsAccountKmsKeyArn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
 
   rFoundationsStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -402,7 +402,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -476,7 +476,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -550,7 +550,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -624,7 +624,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -697,6 +697,9 @@ Resources:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
         pStageRepository: sdlf-stageA
+        pDomain: !Ref pDomain
+        pSdlfModuleDomain: !Ref pSdlfModuleDomain
+        pSdlfModuleTeam: !Ref pSdlfModuleTeam
         pStageName: stageA
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
@@ -724,7 +727,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -999,7 +1002,7 @@ Resources:
         - Name: Source
           Actions:
             - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -1155,7 +1158,7 @@ Resources:
         - Name: Source
           Actions:
             - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -1198,7 +1201,7 @@ Resources:
         - Name: Source
           Actions:
             - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
