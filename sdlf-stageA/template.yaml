@@ -3,9 +3,10 @@ Transform: AWS::Serverless-2016-10-31
 Description: Contains StageA StateMachine Definition
 
 Parameters:
-  pRandomSource:
+  pPipelineReference:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
+    Default: none
   pArtifactsBucket:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: String
@@ -41,7 +42,7 @@ Parameters:
   pStageName:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
-    AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+    AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
   pEntryPoint:
     Description: Whether the stage is the first stage of the pipeline.
     Type: String
@@ -111,8 +112,6 @@ Conditions:
 
 Globals:
   Function:
-    Tags:
-      WorkaroundSubSsm: !Ref pRandomSource
     Runtime: python3.9
     Handler: lambda_function.lambda_handler
     Layers:
@@ -123,7 +122,7 @@ Resources:
   rPipelineInterface:
     Type: awslabs::sdlf::pipeline::MODULE
     Properties:
-      pRandomSource: !Ref pRandomSource
+      pPipelineReference: !Ref pPipelineReference
       pOrg: !Ref pOrg
       pApp: !Ref pApp
       pEnv: !Ref pEnv
@@ -625,3 +624,8 @@ Resources:
       Type: String
       Value: !Ref rStateMachine
       Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} State Machine"
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference

@@ -2,9 +2,10 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Contains all the resources necessary for a single pipeline
 
 Parameters:
-  pRandomSource:
+  pPipelineReference:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
+    Default: none
   pOrg:
     Description: Name of the organization (all lowercase, no symbols or spaces)
     Type: String
@@ -322,3 +323,8 @@ Resources:
               Ref: pPipelineName
             pStageName:
               Ref: pStageName
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference
