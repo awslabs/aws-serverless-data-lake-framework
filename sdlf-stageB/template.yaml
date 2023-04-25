@@ -10,10 +10,6 @@ Parameters:
     Description: Name of the artifactory bucket
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/ArtifactsBucket
-  pCfnBucket:
-    Description: S3 Cfn bucket
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CFNBucket
   pDatasetBucket:
     Description: The dataset bucket
     Type: String
@@ -106,8 +102,6 @@ Parameters:
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
-  EventBased: !Equals [!Ref pTriggerType, "event"]
-  ScheduleBased: !Equals [!Ref pTriggerType, "schedule"]
 
 Globals:
   Function:
@@ -120,10 +114,19 @@ Globals:
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
 Resources:
-  Fn::Transform:
-    Name: AWS::Include
-    Parameters:
-      Location: !Sub s3://${pCfnBucket}/pipeline/template-stage-interface.yaml
+  rPipelineInterface:
+    Type: awslabs::sdlf::pipeline::MODULE
+    Properties:
+      pRandomSource: !Ref pRandomSource
+      pOrg: !Ref pOrg
+      pApp: !Ref pApp
+      pEnv: !Ref pEnv
+      pTeamName: !Ref pTeamName
+      pPipelineName: !Ref pPipeline
+      pStageName: !Ref pStageName
+      pTriggerType: !Ref pTriggerType
+      pSchedule: !Ref pSchedule
+      pEventPattern: !Ref pEventPattern
 
   ######## IAM #########
   # Common policy
@@ -361,7 +364,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./lambda/stage-b-routing/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-b
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
       Description: Checks if items are to be processed and route them to state machine
       MemorySize: 256
       Timeout: 60
