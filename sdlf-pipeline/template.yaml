@@ -1,137 +1,290 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: Contains all the resources necessary for a single pipeline
 
 Parameters:
-  pAnalyticsBucket:
-    Description: The analytics bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/AnalyticsBucket
-  pApplicationName:
-    Description: Name of the application
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
-  pCentralBucket:
-    Description: The central bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CentralBucket
-  pCFNBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CFNBucket
-  pEnvironment:
-    Description: Environment name
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pEnv
-  pOrganizationName:
-    Description: Name of the organization owning the datalake
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pOrg
-  pPipelineName:
-    Description: The name of the Pipeline (all lowercase, no symbols or spaces)
+  pRandomSource:
+    Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
-    AllowedPattern: "[a-z0-9]{2,10}"
-  pSharedDevOpsAccountId:
-    Description: Shared DevOps Account Id
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/DevOpsAccountId
-  pStageBucket:
-    Description: The stage bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/StageBucket
-  pStageABranch:
-    Description: The branch containing feature releases for the StageA Machine. If unique across all pipelines, then git push will only trigger the specific pipeline's CodePipeline. Defaults to master.
+  pOrg:
+    Description: Name of the organization (all lowercase, no symbols or spaces)
     Type: String
-    Default: master
-  pStageBBranch:
-    Description: The branch containing feature releases for the StageB Machine. If unique across all pipelines, then git push will only trigger the specific pipeline's CodePipeline. Defaults to master.
+    AllowedPattern: "[a-z0-9]*"
+  pApp:
+    Description: Name of the application (all lowercase, no symbols or spaces)
     Type: String
-    Default: master
-  pStageAStateMachineRepository:
+    AllowedPattern: "[a-z0-9]*"
+  pEnv:
+    Description: The name of the environment to deploy the pipeline to
     Type: String
-    Description: The name of the repository containing the code for StageA's State Machine.
-    Default: sdlf-stageA
-  pStageBStateMachineRepository:
-    Type: String
-    Description: The name of the repository containing the code for StageB's State Machine.
-    Default: sdlf-stageB
-  pEntryPoint:
-    Type: String
-    Description: The name of the first stage of the pipeline.
-    Default: stage-a
+    Default: dev
+    AllowedValues: [dev, test, prod]
   pTeamName:
     Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,12}"
-  pEnableTracing:
-    Description: Flag for whether XRay tracing is enabled
+  pPipelineName:
+    Description: The name of the pipeline (all lowercase, no symbols or spaces)
     Type: String
-    Default: "false"
+    AllowedPattern: "[a-z0-9]*"
+  pStageName:
+    Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+  pTriggerType:
+    Description: Trigger type of the stage (event or schedule)
+    Type: String
+    Default: event
+    AllowedValues: [event, schedule]
+  pSchedule:
+    Description: Cron expression when trigger type is schedule
+    Type: String
+    Default: "cron(*/5 * * * ? *)"
+  pEventPattern:
+    Description: Event pattern to match from previous stage
+    Type: String
+  pLambdaRoutingStep:
+    Description: Routing Lambda function ARN
+    Type: String
+
+Conditions:
+  EventBased: !Equals [!Ref pTriggerType, "event"]
+  ScheduleBased: !Equals [!Ref pTriggerType, "schedule"]
 
 Resources:
-  ######## STATE MACHINES #########
-  stageAStateMachinePipeline:
-    Type: AWS::CloudFormation::Stack
+  rStageRule:
+    Type: AWS::Events::Rule
     Properties:
-      TemplateURL: ./nested-stacks/template-statemachine.yaml
-      Parameters:
-        pStageName: stage-a
-        pEntryPoint: true
-        pEventPattern: !Sub
-          |+
-          {\n            \"source\": [\"sdlf.s3\"],\n            \"detail-type\": [\"SdlfObjectInS3\"],\n            \"detail\": {\n              \"team\": [\"${pTeamName}\"],\n              \"pipeline\": [\"${pPipelineName}\"],\n              \"pipeline_stage\": [\"${pEntryPoint}\"]\n            }\n          }
-        pTriggerType: event
-        pAppName: !Ref pApplicationName
-        pArtifactoryStore: !Ref pCFNBucket
-        pBranchName: !Ref pStageABranch
-        pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
-        pCloudWatchRepositoryTriggerRoleArn: !Sub /SDLF/IAM/${pTeamName}/CloudWatchRepositoryTriggerRoleArn
-        pCodePipelineRoleArn: !Sub /SDLF/IAM/${pTeamName}/CodePipelineRoleArn
-        pDatasetBucket: !Ref pCentralBucket
-        pEnv: !Ref pEnvironment
-        pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
-        pOrgName: !Ref pOrganizationName
-        pPipeline: !Ref pPipelineName
-        pRepositoryName: !Ref pStageAStateMachineRepository
-        pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications
-        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
-        pStageBucket: !Ref pStageBucket
-        pTeamName: !Ref pTeamName
-        pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
-        pEnableTracing: !Ref pEnableTracing
-      Tags:
-        - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
+      Name:
+        Fn::Sub:
+          - sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      Description:
+        Fn::Sub:
+          - Send events to ${pStageName} queue
+          - pStageName:
+              Ref: pStageName
+      EventPattern:
+        Ref: pEventPattern
+      State: ENABLED
+      Targets:
+        - Id:
+            Fn::Sub:
+              - sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
+              - pTeamName:
+                  Ref: pTeamName
+                pPipelineName:
+                  Ref: pPipelineName
+                pStageName:
+                  Ref: pStageName
+          Arn:
+            Fn::GetAtt: [rQueueRoutingStep, Arn]
+          SqsParameters:
+            MessageGroupId:
+              Fn::Sub:
+                - ${pTeamName}-${pPipelineName}
+                - pTeamName:
+                    Ref: pTeamName
+                  pPipelineName:
+                    Ref: pPipelineName
+          InputPath: "$.detail"
 
-  stageBStateMachinePipeline:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: stageAStateMachinePipeline
+  rQueueRoutingStep:
+    Type: AWS::SQS::Queue
     Properties:
-      TemplateURL: ./nested-stacks/template-statemachine.yaml
-      Parameters:
-        pStageName: stage-b
-        pEntryPoint: false
-        pEventPattern: !Sub
-          |+
-          {\n            \"source\": [\"aws.states\"],\n            \"detail-type\": [\"Step Functions Execution Status Change\"],\n            \"detail\": {\n              \"status\": [\"SUCCEEDED\"],\n              \"stateMachineArn\": [\"arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipelineName}-sm-a\"]\n            }\n          }
-        pTriggerType: schedule
-        pAppName: !Ref pApplicationName
-        pArtifactoryStore: !Ref pCFNBucket
-        pBranchName: !Ref pStageBBranch
-        pBuildDatalakeLibrary: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
-        pCloudWatchRepositoryTriggerRoleArn: !Sub /SDLF/IAM/${pTeamName}/CloudWatchRepositoryTriggerRoleArn
-        pCodePipelineRoleArn: !Sub /SDLF/IAM/${pTeamName}/CodePipelineRoleArn
-        pDatasetBucket: !Ref pStageBucket
-        pEnv: !Ref pEnvironment
-        pKMSInfraKeyId: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
-        pOrgName: !Ref pOrganizationName
-        pPipeline: !Ref pPipelineName
-        pRepositoryName: !Ref pStageBStateMachineRepository
-        pSNSTopic: !Sub /SDLF/SNS/${pTeamName}/Notifications
-        pSharedDevOpsAccountId: !Ref pSharedDevOpsAccountId
-        pStageBucket: !Ref pStageBucket
-        pTeamName: !Ref pTeamName
-        pTransformValidateCodeBuildJob: !Sub /SDLF/CodeBuild/${pTeamName}/TransformValidateServerless
-        pEnableTracing: !Ref pEnableTracing
-      Tags:
-        - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}-${pPipelineName}
+      QueueName:
+        Fn::Sub:
+          - sdlf-${pTeamName}-${pPipelineName}-queue-${pStageName}.fifo
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      FifoQueue: True
+      ContentBasedDeduplication: True
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt: [rDeadLetterQueueRoutingStep, Arn]
+        maxReceiveCount: 1
+      VisibilityTimeout: 60
+      KmsMasterKeyId:
+        Fn::Sub:
+          - "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          - pTeamName:
+              Ref: pTeamName
+
+  rDeadLetterQueueRoutingStep:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Fn::Sub:
+          - sdlf-${pTeamName}-${pPipelineName}-dlq-${pStageName}.fifo
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      FifoQueue: True
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 60
+      KmsMasterKeyId:
+        Fn::Sub:
+          - "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          - pTeamName:
+              Ref: pTeamName
+
+  rQueuePolicyEventsStageRule:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - SQS:SendMessage
+            Resource:
+              Fn::GetAtt: [rQueueRoutingStep, Arn]
+            Condition:
+              ArnEquals:
+                aws:SourceArn:
+                  Fn::GetAtt: [rStageRule, Arn]
+      Queues:
+        - Ref: rQueueRoutingStep
+
+  rQueueLambdaEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Condition: EventBased
+    Properties:
+      BatchSize: 10
+      Enabled: True
+      EventSourceArn:
+        Fn::GetAtt: [rQueueRoutingStep, Arn]
+      FunctionName: !Ref pLambdaRoutingStep
+
+  rPostStateRule:
+    Type: AWS::Events::Rule
+    Condition: ScheduleBased
+    Properties:
+      Name:
+        Fn::Sub:
+          - sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      Description:
+        Fn::Sub:
+          - Trigger ${pStageName} Routing Lambda on a specified schedule
+          - pStageName:
+              Ref: pStageName
+      State: ENABLED
+      ScheduleExpression:
+        Ref: pSchedule
+      Targets:
+        - Id:
+            Fn::Sub:
+              - sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
+              - pTeamName:
+                  Ref: pTeamName
+                pPipelineName:
+                  Ref: pPipelineName
+                pStageName:
+                  Ref: pStageName
+          Arn: !Ref pLambdaRoutingStep
+          Input:
+            Fn::Sub:
+              - |
+                {
+                  "team": "${pTeamName}",
+                  "pipeline": "${pPipelineName}",
+                  "pipeline_stage": "${pStageName}",
+                  "trigger_type": "${pTriggerType}",
+                  "org": "${pOrg}",
+                  "app": "${pApp}",
+                  "env": "${pEnv}"
+                }
+              - pTeamName:
+                  Ref: pTeamName
+                pPipelineName:
+                  Ref: pPipelineName
+                pStageName:
+                  Ref: pStageName
+                pTriggerType:
+                  Ref: pTriggerType
+                pOrg:
+                  Ref: pOrg
+                pApp:
+                  Ref: pApp
+                pEnv:
+                  Ref: pEnv
+
+  rPermissionEventsInvokeRoutingLambda:
+    Type: AWS::Lambda::Permission
+    Condition: ScheduleBased
+    Properties:
+      FunctionName: !Ref pLambdaRoutingStep
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt: [rPostStateRule, Arn]
+
+  ######## SSM OUTPUTS #########
+  rQueueRoutingStepSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub:
+          - /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      Type: String
+      Value:
+        Fn::GetAtt: [rQueueRoutingStep, QueueName]
+      Description:
+        Fn::Sub:
+          - "Name of the ${pStageName} ${pTeamName} ${pPipelineName} Queue"
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+
+  rDeadLetterQueueRoutingStepSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub:
+          - /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName
+      Type: String
+      Value:
+        Fn::GetAtt: [rDeadLetterQueueRoutingStep, QueueName]
+      Description:
+        Fn::Sub:
+          - "Name of the ${pStageName} ${pTeamName} ${pPipelineName} DLQ"
+          - pTeamName:
+              Ref: pTeamName
+            pPipelineName:
+              Ref: pPipelineName
+            pStageName:
+              Ref: pStageName

@@ -20,7 +20,7 @@ class TransformHandler:
         Returns:
             class -- Transform object
         """
-        stage_suffix = stage[-1].lower()
+        stage_suffix = stage
         dynamo_config = DynamoConfiguration()
         dynamo_interface = DynamoInterface(dynamo_config)
         dataset_transforms = dynamo_interface.get_transform_table_item("{}-{}".format(team, dataset))["transforms"][
