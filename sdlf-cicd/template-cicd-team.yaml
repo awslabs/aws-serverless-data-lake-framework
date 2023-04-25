@@ -1,0 +1,223 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CICD resources to handle deployment of a new team
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/DevOpsArtifactsBucket
+  pKMSKey:
+    Description: The KMS key used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/CICDKeyId
+  pDomain:
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,9}"
+  pTeamName:
+    Description: Team name
+    Type: String
+
+  pChildAccountId:
+    Description: Child AWS account ID
+    Type: String
+    AllowedPattern: (\d{12}|^$)
+    ConstraintDescription: Must be an AWS account ID
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+    Default: dev
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
+
+Resources:
+  rTeamMainCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      # Code:
+      #   S3:
+      #     Bucket:
+      #     Key: zip
+      RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
+      RepositoryName: !Sub sdlf-${pDomain}-${pTeamName}-main
+
+  rTeamMainCodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Role assumed by CodePipeline to fetch CloudFormation templates from the team main repository
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !GetAtt rTeamMainCodeCommit.Arn
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !Ref pKMSKey
+        - PolicyName: sdlf-cicd-cloudformation
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+
+  ######## CODEPIPELINE #########
+  rTeamCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rTeamMainCodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: "1"
+              OutputArtifacts:
+                - Name: TemplateSource
+              Configuration:
+                RepositoryName: !GetAtt rTeamMainCodeCommit.Name
+                BranchName:
+                  !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: DeployPipelinesInfrastructure
+          Actions:
+            - Name: CreateStack
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              InputArtifacts:
+                - Name: TemplateSource
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
+                StackName: !Sub sdlf-${pTeamName}-pipelines-${pEnvironment}
+                TemplatePath: !Sub "TemplateSource::pipelines-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+              RunOrder: '1'
+        - Name: DeployDatasetsInfrastructure
+          Actions:
+            - Name: CreateStack
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              InputArtifacts:
+                - Name: TemplateSource
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
+                StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
+                TemplatePath: !Sub "TemplateSource::datasets-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+              RunOrder: '1'
+      ArtifactStore:
+        Type: S3
+        Location: !Ref pArtifactsBucket
+        EncryptionKey:
+          Id: !Ref pKMSKey
+          Type: KMS
+
+  rTeamMainCodeCommitTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: sdlf-cicd-trigger-rule
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
+
+  rTeamMainCodeCommitTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !GetAtt rTeamMainCodeCommit.Arn
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
+          RoleArn: !GetAtt rTeamMainCodeCommitTriggerRole.Arn
+          Id: sdlf-cicd-team

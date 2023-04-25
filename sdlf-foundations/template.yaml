@@ -6,22 +6,21 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
+  pChildAccountId: # used by cicd lambda
+    Description: Child AWS account ID
+    Type: String
+    AllowedPattern: (\d{12}|^$)
+    ConstraintDescription: Must be an AWS account ID
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pCustomBucketPrefix:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
-  pDataLakeAdminRoleArn:
-    Description: Lake Formation Admin Role Arn
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/IAM/DataLakeAdminRoleArn}}"
   pEnvironment:
     Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pNumBuckets:
     Description: Number of data lake buckets (3 or 1)
     Default: "3"
@@ -69,6 +68,76 @@ Globals:
     KmsKeyArn: !GetAtt rKMSKey.Arn
 
 Resources:
+  # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
+  rDataLakeAdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sdlf-lakeformation-admin
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonS3FullAccess
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSLakeFormationDataAdmin
+      Policies:
+        - PolicyName: sdlf-lakeformation-admin
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CreateLogGroup
+                Effect: Allow
+                Action:
+                  - logs:AssociateKmsKey
+                  - logs:CreateLogGroup
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+              - Sid: CreateLogStream
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/glue/*
+              - Sid: DynamoDBAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:PutItem
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - Sid: SSMAccess
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/DataLakeAdminRoleArn
+
+  ######## LAKE FORMATION #########
+  rDataLakeSettings:
+    Type: AWS::LakeFormation::DataLakeSettings
+    Properties:
+      Admins:
+        - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
+        - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
+
   rLakeFormationDataAccessRole: # https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
     Type: AWS::IAM::Role
     Properties:
@@ -1387,7 +1456,7 @@ Resources:
           ENV: !Ref pEnvironment
       MemorySize: 128
       Timeout: 300
-      Role: !Ref pDataLakeAdminRoleArn
+      Role: !GetAtt rDataLakeAdminRole.Arn
 
   rLambdaReplicateLogGroup:
     Type: AWS::Logs::LogGroup
@@ -1430,6 +1499,27 @@ Resources:
       Value: !Ref pOrganizationName
       Description: Name of the Organization owning the datalake
 
+  rDomainSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Misc/pDomain
+      Type: String
+      Value: !Ref pDomain
+      Description: Data domain name
+  rEnvironmentSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Misc/pEnv
+      Type: String
+      Value: !Ref pEnvironment
+      Description: Environment name
+  rDataLakeAdminRoleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/IAM/DataLakeAdminRoleArn
+      Type: String
+      Value: !GetAtt rDataLakeAdminRole.Arn
+      Description: Lake Formation Data Lake Admin Role
 Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with

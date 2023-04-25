@@ -2,42 +2,35 @@
 sflag=false
 tflag=false
 rflag=false
-eflag=false
-dflag=false
 fflag=false
-oflag=false
 cflag=false
+dflag=false
 xflag=false
 aflag=false
 
 DIRNAME=$PWD
-declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-utils")
 
 usage () { echo "
     -h -- Opens up this help message
     -s -- Name of the AWS profile to use for the Shared DevOps Account
     -t -- Name of the AWS profile to use for the Child Account
     -r -- AWS Region to deploy to (e.g. eu-west-1)
-    -e -- Environment to deploy to (dev, test or prod)
-    -d -- Data domain to deploy to (all lowercase, no symbols or spaces, 9 characters maximum)
-    -f -- Deploys SDLF Foundations
-    -o -- Deploys Shared DevOps Account CICD Resources
-    -c -- Deploys Child Account CICD Resources
+    -f -- Deploys SDLF DevOps/CICD/Tooling in the AWS account of the profile provided with -s
+    -c -- Deploys Child Account CICD Resources used by SDLF DevOps/CICD/Tooling account
+    -d -- Domain accounts list
     -x -- Deploys with an external git SCM. Allowed values: ado -> Azure DevOps, bb -> BitBucket, gitlab -> GitLab
     -a -- Flag to add CodeCommit Pull Request test infrastructure
 "; }
-options=':s:t:r:e:d:x:focha'
+options=':s:t:r:d:x:fcha'
 while getopts "$options" option
 do
     case "$option" in
         s  ) sflag=true; DEVOPS_PROFILE=${OPTARG};;
         t  ) tflag=true; CHILD_PROFILE=${OPTARG};;
         r  ) rflag=true; REGION=${OPTARG};;
-        e  ) eflag=true; ENV=${OPTARG};;
-        d  ) dflag=true; DOMAIN=${OPTARG};;
+        d  ) dflag=true; DOMAIN_ACCOUNTS=${OPTARG};;
         x  ) xflag=true; SCM=${OPTARG};;
         f  ) fflag=true;;
-        o  ) oflag=true;;
         c  ) cflag=true;;
         a  ) aflag=true;;
         h  ) usage; exit;;
@@ -79,201 +72,105 @@ then
     echo "-r not specified, using default region..." >&2
     REGION=$(aws configure get region --profile "$DEVOPS_PROFILE")
 fi
-if ! "$eflag"
-then
-    echo "-e not specified, using dev environment..." >&2
-    ENV=dev
-fi
-if ! "$dflag"
-then
-    echo "-d not specified, using 'datalake' domain..." >&2
-    DOMAIN=datalake
-fi
-
 
 DEVOPS_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile "$DEVOPS_PROFILE")
 CHILD_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text --profile "$CHILD_PROFILE")
 AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "$DEVOPS_PROFILE" | cut -d':' -f2)
 
-function bootstrap_repository()
-{
-    REPOSITORY=${1}
-    echo "Creating and Loading ${REPOSITORY} Repository"
-    aws codecommit create-repository --region "$REGION" --profile "$DEVOPS_PROFILE" --repository-name "$REPOSITORY"
-    cd "$DIRNAME/$REPOSITORY"/ || exit
-    git init
-    git add .
-    git commit -m "Initial Commit"
-    git remote add origin https://git-codecommit."$REGION.amazonaws.com/v1/repos/$REPOSITORY"
-    git push --set-upstream origin master
-    git checkout -b test
-    git push --set-upstream origin test
-    git checkout -b dev
-    git push --set-upstream origin dev
-}
-
-function deploy_sdlf_foundations()
-{
-    git config --global credential.helper '!aws --profile '"$DEVOPS_PROFILE"' codecommit credential-helper $@'
-    git config --global credential.UseHttpPath true
-    for REPOSITORY in "${REPOSITORIES[@]}"
-    do
-        bootstrap_repository "$REPOSITORY"
-    done
-    aws codecommit create-repository --region "$REGION" --profile "$DEVOPS_PROFILE" --repository-name "sdlf-main"
-    cd "$DIRNAME" || exit
-}
-
 function template_protection()
 {
-    CURRENT_ENV=$1
-    CURRENT_STACK_NAME=$2
-    CURRENT_REGION=$3
-    CURRENT_PROFILE_NAME=$4
+    CURRENT_STACK_NAME=$1
+    CURRENT_REGION=$2
+    CURRENT_PROFILE_NAME=$3
 
-    if [ "$CURRENT_ENV" != "dev" ]
-    then
-        echo "Updating termination protection for stack $CURRENT_STACK_NAME"
-        aws cloudformation update-termination-protection \
-            --enable-termination-protection \
-            --stack-name "$CURRENT_STACK_NAME" \
-            --region "$CURRENT_REGION" \
-            --profile "$CURRENT_PROFILE_NAME"
-    else
-        echo "Target is a dev account. Not applying template protection"
-    fi
+    echo "Updating termination protection for stack $CURRENT_STACK_NAME"
+    aws cloudformation update-termination-protection \
+        --enable-termination-protection \
+        --stack-name "$CURRENT_STACK_NAME" \
+        --region "$CURRENT_REGION" \
+        --profile "$CURRENT_PROFILE_NAME"
 }
 
 if "$fflag"
 then
-    echo "Deploying SDLF foundational repositories..." >&2
+    echo "Deploying SDLF DevOps/Tooling (components repositories, CICD pipelines)" >&2
+
+    if ! "$dflag"
+    then
+        echo "Domain accounts need specifying" >&2
+        exit 1
+    fi
 
     if "$xflag" ; then
         echo "External SCM deployment detected: ${SCM}"
         deploy_sdlf_foundations_scm
-    else
-        deploy_sdlf_foundations
     fi
 
-    STACK_NAME=sdlf-cicd-team-repos
+    STACK_NAME=sdlf-cicd-prerequisites
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-team-repos.yaml \
+        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-prerequisites.yaml \
+        --parameter-overrides \
+            pDomainAccounts="$DOMAIN_ACCOUNTS" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$DEVOPS_PROFILE"
+    template_protection "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
 
-    template_protection "$ENV" "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
-fi
-
-if "$oflag"
-then
-    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/DevOpsCFNBucket --query "Parameter.Value" --output text)
-    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
+    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text --region "$REGION" --profile "$DEVOPS_PROFILE")
     mkdir "$DIRNAME"/output
-    sam package --profile "$DEVOPS_PROFILE" --template-file "$DIRNAME"/sdlf-cicd/template-cicd-shared-foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-shared-foundations --output-template-file "$DIRNAME"/output/packaged-template.yaml
-
-    STACK_NAME="sdlf-cicd-shared-foundations-$DOMAIN-$ENV"
+    aws cloudformation package --template-file "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories --output-template-file "$DIRNAME"/output/packaged-template.yaml --region "$REGION" --profile "$DEVOPS_PROFILE"
+    STACK_NAME=sdlf-cicd-sdlf-repositories
     aws cloudformation deploy \
+        --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf-cicd-sdlf-repositories \
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template.yaml \
         --parameter-overrides \
-            pDomain="$DOMAIN" \
-            pEnvironment="$ENV" \
-            pChildAccountId="$CHILD_ACCOUNT" \
+            pArtifactsBucket=/SDLF/S3/DevOpsArtifactsBucket \
+            pKMSKey=/SDLF/KMS/CICDKeyId \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$DEVOPS_PROFILE"
+    template_protection "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
 
-    template_protection "$ENV" "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
-    # Adding in CodeCommit Pull Request tests. Pass / Fail comments are injected into the 'Activity' tab of CodeCommit
-    if [ "$xflag" == "false" ] && [ "$aflag" == "true" ]
-    then
-        DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$DOMAIN"/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
-        for REPOSITORY in "${REPOSITORIES[@]}"
-        do
-            # Currently the tests focus on cfn-lint and cfn_nag scans. Ignoring repositories
-            # that do not have these templates.
+    declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+    for REPOSITORY in "${REPOSITORIES[@]}"
+    do
+        latest_commit=$(aws codecommit get-branch --repository-name "$REPOSITORY" --branch-name master --query 'branch.commitId' --output text --region "$REGION" --profile "$DEVOPS_PROFILE")
+        aws codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit" --region "$REGION" --profile "$DEVOPS_PROFILE"
+        aws codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit" --region "$REGION" --profile "$DEVOPS_PROFILE"
+    done
 
-            if [ "$REPOSITORY" != "sdlf-datalakeLibrary" ] && [ "$REPOSITORY" != "sdlf-pipLibrary" ]
-            then
-                # NOTE: The default is that only cfn-lint and cfn_nag tests are executed.
-                #       If wishing to execute different tests beyond cfn-lint / cfn_nag for any one of the repositories,
-                #       override the default values below by adding if conditions. An example is below:
-                #
-                #       pInstallationCommands="gem install cfn-nag && pip3 install cfn-lint"
-                #       pTestCommands="cfn-lint **/*.yaml && cfn_nag_scan --input-path ./ --template-pattern '..*\.yaml|..*\.yml' -s"
-                #       if [ "$REPOSITORY" == "sdlf-team" ]
-                #       then
-                #           pInstallationCommands="$pInstallationCommands && pip3 install -r policy_creation/requirements.txt"
-                #           pTestCommands="$pTestCommands && pytest --cov=bucket_policies -v"
-                #       fi
-                pInstallationCommands="gem install cfn-nag && pip3 install cfn-lint"
-                pTestCommands="cfn-lint **/*.yaml && cfn_nag_scan --input-path ./ --template-pattern '..*\.yaml|..*\.yml' -s"
-
-                STACK_NAME="$REPOSITORY-pr-check-stack"
-                aws cloudformation deploy \
-                    --stack-name "$STACK_NAME" \
-                    --template-file "$DIRNAME"/sdlf-cicd/template-codecommit-pr-check.yaml \
-                    --parameter-overrides \
-                        pTargetRepositoryName="$REPOSITORY" \
-                        pKMSKeyArn="$DEVOPS_ACCOUNT_KMS" \
-                        pInstallationCommands="$pInstallationCommands" \
-                        pTestCommands="$pTestCommands" \
-                    --tags Framework=sdlf \
-                    --capabilities "CAPABILITY_IAM" \
-                    --region "$REGION" \
-                    --profile "$DEVOPS_PROFILE" \
-                    --no-fail-on-empty-changeset
-
-                template_protection "$ENV" "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
-            fi
-        done
-    fi
+    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py --profile "$DEVOPS_PROFILE"
 fi
 
 if "$cflag"
 then
-    # Increase SSM Parameter Store throughput to 1,000 requests/second
-    aws ssm update-service-setting --setting-id arn:${AWS::Partition}:ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
-    DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$DOMAIN"/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
-    STACK_NAME=sdlf-cicd-child-foundations
+    echo "Deploying SDLF DevOps/Tooling roles in child accounts" >&2
+    # Increase SSM Parameter Store throughput to 1,000 requests/second TODO
+    aws ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
+    DEVOPS_ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
+    DEVOPS_KMS_KEY=$(aws --region "$REGION" --profile "$DEVOPS_PROFILE" ssm get-parameter --name /SDLF/KMS/CICDKeyId --query "Parameter.Value" --output text)
+    DEVOPS_BUILDCLOUDFORMATIONMODULESTAGE=$(aws --region "$REGION" --profile "$DEVOPS_PROFILE" ssm get-parameter --name /SDLF/CodeBuild/BuildCloudformationModuleStage --query "Parameter.Value" --output text)
+    DEVOPS_BUILDDEPLOYDATALAKELIBRARYLAYER=$(aws --region "$REGION" --profile "$DEVOPS_PROFILE" ssm get-parameter --name /SDLF/CodeBuild/BuildDeployDatalakeLibraryLayer --query "Parameter.Value" --output text)
+    DEVOPS_BUILDDEPLOYREQUIREMENTSLAYER=$(aws --region "$REGION" --profile "$DEVOPS_PROFILE" ssm get-parameter --name /SDLF/CodeBuild/BuildDeployRequirementsLayer --query "Parameter.Value" --output text)
+    STACK_NAME=sdlf-cicd-domain-roles
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-child-foundations.yaml \
+        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-domain-roles.yaml \
         --parameter-overrides \
-            pEnvironment="$ENV" \
-            pDomain="$DOMAIN" \
-            pSharedDevOpsAccountId="$DEVOPS_ACCOUNT" \
-            pSharedDevOpsAccountKmsKeyArn="$DEVOPS_ACCOUNT_KMS" \
+            pDevOpsAccountId="$DEVOPS_ACCOUNT" \
+            pDevOpsArtifactsBucket="$DEVOPS_ARTIFACTS_BUCKET" \
+            pDevOpsKMSKey="$DEVOPS_KMS_KEY" \
+            pBuildCloudformationModuleStage="$DEVOPS_BUILDCLOUDFORMATIONMODULESTAGE" \
+            pBuildDeployDatalakeLibraryLayer="$DEVOPS_BUILDDEPLOYDATALAKELIBRARYLAYER" \
+            pBuildDeployRequirementsLayer="$DEVOPS_BUILDDEPLOYREQUIREMENTSLAYER" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$CHILD_PROFILE"
 
-    template_protection "$ENV" "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
-
-    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/CFNBucket --query "Parameter.Value" --output text)
-    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
-    mkdir "$DIRNAME"/output
-    sam package --profile "$CHILD_PROFILE" --template-file "$DIRNAME"/sdlf-cicd/template-cicd-cfn-modules-pipelines.yaml  --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines --output-template-file "$DIRNAME"/output/packaged-template.yaml
-
-    STACK_NAME=sdlf-cicd-cfn-modules-pipelines
-    aws cloudformation deploy \
-        --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/output/packaged-template.yaml \
-        --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines \
-        --parameter-overrides \
-            pDomain="$DOMAIN" \
-            pEnvironment="/SDLF/Misc/pEnv" \
-            pSharedDevOpsAccountId="/SDLF/Misc/DevOpsAccountId" \
-            pSharedDevOpsAccountKmsKeyArn="$DEVOPS_ACCOUNT_KMS" \
-        --tags Framework=sdlf \
-        --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-        --region "$REGION" \
-        --profile "$CHILD_PROFILE"
-
-    template_protection "$ENV" "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
+    template_protection "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
 fi
