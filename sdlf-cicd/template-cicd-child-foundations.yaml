@@ -30,6 +30,12 @@ Parameters:
   pMainRepository:
     Type: String
     Default: sdlf-main
+  pPipelineRepository:
+    Type: String
+    Default: cfn-pipeline
+  pDatasetRepository:
+    Type: String
+    Default: cfn-dataset
 
 Mappings:
   pCodeCommitBranch:
@@ -709,6 +715,7 @@ Resources:
                 Action: codepipeline:StartPipelineExecution
                 Resource:
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsCodePipeline}
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-cfn-modules-*
 
   # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
   rDataLakeAdminRole:
@@ -1005,3 +1012,10 @@ Resources:
       Type: String
       Value: !GetAtt rDataLakeAdminRole.Arn
       Description: Lake Formation Data Lake Admin Role
+  rEventBridgeRepositoryTriggerRoleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
+      Type: String
+      Value: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
+      Description: Role for EventBridge Repository Change Trigger

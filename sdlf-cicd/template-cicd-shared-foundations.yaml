@@ -262,6 +262,8 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}
+                  - !Sub arn:${AWS::Partition}:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}/*
               - Effect: Allow
                 Action:
                   - kms:Decrypt
@@ -497,7 +499,7 @@ Resources:
                   - codebuild:CreateProject
                   - codebuild:StartBuild
                   - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
+                Resource: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
               - Effect: Allow
                 Action:
                   - states:CreateActivity
@@ -724,71 +726,18 @@ Resources:
                 Resource:
                   - "*"
 
-  rBuildCloudformationModuleStage: # put in dedicated file and shared with child-foundations as nested stack (or later, module)
-    Type: AWS::CodeBuild::Project
+  rCloudFormationModuleInfrastructure:
+    Type: AWS::CloudFormation::Stack
     Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Name: sdlf-cicd-devops-build-cfn-module-codebuild
-      Description: Build a CloudFormation module from Serverless templates
-      EncryptionKey: !GetAtt rKMSKey.Arn
-      Environment:
-        EnvironmentVariables:
-          - Name: ARTIFACTS_BUCKET
-            Type: PLAINTEXT
-            Value: !Ref pArtifactsBucket
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !Ref rBuildCloudformationModuleRole
-      Source:
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                python: 3.9
-              commands:
-                - |-
-                    pip3 uninstall -y aws-sam-cli
-                    curl -L -O https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip \
-                    && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
-                    ./sam-installation/install \
-                    && sam --version
-                - pip3 install cloudformation-cli
-                - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
-            build:
-              commands:
-                - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
-                - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
-                - # aws cloudformation validate-template --template-body file://./translated-template.json
-                - |-
-                    mkdir module
-                    cd module
-                    cfn init --artifact-type MODULE --type-name "awslabs::sdlf::$MODULE_NAME::MODULE" && rm fragments/sample.json
-                    cp -i -a ../translated-template.json fragments/
-                    cfn submit > cfn.log 2>&1
-                    if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
-                      aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                      cfn submit > cfn.log 2>&1
-                    fi
-                    cat cfn.log
-                    TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
-                    echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
-                    aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
-                    echo "done"
-                    cd ..
-                    rm -Rf module
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 5
+      TemplateURL: ./nested-stacks/template-cicd-cfn-module.yaml
+      Parameters:
+        pArtifactsBucket: /SDLF/S3/DevOpsCFNBucket
+        pSharedDevOpsAccountKmsKeyArn: !GetAtt rKMSKey.Arn
+        pDevops: "Devops"
 
   rTeamStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn: rCloudFormationModuleInfrastructure
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
@@ -825,7 +774,7 @@ Resources:
               OutputArtifacts:
                 - Name: BuildArtifact
               Configuration:
-                ProjectName: !Ref rBuildCloudformationModuleStage
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
                 EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]'
               RunOrder: 1
       ArtifactStore:

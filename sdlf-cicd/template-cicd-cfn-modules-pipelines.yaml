@@ -8,9 +8,6 @@ Parameters:
   pSharedDevOpsAccountId:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/DevOpsAccountId
-  pTeamRepository:
-    Type: String
-    Default: cfn-team
   pPipelineRepository:
     Type: String
     Default: cfn-pipeline
@@ -24,6 +21,9 @@ Parameters:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/CFNBucket
+  pEventBridgeRepositoryTriggerRoleArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
 
 Mappings:
   pCodeCommitBranch:
@@ -39,207 +39,15 @@ Conditions:
     !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
 
 Resources:
+  rCloudFormationModuleInfrastructure:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd-cfn-module.yaml
+      Parameters:
+        pArtifactsBucket: /SDLF/S3/CFNBucket
+        pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
+
   ######## IAM #########
-  rBuildCloudformationModuleRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: sdlf-build-cfn-module
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - codebuild.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-cicd-build-cfn-module-codebuild
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:ValidateTemplate
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
-              - Effect: Allow
-                Action:
-                  - s3:GetBucketAcl
-                  - s3:GetBucketLocation
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:PutObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
-              - Effect: Allow
-                Action:
-                  - lambda:List*
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - lambda:GetLayer*
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
-              - Effect: Allow
-                Action:
-                  - kms:CreateGrant
-                  - kms:Decrypt
-                  - kms:DescribeKey
-                  - kms:Encrypt
-                  - kms:GenerateDataKey*
-                  - kms:ReEncrypt*
-                Resource:
-                  - !Ref pSharedDevOpsAccountKmsKeyArn
-              - Effect: Allow
-                Action:
-                  - iam:ListPolicies
-                Resource:
-                  - "*"
-              - Effect: Allow
-                Action:
-                  - iam:CreateRole
-                  - iam:GetRolePolicy
-                  - iam:PutRolePolicy
-                  - iam:*
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/CloudFormationManagedUplo-LogAndMetricsDeliveryRol-*"
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateStack
-                  - cloudformation:UpdateStack
-                  - cloudformation:DescribeStacks
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CloudFormationManagedUploadInfrastructure/*"
-              - Effect: Allow
-                Action:
-                  - cloudformation:RegisterType
-                  - cloudformation:SetTypeDefaultVersion
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/awslabs::sdlf::*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/awslabs-sdlf-*"
-              - Effect: Allow
-                Action:
-                  - s3:CreateBucket # necessary for CfnUploadInfra stack
-                  - s3:PutLifecycleConfiguration # necessary for CfnUploadInfra stack
-                  - s3:DeleteBucket
-                  - s3:DeleteBucketPolicy
-                  - s3:GetEncryptionConfiguration
-                  - s3:GetObject
-                  - s3:ListBucket
-                  - s3:ListBuckets
-                  - s3:ListObjectsV2
-                  - s3:PutBucketAcl
-                  - s3:PutBucketLogging
-                  - s3:PutBucketPolicy
-                  - s3:PutBucketVersioning
-                  - s3:PutEncryptionConfiguration
-                  - s3:PutObject # necessary for cfn submit
-                  - s3:SetBucketEncryption
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
-                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
-              - Effect: Allow
-                Action: # TODO CreateKey + d'autres trucs
-                  - kms:*
-                Resource:
-                  - "*"
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeTypeRegistration
-                Resource:
-                  - "*"
-
-  rBuildCloudformationModuleStage:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Name: sdlf-cicd-build-cfn-module-codebuild
-      Description: Build a CloudFormation module from Serverless templates
-      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
-      Environment:
-        EnvironmentVariables:
-          - Name: ARTIFACTS_BUCKET
-            Type: PLAINTEXT
-            Value: !Ref pArtifactsBucket
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !Ref rBuildCloudformationModuleRole
-      Source:
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                python: 3.9
-              commands:
-                - |-
-                    pip3 uninstall -y aws-sam-cli
-                    curl -L -O https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip \
-                    && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
-                    ./sam-installation/install \
-                    && sam --version
-                - pip3 install cloudformation-cli
-                - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
-            build:
-              commands:
-                - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
-                - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
-                - aws cloudformation validate-template --template-body file://./translated-template.json
-                - |-
-                    mkdir module
-                    cd module
-                    cfn init --artifact-type MODULE --type-name "awslabs::sdlf::$MODULE_NAME::MODULE" && rm fragments/sample.json
-                    cp -i -a ../translated-template.json fragments/
-                    cfn submit > cfn.log 2>&1
-                    if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
-                      aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                      cfn submit > cfn.log 2>&1
-                    fi
-                    cat cfn.log
-                    TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
-                    echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
-                    aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
-                    echo "done"
-                    cd ..
-                    rm -Rf module
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 5
-
-  # rTeamDatasetBuildTriggerRule:
-  #   Type: AWS::Events::Rule
-  #   Properties:
-  #     EventPattern:
-  #       source:
-  #         - aws.codecommit
-  #       detail-type:
-  #         - CodeCommit Repository State Change
-  #       resources:
-  #         - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-dataset
-  #       detail:
-  #         event:
-  #           - referenceCreated
-  #           - referenceUpdated
-  #         referenceType:
-  #           - branch
-  #         referenceName:
-  #           - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-  #     Targets:
-  #       - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rDatasetCodePipeline}
-  #         Id: !Sub sdlf-cicd-team-dataset
-  #         RoleArn: !Ref pCloudWatchRepositoryTriggerRoleArn
-
   rCodePipelineRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -423,7 +231,7 @@ Resources:
                   - codebuild:CreateProject
                   - codebuild:StartBuild
                   - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
+                Resource: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
               - Effect: Allow
                 Action:
                   - states:CreateActivity
@@ -537,56 +345,9 @@ Resources:
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
 
-  rTeamStateMachinePipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        -
-          Name: Source
-          Actions:
-            -
-              Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: '1'
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                RepositoryName: !Ref pTeamRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-        -
-          Name: Build
-          Actions:
-            -
-              Name: Build
-              InputArtifacts:
-              - Name: SourceArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: '1'
-                Provider: CodeBuild
-              OutputArtifacts:
-                - Name: BuildArtifact
-              Configuration:
-                ProjectName: !Ref rBuildCloudformationModuleStage
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]'
-              RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !Ref pSharedDevOpsAccountKmsKeyArn
-          Type: KMS
-        Location: !Ref pArtifactsBucket
-
   rPipelineStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage TODO
     Type: AWS::CodePipeline::Pipeline
+    DependsOn: rCloudFormationModuleInfrastructure
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
@@ -623,7 +384,7 @@ Resources:
               OutputArtifacts:
                 - Name: BuildArtifact
               Configuration:
-                ProjectName: !Ref rBuildCloudformationModuleStage
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
                 EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]'
               RunOrder: 1
       ArtifactStore:
@@ -633,8 +394,35 @@ Resources:
           Type: KMS
         Location: !Ref pArtifactsBucket
 
+  rPipelineStateMachineTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Pipeline State Machine on ${pPipelineRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pPipelineRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rPipelineStateMachinePipeline}
+          Id: !Sub sdlf-${pPipelineRepository}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
   rDatasetStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn: rCloudFormationModuleInfrastructure
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
@@ -671,7 +459,7 @@ Resources:
               OutputArtifacts:
                 - Name: BuildArtifact
               Configuration:
-                ProjectName: !Ref rBuildCloudformationModuleStage
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
                 EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"dataset", "type":"PLAINTEXT"}]'
               RunOrder: 1
       ArtifactStore:
@@ -681,39 +469,59 @@ Resources:
           Type: KMS
         Location: !Ref pArtifactsBucket
 
+  rDatasetStateMachineTriggerEventRule: # TODO this is not a state machine, remove from name..
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Dataset State Machine on ${pDatasetRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pDatasetRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - dev
+            - test
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rDatasetStateMachinePipeline}
+          Id: !Sub sdlf-${pDatasetRepository}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
   rStageAStateMachinePipeline:
     Type: AWS::CloudFormation::Stack
     DependsOn:
       - rCodePipelineRoleSsm
-      - rBuildCloudformationModuleStageSsm
+      - rCloudFormationModuleInfrastructure
     Properties:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
         pStageRepository: cfn-stageA
         pStageName: stageA
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
+        pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
 
   rStageBStateMachinePipeline:
     Type: AWS::CloudFormation::Stack
     DependsOn:
       - rCodePipelineRoleSsm
-      - rBuildCloudformationModuleStageSsm
+      - rCloudFormationModuleInfrastructure
     Properties:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
         pStageRepository: cfn-stageB
         pStageName: stageB
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
+        pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
 
   ######## SSM OUTPUTS #########
-  rBuildCloudformationModuleStageSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/CodeBuild/BuildCloudformationModuleStage
-      Type: String
-      Value: !Ref rBuildCloudformationModuleStage
-      Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
-
   rCodePipelineRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
