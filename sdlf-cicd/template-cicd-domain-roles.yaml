@@ -11,16 +11,7 @@ Parameters:
     Description: DevOps Artifacts bucket
     Type: String
   pDevOpsKMSKey:
-    Description: DevOps AWS account ID
-    Type: String
-  pBuildCloudformationModuleStage:
-    Description: BuildCloudformationModuleStage CodeBuild project
-    Type: String
-  pBuildDeployDatalakeLibraryLayer:
-    Description: BuildDeployDatalakeLibraryLayer CodeBuild project
-    Type: String
-  pBuildDeployRequirementsLayer:
-    Description: BuildDeployRequirementsLayer CodeBuild project
+    Description: DevOps KMS key alias
     Type: String
 
 Resources:
@@ -59,7 +50,10 @@ Resources:
                   - kms:List*
                   - kms:ReEncrypt*
                   - kms:CreateGrant
-                Resource: !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-cfn-modules
@@ -140,7 +134,7 @@ Resources:
                 Resource:
                   - "*"
 
-  rBuildModuleCloudFormationRole:
+  rBuildModuleCloudFormationRole: # used by cfn submit
     Type: AWS::IAM::Role
     Properties:
       RoleName: sdlf-cicd-cfn-modules
@@ -313,16 +307,6 @@ Resources:
                 Resource: "*"
               - Effect: Allow
                 Action:
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:StartBuild
-                  - codebuild:UpdateProject
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${pDevOpsAccountId}:project/${pBuildCloudformationModuleStage}"
-                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${pDevOpsAccountId}:project/${pBuildDeployDatalakeLibraryLayer}"
-                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${pDevOpsAccountId}:project/${pBuildDeployRequirementsLayer}"
-              - Effect: Allow
-                Action:
                   - states:CreateActivity
                   - states:CreateStateMachine
                   - states:ListActivities
@@ -428,8 +412,10 @@ Resources:
                   - kms:Encrypt
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
-                Resource:
-                  - !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
 
   rDomainCodePipelineRole:
     Type: AWS::IAM::Role
@@ -465,7 +451,10 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:List*
                   - kms:ReEncrypt*
-                Resource: !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
               - Effect: Allow
                 Action:
                   - cloudformation:DescribeStacks
@@ -526,7 +515,10 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:List*
                   - kms:ReEncrypt*
-                Resource: !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
         - PolicyName: sdlf-cicd
           PolicyDocument:
             Version: 2012-10-17
@@ -948,7 +940,10 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:List*
                   - kms:ReEncrypt*
-                Resource: !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
               - Effect: Allow
                 Action:
                   - cloudformation:DescribeStacks
@@ -1010,7 +1005,10 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:List*
                   - kms:ReEncrypt*
-                Resource: !Ref pDevOpsKMSKey
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
 
   rCodeBuildPublishLayerRole:
     Type: AWS::IAM::Role
