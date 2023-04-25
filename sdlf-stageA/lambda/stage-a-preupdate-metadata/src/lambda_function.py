@@ -29,8 +29,8 @@ def lambda_handler(event, context):
             octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(object_metadata["env"]).build()
         )
         object_metadata["peh_id"] = octagon_client.start_pipeline_execution(
-            pipeline_name="{}-{}-stage-{}".format(
-                object_metadata["team"], object_metadata["pipeline"], stage[-1].lower()
+            pipeline_name="{}-{}-{}".format(
+                object_metadata["team"], object_metadata["pipeline"], stage
             ),
             dataset_name="{}-{}".format(object_metadata["team"], object_metadata["dataset"]),
             comment=event,
