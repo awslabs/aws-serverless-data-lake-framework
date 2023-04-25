@@ -59,12 +59,6 @@ def lambda_handler(event, context):
             }
             dynamo_interface.update_object_metadata_catalog(object_metadata)
 
-        # Only uncomment if a queue for the next stage exists
-        # logger.info('Sending messages to next SQS queue if it exists')
-        # sqs_config = SQSConfiguration(team, dataset, ''.join([stage[:-1], chr(ord(stage[-1]) + 1)]))
-        # sqs_interface = SQSInterface(sqs_config.get_stage_queue_name)
-        # sqs_interface.send_batch_messages_to_fifo_queue(processed_keys, 10, '{}-{}'.format(team, dataset))
-
         octagon_client.update_pipeline_execution(
             status="{} {} Processing".format(stage, component), component=component
         )
