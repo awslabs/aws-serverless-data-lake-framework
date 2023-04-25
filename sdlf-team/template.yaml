@@ -2,6 +2,9 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Resources to be created to manage a team
 
 Parameters:
+  pPipelineReference:
+    Type: String
+    Default: none
   pApplicationName:
     Description: Name of the application
     Type: String
@@ -1828,6 +1831,64 @@ Resources:
             InputPathsMap:
               pipeline: $.detail.pipeline
 
+  rLambdaCodeBuildTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub sdlf-${pTeamName}-dynamodb-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-dynamodb-lambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Pipelines-${pEnvironment}
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Datasets-${pEnvironment}
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:DeleteLogStream
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                  - logs:TagLogGroup
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+              - Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:SetAlarmState
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}/*
+
   rPipelinesDynamodbLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -1895,28 +1956,30 @@ Resources:
               environment = os.getenv("ENVIRONMENT")
               team_name = os.getenv("TEAM_NAME")
               table = f"octagon-Pipelines-{environment}"
+
               paginator = ssm.get_paginator("get_parameters_by_path")
-              stages = paginator.paginate(
+              stages_pages = paginator.paginate(
                   Path=f"/SDLF/Pipelines/{team_name}",
                   Recursive=True,
                   PaginationConfig={"MaxItems": 30},
               )
-              for stage in stages["Parameters"]:
-                  pipeline_name = stage["Name"].split("/")[-2]
-                  stage_name = stage["Name"].split("/")[-1]
-                  if stage["Value"] == "entrypoint":
-                      entrypoint = "true"  # not a boolean in dynamodb
-                  else:
-                      entrypoint = "false"
-                  create_dynamodb_pipeline_entry(
-                      table, team_name, pipeline_name, stage_name, entrypoint
-                  )
-                  logger.info(
-                      f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
-                  )
+              for stages_page in stages_pages:
+                for stage in stages_page["Parameters"]:
+                    pipeline_name = stage["Name"].split("/")[-2]
+                    stage_name = stage["Name"].split("/")[-1]
+                    if stage["Value"] == "entrypoint":
+                        entrypoint = "true"  # not a boolean in dynamodb
+                    else:
+                        entrypoint = "false"
+                    create_dynamodb_pipeline_entry(
+                        table, team_name, pipeline_name, stage_name, entrypoint
+                    )
+                    logger.info(
+                        f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
+                    )
 
               logger.info(
-                  "INFO: Entries for stages that no longer exist are not removed from DynamoDB"
+                  "INFO: Entries for stages that no longer exist are *not* removed from DynamoDB"
               )
               return "Success"
 
@@ -1984,18 +2047,21 @@ Resources:
               environment = os.getenv("ENVIRONMENT")
               team_name = os.getenv("TEAM_NAME")
               table = f"octagon-Datasets-{environment}"
+
               paginator = ssm.get_paginator("get_parameters_by_path")
-              datasets = paginator.paginate(
+              datasets_pages = paginator.paginate(
                   Path=f"/SDLF/Datasets/{team_name}",
                   PaginationConfig={"MaxItems": 30},
               )
-              for dataset in datasets["Parameters"]:
-                  dataset_name = dataset["Name"].split("/")[-1]
-                  pipeline_name = dataset["Value"]
-                  create_dynamodb_dataset_entry(table, team_name, dataset_name, pipeline_name)
-                  logger.info(
-                      f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
-                  )
+
+              for datasets_page in datasets_pages:
+                for dataset in datasets["Parameters"]:
+                    dataset_name = dataset["Name"].split("/")[-1]
+                    pipeline_name = dataset["Value"]
+                    create_dynamodb_dataset_entry(table, team_name, dataset_name, pipeline_name)
+                    logger.info(
+                        f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
+                    )
 
               logger.info(
                   "INFO: Entries for datasets that no longer exist are not removed from DynamoDB"
@@ -2246,3 +2312,8 @@ Resources:
               !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/",
               !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/analytics/${pTeamName}/",
             ]
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference
