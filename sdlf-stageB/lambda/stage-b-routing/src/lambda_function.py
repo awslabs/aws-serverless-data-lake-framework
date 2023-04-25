@@ -41,6 +41,7 @@ def lambda_handler(event, context):
         else:
             records = event["Records"]
         logger.info("Received {} messages".format(len(records)))
+        response = {}
         for record in records:
             if trigger_type:
                 event_body = json.loads(json.loads(record)["output"])[0]["body"]
@@ -55,7 +56,7 @@ def lambda_handler(event, context):
             app = event_body["app"]
             env = event_body["env"]
             stage_bucket = S3Configuration().stage_bucket
-            keys_to_process = event_body["processedKeys"]
+            keys_to_process.extend(event_body["processedKeys"])
 
             logger.info("{} Objects ready for processing".format(len(keys_to_process)))
             keys_to_process = list(set(keys_to_process))
@@ -74,6 +75,7 @@ def lambda_handler(event, context):
                     "env": env,
                 },
             }
+        if response:
             logger.info("Starting State Machine Execution")
             state_config = StateMachineConfiguration(team, pipeline, stage)
             StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, response)
