@@ -9,7 +9,7 @@ from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-session_config = Config(user_agent_extra="awssdlf/1.5.0")
+session_config = Config(user_agent_extra="awssdlf/2.0.0")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
