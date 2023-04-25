@@ -3,44 +3,13 @@ Description: CICD pipelines to automate SDLF workflows
 
 Parameters:
   pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CFNBucket
-  pSharedDevOpsAccountId:
+    Default: /SDLF/S3/DevOpsArtifactsBucket
+  pKMSKey:
+    Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/DevOpsAccountId
-
-  pEnvironment:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pEnv
-  pTeamRepository:
-    Type: String
-    Default: sdlf-team
-  pPipelineRepository:
-    Type: String
-    Default: sdlf-pipeline
-  pDatasetRepository:
-    Type: String
-    Default: sdlf-dataset
-  pSharedDevOpsAccountKmsKeyArn:
-    Description: Arn of the KMS key in the Shared DevOps account
-    Type: String
-  pEventBridgeRepositoryTriggerRoleArn:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
-
-Mappings:
-  pCodeCommitBranch:
-    dev:
-      branch: dev
-    test:
-      branch: test
-    prod:
-      branch: master
-
-Conditions:
-  CrossAccount:
-    !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
+    Default: /SDLF/KMS/CICDKeyId
 
 Resources:
   rBuildCloudformationModuleRole:
@@ -96,7 +65,7 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Ref pSharedDevOpsAccountKmsKeyArn
+                  - !Ref pKMSKey
               - Effect: Allow
                 Action:
                   - iam:ListPolicies
@@ -148,8 +117,8 @@ Resources:
                   - s3:PutObject # necessary for cfn submit
                   - s3:SetBucketEncryption
                 Resource:
-                  - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
-                  - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
+                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
+                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
               - Effect: Allow
                 Action:
                   - kms:CreateKey
@@ -165,15 +134,18 @@ Resources:
                   - cloudformation:DescribeTypeRegistration
                 Resource:
                   - "*"
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
 
   rBuildCloudformationModuleStage:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub sdlf-cicd-build-cfn-module-codebuild
+      Name: sdlf-cicd-build-cfn-module-codebuild
       Artifacts:
         Type: CODEPIPELINE
       Description: Build a CloudFormation module from Serverless templates
-      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
+      EncryptionKey: !Ref pKMSKey
       Environment:
         EnvironmentVariables:
           - Name: ARTIFACTS_BUCKET
@@ -185,7 +157,7 @@ Resources:
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref rBuildCloudformationModuleRole
       Source:
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.2
           phases:
             install:
@@ -210,12 +182,23 @@ Resources:
                     cd module
                     cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
                     cp -i -a ../translated-template.json fragments/
-                    cfn submit > cfn.log 2>&1
-                    if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
+
+                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                    export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
+                    export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
+                    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
+
+                    cfn submit --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" > cfn.log 2>&1
+                    if grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*CREATE_IN_PROGRESS" cfn.log; then
                       aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
                       cfn submit > cfn.log 2>&1
+                    elif grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*UPDATE.*_IN_PROGRESS" cfn.log; then
+                      aws cloudformation wait stack-update-complete --stack-name "CloudFormationManagedUploadInfrastructure"
+                      cfn submit > cfn.log 2>&1
                     fi
+                    echo "----- CFN CLI LOGS -----"
                     cat cfn.log
+                    echo "----- END CFN CLI LOGS -----"
                     TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
                     echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
                     aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
@@ -233,7 +216,7 @@ Resources:
   rBuildCloudformationModuleStageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeBuild/BuildCloudformationModuleStage
+      Name: /SDLF/CodeBuild/BuildCloudformationModuleStage
       Type: String
       Value: !Ref rBuildCloudformationModuleStage
       Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
