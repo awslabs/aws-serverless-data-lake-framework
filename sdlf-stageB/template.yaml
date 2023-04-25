@@ -75,9 +75,6 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Description: The ARN of the States Execution Role
     Default: "{{resolve:ssm:/SDLF/IAM/engineering/StatesExecutionRoleArn}}"
-  pSNSTopic:
-    Description: The team SNS topic
-    Type: String
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -468,7 +465,7 @@ Resources:
       AlarmName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-b
       AlarmDescription: !Sub StageB ${pTeamName} ${pPipeline} Routing Lambda Alarm
       AlarmActions:
-        - !Ref pSNSTopic
+        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Errors
       EvaluationPeriods: 5
       Period: 300
@@ -583,7 +580,7 @@ Resources:
       AlarmName: !Sub sdlf-${pTeamName}-${pPipeline}-error-b
       AlarmDescription: !Sub StageB ${pTeamName} ${pPipeline} Error Lambda Alarm
       AlarmActions:
-        - !Ref pSNSTopic
+        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Invocations
       EvaluationPeriods: 5
       Period: 300
