@@ -354,51 +354,6 @@ Resources:
       RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
       UseServiceLinkedRole: False
 
-  rDataQualityBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-dataquality",
-          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-dataquality",
-        ]
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: True
-        BlockPublicPolicy: True
-        IgnorePublicAcls: True
-        RestrictPublicBuckets: True
-
-  rDataQualityBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref rDataQualityBucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: AllowSSLRequestsOnly
-            Action: s3:*
-            Effect: Deny
-            Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}/*
-              - !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}
-            Condition:
-              Bool:
-                aws:SecureTransport: False
-            Principal: "*"
-
-  rDataQualityBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    DependsOn: rLakeFormationDataAccessRolePolicy
-    Properties:
-      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}/
-      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
-      UseServiceLinkedRole: False
-
   rAthenaBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -724,13 +679,6 @@ Resources:
       Value:
         !If [CreateMultipleBuckets, !Ref rAnalyticsBucket, !Ref rCentralBucket]
       Description: Name of the Analytics S3 bucket
-  rS3DataQualityBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/DataQualityBucket
-      Type: String
-      Value: !Ref rDataQualityBucket
-      Description: Name of the Data Quality S3 bucket
   rS3AthenaBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -780,6 +728,3 @@ Outputs:
     Value: !Ref rAnalyticsBucket
     Condition: CreateMultipleBuckets
     Description: Data Lake Analytics Bucket
-  oDataQualityBucket:
-    Value: !Ref rDataQualityBucket
-    Description: Data Quality Bucket

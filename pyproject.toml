@@ -3,7 +3,7 @@ target-version = ["py39", "py310"]
 line-length = 120
 extend-exclude = '''
 (
-    ^/sdlf-foundations/scripts/deequ/
+    ^/sdlf-stage-dataquality/scripts/deequ/
   | ^/sdlf-utils/
 )
 '''
@@ -12,13 +12,13 @@ extend-exclude = '''
 extend-select = ["I", "PL", "W"]
 ignore = ["PLR0912", "PLR0913", "PLR0915"]
 fixable = ["I001"]
-extend-exclude = ["sdlf-foundations/scripts/deequ", "sdlf-utils"]
+extend-exclude = ["sdlf-stage-dataquality/scripts/deequ", "sdlf-utils"]
 line-length = 120
 target-version = "py39"
 
 [tool.pylint.main]
 py-version = "3.9"
-ignore-paths = ["^/sdlf-foundations/scripts/deequ/", "^/sdlf-utils/"]
+ignore-paths = ["^/sdlf-stage-dataquality/scripts/deequ/", "^/sdlf-utils/"]
 jobs = 0
 
 [tool.pylint.format]

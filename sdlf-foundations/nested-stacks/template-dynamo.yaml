@@ -430,66 +430,6 @@ Resources:
     DeletionPolicy: Delete
 
 
-  rDynamoOctagonQualitySuggestions:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      KeySchema:
-        - AttributeName: suggestion_hash_key
-          KeyType: HASH
-      AttributeDefinitions:
-        - AttributeName: suggestion_hash_key
-          AttributeType: S
-        - AttributeName: table_hash_key
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      GlobalSecondaryIndexes:
-        - IndexName: table-index
-          KeySchema:
-            - AttributeName: table_hash_key
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TableName: !Sub octagon-DataQualitySuggestions-${pEnvironment}
-      SSESpecification:
-        SSEEnabled: True
-        SSEType: KMS
-        KMSMasterKeyId: !Ref pKMSKeyId
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: True
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
-
-
-  rDynamoOctagonQualityAnalysis:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      KeySchema:
-        - AttributeName: analysis_hash_key
-          KeyType: HASH
-      AttributeDefinitions:
-        - AttributeName: analysis_hash_key
-          AttributeType: S
-        - AttributeName: table_hash_key
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      GlobalSecondaryIndexes:
-        - IndexName: table-index
-          KeySchema:
-            - AttributeName: table_hash_key
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TableName: !Sub octagon-DataQualityAnalysis-${pEnvironment}
-      SSESpecification:
-        SSEEnabled: True
-        SSEType: KMS
-        KMSMasterKeyId: !Ref pKMSKeyId
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: True
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
-
-
   rDynamoOctagonManifests:
     Type: AWS::DynamoDB::Table
     Properties:

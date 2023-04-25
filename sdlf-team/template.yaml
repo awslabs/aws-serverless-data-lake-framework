@@ -18,10 +18,6 @@ Parameters:
     Description: The CloudFormation bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/CFNBucket
-  pDataQualityStateMachine:
-    Description: The data quality state machine
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/SM/DataQualityStateMachine
   pDatalakeLibraryRepositoryName:
     Description: Name of the repository containing the code for the Datalake Library.
     Type: String
@@ -104,7 +100,6 @@ Resources:
         pApplicationName: !Ref pApplicationName
         pCentralBucket: !Ref pCentralBucket
         pCFNBucket: !Ref pCFNBucket
-        pDataQualityStateMachine: !Ref pDataQualityStateMachine
         pEnvironment: !Ref pEnvironment
         pKMSInfraKeyId: !GetAtt [rKMSStack, Outputs.oKMSInfraKeyId]
         pKMSDataKeyId: !GetAtt [rKMSStack, Outputs.oKMSDataKeyId]
