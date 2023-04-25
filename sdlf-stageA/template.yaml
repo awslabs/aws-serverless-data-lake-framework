@@ -7,23 +7,25 @@ Parameters:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
   pArtifactsBucket:
-    Description: S3 Artifacts bucket
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/ArtifactsBucket
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
   pDatasetBucket:
-    Description: The dataset bucket
+    Description: The central bucket for the solution
     Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
   pStageBucket:
-    Description: The stage bucket
+    Description: The stage bucket for the solution
     Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
   pApp:
-    Description: Name of the application (all lowercase, no symbols or spaces)
+    Description: Name of the application
     Type: String
-    AllowedPattern: "[a-z0-9]*"
+    Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
   pOrg:
-    Description: Name of the organization (all lowercase, no symbols or spaces)
+    Description: Name of the organization owning the datalake
     Type: String
-    AllowedPattern: "[a-z0-9]*"
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -33,10 +35,9 @@ Parameters:
     Type: String
     AllowedPattern: "[a-z0-9]*"
   pEnv:
-    Description: The name of the environment to deploy the pipeline to
+    Description: Environment name
     Type: String
-    Default: dev
-    AllowedValues: [dev, test, prod]
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pStageName:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
@@ -68,6 +69,7 @@ Parameters:
   pStatesExecutionRole:
     Type: AWS::SSM::Parameter::Value<String>
     Description: The ARN of the States Execution Role
+    Default: "{{resolve:ssm:/SDLF/IAM/engineering/StatesExecutionRoleArn}}"
   pSNSTopic:
     Description: The team SNS topic
     Type: String
@@ -115,7 +117,7 @@ Globals:
 
 Resources:
   rPipelineInterface:
-    Type: awslabs::sdlf::pipeline::MODULE
+    Type: sdlf::engineering::pipeline::MODULE
     Properties:
       pRandomSource: !Ref pRandomSource
       pOrg: !Ref pOrg
@@ -127,6 +129,7 @@ Resources:
       pTriggerType: !Ref pTriggerType
       pSchedule: !Ref pSchedule
       pEventPattern: !Ref pEventPattern
+      pLambdaRoutingStep: !GetAtt rLambdaRoutingStep.Arn
 
   ######## IAM #########
   rLambdaCommonPolicy:

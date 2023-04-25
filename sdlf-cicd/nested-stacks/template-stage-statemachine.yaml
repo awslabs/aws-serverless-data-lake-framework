@@ -2,39 +2,48 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: CICD pipelines to automate SDLF workflows
 
 Parameters:
-  pBranchName:
-    Type: String
-    Default: master
-  pCFNBucket:
-    Description: The CloudFormation bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CFNBucket
-  pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/ArtifactsBucket
   pSharedDevOpsAccountId:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/DevOpsAccountId
   pEnvironment:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pEnv
-  pTeamName:
+  pStageRepository:
     Type: String
-    Default: engineering
+    Default: cfn-stageA
+  pStageName:
+    Type: String
+    Default: stageA
+    # todo constraints (no hyphen, aZ)
+  pSharedDevOpsAccountKmsKeyArn:
+    Description: Arn of the KMS key in the Shared DevOps account
+    Type: String
+  pArtifactsBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
 
 Resources:
   rStageStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn: !Sub "{{resolve:ssm:/SDLF/CodeBuild/${pTeamName}/CodePipelineRole}}"
+      RoleArn: "{{resolve:ssm:/SDLF/CodeBuild/CodePipelineRole}}"
       Stages:
         -
           Name: Source
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -43,8 +52,8 @@ Resources:
               OutputArtifacts:
                 - Name: SourceArtifact
               Configuration:
-                RepositoryName: !Sub sdlf-${pTeamName}-stageA-todo
-                BranchName: !Ref pBranchName
+                RepositoryName: !Ref pStageRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
         -
@@ -62,12 +71,12 @@ Resources:
               OutputArtifacts:
                 - Name: BuildArtifact
               Configuration:
-                ProjectName: !Sub "{{resolve:ssm:/SDLF/CodeBuild/${pTeamName}/BuildCloudformationModuleStage}}"
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"stageA", "type":"PLAINTEXT"}]'
+                ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildCloudformationModuleStage}}"
+                EnvironmentVariables: !Sub '[{"name":"MODULE_NAME", "value":"${pStageName}", "type":"PLAINTEXT"}]'
               RunOrder: 1
       ArtifactStore:
         Type: S3
         EncryptionKey:
-          Id: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
           Type: KMS
         Location: !Ref pArtifactsBucket

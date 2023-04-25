@@ -4,7 +4,7 @@ Description: Multi-environment CICD team repos resources in shared DevOps accoun
 Parameters:
   pTeamFoundationsRepository:
     Type: String
-    Default: sdlf-team
+    Default: cfn-team
 
 Resources:
   ######## IAM #########
