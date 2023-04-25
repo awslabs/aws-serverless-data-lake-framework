@@ -22,5 +22,9 @@
     {
         "ParameterKey": "pStageBBranch",
         "ParameterValue": "master"
+    },
+    {
+        "ParameterKey": "pEntryPoint",
+        "ParameterValue": "stage-a"
     }
 ]
