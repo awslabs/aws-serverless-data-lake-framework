@@ -48,7 +48,7 @@ def lambda_handler(event, context):
                 "size": S3Interface().get_size(bucket, key),
                 "last_modified_date": S3Interface().get_last_modified(bucket, key),
                 "org": event["body"]["org"],
-                "app": event["body"]["app"],
+                "app": event["body"]["domain"],
                 "env": event["body"]["env"],
                 "team": team,
                 "pipeline": pipeline,

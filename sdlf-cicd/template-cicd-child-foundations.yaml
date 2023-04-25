@@ -11,6 +11,11 @@ Parameters:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
+  pDomain:
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,9}"
+    Default: datalake
   pEnvironment:
     Description: Environment name
     Type: String
@@ -667,7 +672,7 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack
-              - Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pEnvironment}
+              - Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pDomain}-${pEnvironment}
                 Effect: Allow
                 Action: sts:AssumeRole
               - Effect: Allow
@@ -776,7 +781,7 @@ Resources:
         - Name: Source
           Actions:
             - Name: cicd-main
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -804,8 +809,8 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCodeBuildRole.Arn
-                StackName: !Sub sdlf-foundations-${pEnvironment}
-                TemplatePath: !Sub "TemplateSource::foundations-${pEnvironment}.yaml"
+                StackName: !Sub sdlf-foundations-${pDomain}-${pEnvironment}
+                TemplatePath: !Sub "TemplateSource::foundations-${pDomain}-${pEnvironment}.yaml"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
@@ -825,8 +830,8 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCodeBuildRole.Arn
-                StackName: !Sub sdlf-teams-${pEnvironment}
-                TemplatePath: !Sub "TemplateSource::teams-${pEnvironment}.yaml"
+                StackName: !Sub sdlf-teams-${pDomain}-${pEnvironment}
+                TemplatePath: !Sub "TemplateSource::teams-${pDomain}-${pEnvironment}.yaml"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
@@ -889,10 +894,17 @@ Resources:
       Type: String
       Value: !Ref rArtifactsBucket
       Description: S3 CFN Artifacts Bucket
+  rDomainSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Misc/pDomain
+      Type: String
+      Value: !Ref pDomain
+      Description: Data domain name
   rEnvironmentSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Misc/pEnv
+      Name: !Sub /SDLF/Misc/pEnv
       Type: String
       Value: !Ref pEnvironment
       Description: Environment name

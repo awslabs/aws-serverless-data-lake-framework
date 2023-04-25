@@ -2,10 +2,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Resources to be created to manage a team
 
 Parameters:
-  pApplicationName:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Default: /SDLF/Misc/pDomain
   pAnalyticsBucket:
     Description: The analytics bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
@@ -96,7 +96,7 @@ Resources:
         pTeamName: !Ref pTeamName
       Tags:
         - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}
+          Value: !Sub ${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}
 
   ######## IAM #########
   rIAMStack:
@@ -105,7 +105,7 @@ Resources:
       TemplateURL: ./nested-stacks/template-iam.yaml
       Parameters:
         pAnalyticsBucket: !Ref pAnalyticsBucket
-        pApplicationName: !Ref pApplicationName
+        pApplicationName: !Ref pDomain
         pAthenaBucket: !Ref pAthenaBucket
         pCentralBucket: !Ref pCentralBucket
         pCFNBucket: !Ref pCFNBucket
@@ -120,7 +120,7 @@ Resources:
         pTeamName: !Ref pTeamName
       Tags:
         - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}
+          Value: !Sub ${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}
 
   ######## CICD #########
   rCICDStack:
@@ -129,7 +129,7 @@ Resources:
       TemplateURL: ./nested-stacks/template-cicd.yaml
       Parameters:
         pAnalyticsBucket: !Ref pAnalyticsBucket
-        pApplicationName: !Ref pApplicationName
+        pApplicationName: !Ref pDomain
         pCentralBucket: !Ref pCentralBucket
         pCFNBucket: !Ref pCFNBucket
         pCloudWatchRepositoryTriggerRoleArn:
@@ -160,4 +160,4 @@ Resources:
           !GetAtt [rIAMStack, Outputs.oTransformValidateRoleArn]
       Tags:
         - Key: tagging-policy
-          Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-${pTeamName}
+          Value: !Sub ${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}

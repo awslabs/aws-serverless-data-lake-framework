@@ -90,7 +90,7 @@ def lambda_handler(event, context):
             pipeline = get_item(dataset_table, team, dataset)
             message["pipeline"] = pipeline
             message["org"] = os.environ["ORG"]
-            message["app"] = os.environ["APP"]
+            message["domain"] = os.environ["DOMAIN"]
             message["env"] = os.environ["ENV"]
             pipeline_stage = get_pipeline_entrypoint(pipeline_table, team, pipeline)
             logger.info("Pipeline entrypoint: {}".format(pipeline_stage))

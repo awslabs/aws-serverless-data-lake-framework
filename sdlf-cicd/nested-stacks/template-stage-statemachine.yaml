@@ -46,7 +46,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pDomain}-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS

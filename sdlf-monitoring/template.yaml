@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboards, ELK, Budgets
 
 Parameters:
-  pApplicationName:
+  pDomain:
     Type: String
   pEnvironment:
     Type: String
@@ -345,7 +345,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-cloudtrail",
-          !Sub "${pOrganizationName}-${pApplicationName}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
+          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
         ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:

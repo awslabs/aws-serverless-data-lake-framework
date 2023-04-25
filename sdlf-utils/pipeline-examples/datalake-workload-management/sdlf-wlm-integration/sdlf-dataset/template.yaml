@@ -6,10 +6,10 @@ Parameters:
     Description: The analytics bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/AnalyticsBucket
-  pApp:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Default: /SDLF/Misc/pDomain
   pCentralBucket:
     Description: The central bucket for the solution
     Type: AWS::SSM::Parameter::Value<String>
@@ -97,7 +97,7 @@ Resources:
               "pipeline_stage": "StageB",
               "dataset": "${pDatasetName}",
               "org": "${pOrg}",
-              "app": "${pApp}",
+              "domain": "${pDomain}",
               "env": "${pEnvironment}"
             }
 
@@ -116,7 +116,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pApp}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
+        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueCrawler:
     Type: AWS::Glue::Crawler

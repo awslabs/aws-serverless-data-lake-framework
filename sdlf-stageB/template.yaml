@@ -19,10 +19,10 @@ Parameters:
     Description: The stage bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
-  pApp:
-    Description: Name of the application
+  pDomain:
+    Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
@@ -121,7 +121,7 @@ Resources:
     Properties:
       pPipelineReference: !Ref pPipelineReference
       pOrg: !Ref pOrg
-      pApp: !Ref pApp
+      pDomain: !Ref pDomain
       pEnv: !Ref pEnv
       pTeamName: !Ref pTeamName
       pPipelineName: !Ref pPipeline
