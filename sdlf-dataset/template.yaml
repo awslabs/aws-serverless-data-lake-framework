@@ -5,18 +5,10 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
-  pAnalyticsBucket:
-    Description: The analytics bucket for the solution
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/AnalyticsBucket}}"
   pApp:
     Description: Name of the application
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
-  pCentralBucket:
-    Description: The central bucket for the solution
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
   pDatasetName:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -29,10 +21,6 @@ Parameters:
     Description: Name of the organization owning the datalake
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
-  pPipelineBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
