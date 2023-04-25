@@ -1,0 +1,237 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD pipelines to automate SDLF workflows
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+  pSharedDevOpsAccountId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/DevOpsAccountId
+  pDevops:
+    Type: String
+    Default: ""
+
+  pEnvironment:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/pEnv
+  pTeamRepository:
+    Type: String
+    Default: cfn-team
+  pPipelineRepository:
+    Type: String
+    Default: cfn-pipeline
+  pDatasetRepository:
+    Type: String
+    Default: cfn-dataset
+  pSharedDevOpsAccountKmsKeyArn:
+    Description: Arn of the KMS key in the Shared DevOps account
+    Type: String
+  pEventBridgeRepositoryTriggerRoleArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
+
+Conditions:
+  CrossAccount:
+    !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
+
+Resources:
+  rBuildCloudformationModuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-build-cfn-module-codebuild
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - lambda:List*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:GetLayer*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pSharedDevOpsAccountKmsKeyArn
+              - Effect: Allow
+                Action:
+                  - iam:ListPolicies
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:GetRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/CloudFormationManagedUplo-LogAndMetricsDeliveryRol-*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DescribeStacks
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CloudFormationManagedUploadInfrastructure/*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:RegisterType
+                  - cloudformation:SetTypeDefaultVersion
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/awslabs::sdlf::*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/awslabs-sdlf-*"
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket # necessary for CfnUploadInfra stack
+                  - s3:PutLifecycleConfiguration # necessary for CfnUploadInfra stack
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBuckets
+                  - s3:ListObjectsV2
+                  - s3:PutBucketAcl
+                  - s3:PutBucketLogging
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutObject # necessary for cfn submit
+                  - s3:SetBucketEncryption
+                Resource:
+                  - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
+                  - arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
+              - Effect: Allow
+                Action: # TODO CreateKey + d'autres trucs
+                  - kms:*
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeTypeRegistration
+                Resource:
+                  - "*"
+
+  rBuildCloudformationModuleStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub sdlf-cicd-${pDevops}build-cfn-module-codebuild
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Build a CloudFormation module from Serverless templates
+      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
+      Environment:
+        EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref pArtifactsBucket
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        Type: LINUX_CONTAINER
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref rBuildCloudformationModuleRole
+      Source:
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.9
+              commands:
+                - |-
+                    pip3 uninstall -y aws-sam-cli
+                    curl -L -O https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip \
+                    && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
+                    ./sam-installation/install \
+                    && sam --version
+                - pip3 install cloudformation-cli
+                - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
+            build:
+              commands:
+                - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+                - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
+                - # aws cloudformation validate-template --template-body file://./translated-template.json
+                - |-
+                    mkdir module
+                    cd module
+                    cfn init --artifact-type MODULE --type-name "awslabs::sdlf::$MODULE_NAME::MODULE" && rm fragments/sample.json
+                    cp -i -a ../translated-template.json fragments/
+                    cfn submit > cfn.log 2>&1
+                    if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
+                      aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
+                      cfn submit > cfn.log 2>&1
+                    fi
+                    cat cfn.log
+                    TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
+                    echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
+                    aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
+                    echo "done"
+                    cd ..
+                    rm -Rf module
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 5
+
+  ######## SSM OUTPUTS #########
+  rBuildCloudformationModuleStageSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/CodeBuild/${pDevops}BuildCloudformationModuleStage
+      Type: String
+      Value: !Ref rBuildCloudformationModuleStage
+      Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
+
+Outputs:
+  oBuildCloudformationModuleStageArn:
+    Description: The ARN of the CloudFormation module CodeBuild job
+    Value: !GetAtt rBuildCloudformationModuleStage.Arn

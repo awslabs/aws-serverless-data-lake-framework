@@ -181,10 +181,15 @@ fi
 
 if "$oflag"
 then
+    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/DevOpsCFNBucket --query "Parameter.Value" --output text)
+    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/cfn-cicd/sam-translate.py
+    mkdir "$DIRNAME"/output
+    sam package --profile "$DEVOPS_PROFILE" --template-file "$DIRNAME"/cfn-cicd/template-cicd-shared-foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-shared-foundations --output-template-file "$DIRNAME"/output/packaged-template.yaml
+
     STACK_NAME=sdlf-cicd-shared-foundations-${ENV}
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/cfn-cicd/template-cicd-shared-foundations.yaml \
+        --template-file "$DIRNAME"/output/packaged-template.yaml \
         --parameter-overrides \
             pEnvironment="$ENV" \
             pChildAccountId="$CHILD_ACCOUNT" \
@@ -192,8 +197,6 @@ then
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$DEVOPS_PROFILE"
-    echo "Waiting for stack to be created ..."
-    aws cloudformation wait stack-create-complete --profile "$DEVOPS_PROFILE" --region "$REGION" --stack-name "$STACK_NAME"
 
     template_protection "$ENV" "$STACK_NAME" "$REGION" "$DEVOPS_PROFILE"
     # Adding in CodeCommit Pull Request tests. Pass / Fail comments are injected into the 'Activity' tab of CodeCommit
@@ -266,9 +269,9 @@ then
     ARTIFACTS_BUCKET=$(aws ssm get-parameter --name /SDLF/S3/CFNBucket --query "Parameter.Value" --output text)
     aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/cfn-cicd/sam-translate.py
     mkdir "$DIRNAME"/output
-    sam package --profile "$CHILD_PROFILE" --template-file "$DIRNAME"/cfn-cicd/template-cicd-cfn-modules.yaml  --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules --output-template-file "$DIRNAME"/output/packaged-template.yaml
+    sam package --profile "$CHILD_PROFILE" --template-file "$DIRNAME"/cfn-cicd/template-cicd-cfn-modules-pipelines.yaml  --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-cfn-modules-pipelines --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
-    STACK_NAME=sdlf-cicd-cfn-modules
+    STACK_NAME=sdlf-cicd-cfn-modules-pipelines
     aws cloudformation deploy \
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template.yaml \
@@ -280,8 +283,6 @@ then
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
         --profile "$CHILD_PROFILE"
-    echo "Waiting for stack to be created ..."
-    aws cloudformation wait stack-create-complete --profile "$CHILD_PROFILE" --region "$REGION" --stack-name "$STACK_NAME"
 
     template_protection "$ENV" "$STACK_NAME" "$REGION" "$CHILD_PROFILE"
 fi
