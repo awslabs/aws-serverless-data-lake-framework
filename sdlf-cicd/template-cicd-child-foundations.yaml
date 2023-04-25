@@ -26,7 +26,7 @@ Parameters:
     Type: String
   pFoundationsRepository:
     Type: String
-    Default: sdlf-foundations
+    Default: cfn-foundations
   pMainRepository:
     Type: String
     Default: sdlf-main
@@ -664,6 +664,7 @@ Resources:
                   - cloudformation:DescribeStacks
               - Resource:
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-teams*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-foundations*
                 Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -715,6 +716,7 @@ Resources:
                 Action: codepipeline:StartPipelineExecution
                 Resource:
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsCodePipeline}
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-cfn-modules-*
 
   # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
@@ -867,18 +869,19 @@ Resources:
   rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: sdlf-cicd-team
+      Name: sdlf-cicd-main
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
         - Name: Source
           Actions:
-            - Name: cicd-team
+            - Name: cicd-main
               RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-foundations-codecommit-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
                 Provider: CodeCommit
                 Version: "1"
+              Namespace: SourceVariables
               OutputArtifacts:
                 - Name: TemplateSource
               Configuration:
@@ -887,7 +890,28 @@ Resources:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
-        - Name: DeployInfrastructure
+        - Name: DeployFoundationsInfrastructure
+          Actions:
+            - Name: CreateStack
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              InputArtifacts:
+                - Name: TemplateSource
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                RoleArn: !GetAtt rCodeBuildRole.Arn
+                StackName: sdlf-foundations
+                TemplatePath: !Sub "TemplateSource::foundations-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+              RunOrder: '1'
+        - Name: DeployTeamInfrastructure
           Actions:
             - Name: CreateStack
               ActionTypeId:
@@ -902,6 +926,10 @@ Resources:
                 RoleArn: !GetAtt rCodeBuildRole.Arn
                 StackName: sdlf-teams
                 TemplatePath: !Sub "TemplateSource::teams-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: '1'
       ArtifactStore:
@@ -950,7 +978,7 @@ Resources:
       State: !FindInMap [pDemoMode, !Ref pDemo, state]
       EventPattern:
         source:
-          - aws.codecommit
+          - custom.aws.codecommit
         detail-type:
           - CodeCommit Repository State Change
         resources:

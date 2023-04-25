@@ -274,12 +274,18 @@ Resources:
                   - codecommit:GetReferences
                   - codecommit:GetTree
                   - codecommit:GetFile
+                  - codecommit:AssociateApprovalRuleTemplateWithRepository
                 Effect: Allow
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                 Sid: CodeCommitRead
+              - Action:
+                  - codecommit:CreateApprovalRuleTemplate
+                Effect: Allow
+                Resource:
+                  - "*"
               - Action:
                   - events:PutEvents
                 Effect: Allow
@@ -341,6 +347,7 @@ Resources:
         ZipFile: |
           import logging
           import os
+          import json
 
           import boto3
           from botocore.exceptions import ClientError
@@ -365,6 +372,7 @@ Resources:
 
           def create_team_devops_role_stack(environment, team_name, template_body, child_account, cloudformation_role):
               response = {}
+              cloudformation_waiter_type = None
               stack_name = f"sdlf-crossaccount-role-{environment}-{team_name}"
               try:
                   response = cloudformation.create_stack(
@@ -487,13 +495,14 @@ Resources:
                       teams.append(line.split(":", 1)[-1].strip())
               logger.info("TEAMS: %s", teams)
               paginator = cloudformation.get_paginator('list_stacks')
-              existing_stacks = paginator.paginate(
+              existing_stacks_pages = paginator.paginate(
                   StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
                   PaginationConfig={'MaxItems': 30}
               )
               existing_teams = [
                   existing_stack["StackName"].removeprefix(f"sdlf-crossaccount-role-{environment}-")
-                  for existing_stack in existing_stacks["StackSummaries"]
+                  for existing_stack_page in existing_stacks_pages
+                  for existing_stack in existing_stack_page["StackSummaries"]
                   if existing_stack["StackName"].startswith(f"sdlf-crossaccount-role-{environment}-")
               ]
 
@@ -518,7 +527,8 @@ Resources:
                   stack_details = create_team_devops_role_stack(
                       environment, team, template_team_repos["fileContent"].decode("utf-8"), child_account, cloudformation_role
                   )
-                  cloudformation_waiters[stack_details[1]].append(stack_details[0])
+                  if stack_details[1]:
+                      cloudformation_waiters[stack_details[1]].append(stack_details[0])
                   create_codecommit_approval_rule(team, main_repository)
               cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
               cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
@@ -527,22 +537,25 @@ Resources:
               for stack in cloudformation_waiters["stack_update_complete"]:
                   cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
-              # forward input event as is to the child account event bus
+              # forward input event to the child event bus, that will be matched by a different rule
+              # due to the addition of forwarded = from-lambda
               if child_account != account_id:
                   logger.info("DevOps account and Child account are different, forwarding CodeCommit event to Child account")
-                  entries = eventbridge.put_events(
-                      Entries=[
-                          {
-                              "Time": event["time"],
-                              "Source": event["source"],
-                              "Resources": event["resources"],
-                              "DetailType": str(event["detail-type"]),
-                              "Detail": event["detail"],
-                              "EventBusName": f"arn:aws:events:{event['region']}:{child_account}:event-bus/default", # todo ${AWS::Partition}
-                          },
-                      ],
-                  )
               else:
-                  logger.info("DevOps account and Child account are identical, exiting")
+                  logger.info("Forwarding CodeCommit event to the account's event bus")
+
+              forwarded_event = {
+                  "Time": event["time"],
+                  "Source": "custom.aws.codecommit",
+                  "Resources": event["resources"],
+                  "DetailType": str(event["detail-type"]),
+                  "Detail": json.dumps(event["detail"]),
+                  "EventBusName": f"arn:aws:events:{event['region']}:{child_account}:event-bus/default",
+              }
+              logger.info("FORWARDED EVENT: %s", forwarded_event)
+              entries = eventbridge.put_events(
+                  Entries=[forwarded_event],
+              )
+              logger.info("FORWARDING RESULT: %s", entries)
 
               return "Success"

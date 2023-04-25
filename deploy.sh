@@ -11,7 +11,7 @@ xflag=false
 aflag=false
 
 DIRNAME=$PWD
-declare -a REPOSITORIES=("cfn-cicd" "sdlf-foundations" "cfn-team" "cfn-pipeline" "cfn-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "cfn-stageA" "cfn-stageB" "sdlf-utils")
+declare -a REPOSITORIES=("cfn-cicd" "cfn-foundations" "cfn-team" "cfn-pipeline" "cfn-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "cfn-stageA" "cfn-stageB" "sdlf-utils")
 
 usage () { echo "
     -h -- Opens up this help message

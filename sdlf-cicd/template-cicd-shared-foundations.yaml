@@ -18,7 +18,7 @@ Parameters:
     ConstraintDescription: Must be an AWS account ID
   pFoundationsRepository:
     Type: String
-    Default: sdlf-foundations
+    Default: cfn-foundations
   pMainRepository:
     Type: String
     Default: sdlf-main
@@ -250,6 +250,7 @@ Resources:
                   - codecommit:List*
                   - codecommit:UploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
@@ -735,6 +736,55 @@ Resources:
         pSharedDevOpsAccountKmsKeyArn: !GetAtt rKMSKey.Arn
         pDevops: "Devops"
 
+  rFoundationsStateMachinePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: rCloudFormationModuleInfrastructure
+    Properties:
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !GetAtt rModuleCodeCommitRole.Arn
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pFoundationsRepository
+                BranchName: master # TODO?
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !GetAtt rKMSKey.Arn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
   rTeamStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
     DependsOn: rCloudFormationModuleInfrastructure
@@ -805,7 +855,32 @@ Resources:
               - Effect: Allow
                 Action: codepipeline:StartPipelineExecution
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsStateMachinePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamStateMachinePipeline}
+
+  rFoundationsStateMachineTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub "Run Foundations State Machine on ${pFoundationsRepository} repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - master
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsStateMachinePipeline}
+          Id: !Sub sdlf-${pFoundationsRepository}-trigger
+          RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
 
   rTeamStateMachineTriggerEventRule:
     Type: AWS::Events::Rule
