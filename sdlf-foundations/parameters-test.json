@@ -10,9 +10,5 @@
     {
         "ParameterKey": "pNumBuckets",
         "ParameterValue": "3"
-    },
-    {
-        "ParameterKey": "pSNSNotificationsEmail",
-        "ParameterValue": "nobody@amazon.com"
     }
 ]
