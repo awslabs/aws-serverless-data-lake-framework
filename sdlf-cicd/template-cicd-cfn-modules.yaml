@@ -2,32 +2,48 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: CICD pipelines to automate SDLF workflows
 
 Parameters:
-  pBranchName:
-    Type: String
-    Default: master
-  pCFNBucket:
-    Description: The CloudFormation bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CFNBucket
-  pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/ArtifactsBucket
-  pSharedDevOpsAccountId:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/DevOpsAccountId
   pEnvironment:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pEnv
-  pTeamName:
+  pSharedDevOpsAccountId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/DevOpsAccountId
+  pTeamRepository:
     Type: String
-    Default: engineering
+    Default: cfn-team
+  pPipelineRepository:
+    Type: String
+    Default: cfn-pipeline
+  pDatasetRepository:
+    Type: String
+    Default: cfn-dataset
+  pSharedDevOpsAccountKmsKeyArn:
+    Description: Arn of the KMS key in the Shared DevOps account
+    Type: String
+  pArtifactsBucket:
+    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/CFNBucket
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
+
+Conditions:
+  CrossAccount:
+    !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
 
 Resources:
+  ######## IAM #########
   rBuildCloudformationModuleRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-build-cfn-module
+      RoleName: sdlf-build-cfn-module
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -38,7 +54,7 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-build-cfn-module
+        - PolicyName: sdlf-cicd-build-cfn-module-codebuild
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -48,23 +64,10 @@ Resources:
                 Resource: "*"
               - Effect: Allow
                 Action:
-                  - codecommit:CancelUploadArchive
-                  - codecommit:Describe*
-                  - codecommit:Get*
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:GitPull
-                  - codecommit:List*
-                  - codecommit:UploadArchive
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
               - Effect: Allow
                 Action:
                   - s3:GetBucketAcl
@@ -74,7 +77,6 @@ Resources:
                   - s3:PutObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
               - Effect: Allow
                 Action:
                   - lambda:List*
@@ -82,7 +84,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:GetLayer*
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -92,7 +94,7 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+                  - !Ref pSharedDevOpsAccountKmsKeyArn
               - Effect: Allow
                 Action:
                   - iam:ListPolicies
@@ -118,8 +120,8 @@ Resources:
                   - cloudformation:RegisterType
                   - cloudformation:SetTypeDefaultVersion
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/sdlf::*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/sdlf-*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/awslabs::sdlf::*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/awslabs-sdlf-*"
               - Effect: Allow
                 Action:
                   - s3:CreateBucket # necessary for CfnUploadInfra stack
@@ -157,17 +159,14 @@ Resources:
     Properties:
       Artifacts:
         Type: CODEPIPELINE
-      Name: !Sub sdlf-${pTeamName}-build-cfn-module
+      Name: sdlf-cicd-build-cfn-module-codebuild
       Description: Build a CloudFormation module from Serverless templates
-      EncryptionKey: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
       Environment:
         EnvironmentVariables:
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
             Value: !Ref pArtifactsBucket
-          - Name: TEAM_NAME
-            Type: PLAINTEXT
-            Value: !Ref pTeamName
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:5.0
         Type: LINUX_CONTAINER
@@ -197,7 +196,7 @@ Resources:
                 - |-
                     mkdir module
                     cd module
-                    cfn init --artifact-type MODULE --type-name "sdlf::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
+                    cfn init --artifact-type MODULE --type-name "awslabs::sdlf::$MODULE_NAME::MODULE" && rm fragments/sample.json
                     cp -i -a ../translated-template.json fragments/
                     cfn submit > cfn.log 2>&1
                     if grep "Failed.*CloudFormationManagedUploadInfrastructure.*stack" cfn.log; then
@@ -227,7 +226,7 @@ Resources:
   #       detail-type:
   #         - CodeCommit Repository State Change
   #       resources:
-  #         - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-dataset
+  #         - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-dataset
   #       detail:
   #         event:
   #           - referenceCreated
@@ -238,7 +237,7 @@ Resources:
   #           - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
   #     Targets:
   #       - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rDatasetCodePipeline}
-  #         Id: !Sub sdlf-${pTeamName}-cicd-team-dataset
+  #         Id: !Sub sdlf-cicd-team-dataset
   #         RoleArn: !Ref pCloudWatchRepositoryTriggerRoleArn
 
   rCodePipelineRole:
@@ -249,7 +248,7 @@ Resources:
           - id: F38
             reason: Condition Applied
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-codepipeline-todo
+      RoleName: sdlf-cicd-cfn-mod-codepipeline
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -261,7 +260,7 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-codepipeline
+        - PolicyName: sdlf-cfn-mod-codepipeline
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -277,9 +276,8 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-states-execution
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR*
               - Effect: Allow
@@ -291,26 +289,23 @@ Resources:
                 Action:
                   - iam:CreateRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-                Condition:
-                  StringEquals:
-                    iam:PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-*
               - Effect: Allow
                 Action:
                   - iam:AttachRolePolicy
                   - iam:DetachRolePolicy
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-*
                 Condition:
                   ArnEquals:
                     iam:PolicyARN:
-                      - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
+                      - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-*
               - Effect: Allow
                 Action:
                   - iam:DeleteRole
@@ -324,10 +319,10 @@ Resources:
                   - iam:UpdateRoleDescription
                   - iam:TagRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-*
               - Effect: Allow
                 Action:
                   - iam:ListPolicies
@@ -343,8 +338,8 @@ Resources:
                   - iam:GetPolicy
                   - iam:GetPolicyVersion
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/state-machine/sdlf-*
               - Effect: Allow
                 Action:
                   - codecommit:CancelUploadArchive
@@ -353,7 +348,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:UploadArchive
                 Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*
               - Effect: Allow
                 Action:
                   - events:DeleteRule
@@ -361,7 +356,7 @@ Resources:
                   - events:PutRule
                   - events:PutTargets
                   - events:RemoveTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
               - Effect: Allow
                 Action:
                   - lambda:GetLayerVersion
@@ -387,7 +382,7 @@ Resources:
                   - lambda:UpdateFunctionCode
                   - lambda:UpdateFunctionConfiguration
                   - lambda:UpdateFunctionConfiguration
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-*
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
@@ -410,7 +405,7 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -428,7 +423,7 @@ Resources:
                   - codebuild:CreateProject
                   - codebuild:StartBuild
                   - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
               - Effect: Allow
                 Action:
                   - states:CreateActivity
@@ -443,13 +438,13 @@ Resources:
                   - states:DescribeStateMachine
                   - states:DescribeStateMachineForExecution
                   - states:UpdateStateMachine
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-*
               - Effect: Allow
                 Action:
                   - states:DescribeActivity
                   - states:DeleteActivity
                   - states:GetActivityTask
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-*
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -465,8 +460,8 @@ Resources:
                   - logs:PutRetentionPolicy
                   - logs:TagLogGroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*:log-stream:*
               - Effect: Allow
                 Action:
                   - cloudwatch:DeleteAlarms
@@ -475,7 +470,7 @@ Resources:
                   - cloudwatch:PutMetricData
                   - cloudwatch:SetAlarmState
                 Resource:
-                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-*
               - Effect: Allow
                 Action:
                   - sqs:ListQueues
@@ -490,7 +485,7 @@ Resources:
                   - sqs:GetQueueAttributes
                   - sqs:SetQueueAttributes
                   - sqs:TagQueue
-                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
               - Effect: Allow
                 Action:
                   - s3:CreateBucket
@@ -509,8 +504,6 @@ Resources:
                   - s3:PutObject
                   - s3:SetBucketEncryption
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
@@ -529,7 +522,7 @@ Resources:
                 Action:
                   - ssm:DeleteParameter
                   - ssm:PutParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -539,12 +532,12 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+                  - !Ref pSharedDevOpsAccountKmsKeyArn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
 
-  rPipelineStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage
+  rTeamStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
@@ -554,7 +547,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -563,8 +556,56 @@ Resources:
               OutputArtifacts:
                 - Name: SourceArtifact
               Configuration:
-                RepositoryName: !Sub sdlf-${pTeamName}-pipeline-todo
-                BranchName: !Ref pBranchName
+                RepositoryName: !Ref pTeamRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: Build
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !Ref rBuildCloudformationModuleStage
+                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]'
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rPipelineStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage TODO
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pPipelineRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
         -
@@ -588,11 +629,9 @@ Resources:
       ArtifactStore:
         Type: S3
         EncryptionKey:
-          Id: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
           Type: KMS
         Location: !Ref pArtifactsBucket
-
-
 
   rDatasetStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -604,7 +643,7 @@ Resources:
           Actions:
             -
               Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -613,8 +652,8 @@ Resources:
               OutputArtifacts:
                 - Name: SourceArtifact
               Configuration:
-                RepositoryName: !Sub sdlf-${pTeamName}-dataset-todo
-                BranchName: !Ref pBranchName
+                RepositoryName: !Ref pDatasetRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
         -
@@ -638,15 +677,39 @@ Resources:
       ArtifactStore:
         Type: S3
         EncryptionKey:
-          Id: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
           Type: KMS
         Location: !Ref pArtifactsBucket
+
+  rStageAStateMachinePipeline:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - rCodePipelineRoleSsm
+      - rBuildCloudformationModuleStageSsm
+    Properties:
+      TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
+      Parameters:
+        pStageRepository: cfn-stageA
+        pStageName: stageA
+        pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
+
+  rStageBStateMachinePipeline:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - rCodePipelineRoleSsm
+      - rBuildCloudformationModuleStageSsm
+    Properties:
+      TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
+      Parameters:
+        pStageRepository: cfn-stageB
+        pStageName: stageB
+        pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
 
   ######## SSM OUTPUTS #########
   rBuildCloudformationModuleStageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeBuild/${pTeamName}/BuildCloudformationModuleStage
+      Name: /SDLF/CodeBuild/BuildCloudformationModuleStage
       Type: String
       Value: !Ref rBuildCloudformationModuleStage
       Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
@@ -654,7 +717,7 @@ Resources:
   rCodePipelineRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeBuild/${pTeamName}/CodePipelineRole
+      Name: /SDLF/CodeBuild/CodePipelineRole
       Type: String
       Value: !GetAtt rCodePipelineRole.Arn
       Description: Code Pipeline role ARN

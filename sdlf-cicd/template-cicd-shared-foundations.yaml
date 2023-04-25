@@ -15,9 +15,18 @@ Parameters:
   pFoundationsRepository:
     Type: String
     Default: sdlf-foundations
-  pTeamFoundationsRepository:
+  pTeamRepository:
     Type: String
-    Default: sdlf-team
+    Default: cfn-team
+  pPipelineRepository:
+    Type: String
+    Default: cfn-pipeline
+  pDatasetRepository:
+    Type: String
+    Default: cfn-dataset
+  pStageRepositoryPrefix:
+    Type: String
+    Default: cfn-stage-*
 
 Mappings:
   pCodeCommitBranch:
@@ -142,7 +151,7 @@ Resources:
                   - codecommit:UploadArchive
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -176,7 +185,7 @@ Resources:
           - CodeCommit Repository State Change
         resources:
           - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamFoundationsRepository}
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
         detail:
           event:
             - referenceCreated
@@ -190,6 +199,77 @@ Resources:
         - Arn: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${pChildAccountId}:event-bus/default
           Id: !Sub sdlf-cicd-foundations-codecommit-${pEnvironment}
           RoleArn: !GetAtt rEventBusRole.Arn
+
+  rModuleCodeCommitRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Role assumed by CodePipeline
+      Path: /
+      RoleName: !Sub sdlf-cicd-module-codecommit-${pEnvironment}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:root
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:CreateApprovalRuleTemplate
+                  - codecommit:DeleteApprovalRuleTemplate
+                  - codecommit:GetApprovalRuleTemplate
+                  - codecommit:ListApprovalRuleTemplates
+                  - codecommit:ListRepositories
+                  - codecommit:ListRepositoriesForApprovalRuleTemplate
+                  - codecommit:UpdateApprovalRuleTemplateContent
+                  - codecommit:UpdateApprovalRuleTemplateDescription
+                  - codecommit:UpdateApprovalRuleTemplateName
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codecommit:CancelUploadArchive
+                  - codecommit:Describe*
+                  - codecommit:Get*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:GitPull
+                  - codecommit:List*
+                  - codecommit:UploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageRepositoryPrefix}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}
+                  - !Sub arn:${AWS::Partition}:s3:::sdlf-cfn-artifacts-${AWS::Region}-${pChildAccountId}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !GetAtt rKMSKey.Arn
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-codecommit-*
+  # rCodeCommitTriggerRule TODO for pipeline/dataset?
 
   rEventBusRole:
     Condition: CrossAccount
