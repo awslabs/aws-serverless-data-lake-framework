@@ -80,7 +80,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildCloudformationModuleStage}}"
-                EnvironmentVariables: !Sub '[{"name":"MODULE_NAME", "value":"${pTeamName}${pStageName}", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pTeamName}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"${pStageName}", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3

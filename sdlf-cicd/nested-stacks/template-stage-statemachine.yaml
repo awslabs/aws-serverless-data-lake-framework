@@ -5,6 +5,16 @@ Parameters:
   pSharedDevOpsAccountId:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/DevOpsAccountId
+  pDomain:
+    Type: String
+  pSdlfModuleDomain:
+    Type: String
+    Default: awslabs
+    Description: "A placeholder domain used for default SDLF components"
+  pSdlfModuleTeam:
+    Type: String
+    Default: sdlf
+    Description: "A placeholder team used for default SDLF components"
   pEnvironment:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Misc/pEnv
@@ -75,7 +85,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildCloudformationModuleStage}}"
-                EnvironmentVariables: !Sub '[{"name":"MODULE_NAME", "value":"${pStageName}", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"${pStageName}", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3

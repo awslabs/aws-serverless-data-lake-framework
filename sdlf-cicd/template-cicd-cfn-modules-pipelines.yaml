@@ -65,6 +65,18 @@ Parameters:
     Type: String
     AllowedValues: ["false", "true"]
     Default: "false"
+  pDomain:
+    Type: String
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Default: datalake
+  pSdlfModuleDomain:
+    Type: String
+    Default: awslabs
+    Description: "A placeholder domain used for default SDLF components"
+  pSdlfModuleTeam:
+    Type: String
+    Default: sdlf
+    Description: "A placeholder team used for default SDLF components"
 
 Mappings:
   pCodeCommitBranch:
@@ -431,7 +443,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3
@@ -505,7 +520,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3
@@ -579,7 +597,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3
@@ -653,7 +674,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"dataset", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"dataset", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3
@@ -713,6 +737,9 @@ Resources:
       TemplateURL: ./nested-stacks/template-stage-statemachine.yaml
       Parameters:
         pStageRepository: sdlf-stageB
+        pDomain: !Ref pDomain
+        pSdlfModuleDomain: !Ref pSdlfModuleDomain
+        pSdlfModuleTeam: !Ref pSdlfModuleTeam
         pStageName: stageB
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
@@ -756,7 +783,10 @@ Resources:
                 - Name: BuildArtifact
               Configuration:
                 ProjectName: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
-                EnvironmentVariables: '[{"name":"MODULE_NAME", "value":"stagecicd", "type":"PLAINTEXT"}]'
+                EnvironmentVariables: !Sub >-
+                  [{"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"stagecicd", "type":"PLAINTEXT"}]
               RunOrder: 1
       ArtifactStore:
         Type: S3
