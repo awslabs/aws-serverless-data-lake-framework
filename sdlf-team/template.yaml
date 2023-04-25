@@ -21,47 +21,18 @@ Parameters:
     Description: The CloudFormation bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/CFNBucket}}"
-  pDatalakeLibraryRepositoryName:
-    Description: Name of the repository containing the code for the Datalake Library.
-    Type: String
-    Default: sdlf-datalakeLibrary
-  pDatalakeLibsLambdaLayerName:
-    Description: Name to give the Lambda Layer containing the Datalake Library.
-    Type: String
-    Default: datalake-lib-layer
-  pDefaultPipLibrariesLambdaLayerName:
-    Description: Name to give the Lambda Layer containing the libraries installed through Pip.
-    Type: String
-    Default: default-pip-libraries
   pEnvironment:
     Description: Environment name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
-  pLibrariesBranchName:
-    Description: Name of the default branch for Python libraries
-    Type: String
-    Default: master
-  pMinTestCoverage:
-    Description: "[OPTIONAL] The minimum code coverage percentage that is required for the pipeline to proceed to the next stage. Specify only if `pEnforceCodeCoverage` is set to 'true'."
-    Type: String
-    Default: 80
   pOrganizationName:
     Description: Name of the organization owning the datalake
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
-  pPipLibrariesRepositoryName:
-    Description: The repository containing requirements.txt
-    Type: String
-    Default: sdlf-pipLibrary
   pPipelineBucket:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
-  pRunCodeCoverage:
-    Description: "Creates code coverage reports from the unit tests included in `pDatalakeLibraryRepositoryName`. Enforces the minimum threshold specified in `pMinTestCoverage`"
-    Type: String
-    AllowedValues: ["false", "true"]
-    Default: "false"
   pSNSNotificationsEmail:
     Description: Email address for SNS notifications
     Type: String
@@ -97,11 +68,6 @@ Mappings:
 Conditions:
   CreateMultipleBuckets:
     !Not [!Equals [!Ref pCentralBucket, !Ref pAnalyticsBucket]]
-  RunUnitTestingStage: !Equals
-    - !Ref pRunCodeCoverage
-    - "true"
-  NotRunUnitTestingStage: !Not
-    - Condition: RunUnitTestingStage
   IsProduction: !Equals
     - !Ref pEnvironment
     - "prod"
@@ -460,9 +426,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service:
-                - cloudformation.amazonaws.com
-                - codepipeline.amazonaws.com
+              Service: codepipeline.amazonaws.com
             Action:
               - sts:AssumeRole
       Policies:
@@ -844,34 +808,79 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
-              - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-states-execution
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                  - !GetAtt rRoleCloudWatchEventRole.Arn
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
-                  - !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR
               - Effect: Allow
                 Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:SetStackPolicy
-                  - cloudformation:UpdateStack
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-${pTeamName}-*
+                  - iam:ListRoles
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
               - Effect: Allow
                 Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:ExecuteChangeSet
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/*
+                  - iam:CreateRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref rTeamIAMManagedPolicy
+              - Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+                Condition:
+                  ArnEquals:
+                    iam:PolicyARN:
+                      - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PutRolePolicy
+                  - iam:UntagRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                  - iam:TagRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - iam:ListPolicies
+                  - iam:ListPolicyVersions
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/*
+              - Effect: Allow
+                Action:
+                  - iam:CreatePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:DeletePolicy
+                  - iam:DeletePolicyVersion
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/state-machine/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - ssm:AddTagsToResource
@@ -913,22 +922,6 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
-                  - codepipeline:CreatePipeline
-                  - codepipeline:DeletePipeline
-                  - codepipeline:GetPipelineState
-                  - codepipeline:GetPipeline
-                  - codepipeline:UpdatePipeline
-                Resource: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - codebuild:BatchGetProjects
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:DeleteProject
-                  - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
                   - s3:ListBucket
                 Resource: !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
               - Effect: Allow
@@ -936,6 +929,28 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBuckets
+                  - s3:ListObjectsV2
+                  - s3:PutBucketAcl
+                  - s3:PutBucketLogging
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutObject
+                  - s3:SetBucketEncryption
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -949,10 +964,29 @@ Resources:
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
                   - logs:CreateLogStream
+                  - logs:DeleteLogStream
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogStreams
                   - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                  - logs:TagLogGroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+              - Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:SetAlarmState
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - lakeformation:GetDataAccess
@@ -989,6 +1023,7 @@ Resources:
                   - glue:GetCrawler
                   - glue:GetCrawlers
                   - glue:UpdateCrawler
+                  - glue:StopCrawler
                 Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
@@ -1002,9 +1037,67 @@ Resources:
                   - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pApplicationName}_${pEnvironment}_${pTeamName}_*
               - Effect: Allow
                 Action:
+                  - lambda:GetLayerVersion
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateAlias
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:DeleteFunctionConcurrency
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:InvokeFunction
+                  - lambda:ListTags
+                  - lambda:PublishVersion
+                  - lambda:PutFunctionConcurrency
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateAlias
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
                   - lambda:AddPermission
                   - lambda:RemovePermission
                 Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}*
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-foundations-rKibana*
+              - Effect: Allow
+                Action:
+                  - lambda:CreateEventSourceMapping
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:UpdateEventSourceMapping
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - states:CreateActivity
+                  - states:CreateStateMachine
+                  - states:ListActivities
+                  - states:ListStateMachines
+                  - states:TagResource
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - states:DeleteStateMachine
+                  - states:DescribeStateMachine
+                  - states:DescribeStateMachineForExecution
+                  - states:UpdateStateMachine
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - states:DescribeActivity
+                  - states:DeleteActivity
+                  - states:GetActivityTask
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-${pTeamName}-*
 
   rStatesExecutionRole:
     Type: AWS::IAM::Role
@@ -1138,65 +1231,6 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
-
-  rCodeBuildPublishLayerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub sdlf-${pTeamName}-codebuild-publish-layer
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !GetAtt rCodeBuildServiceRole.Arn
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-codebuild-publish-layer
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: lambda:PublishLayerVersion
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - dynamodb:Get*
-                  - dynamodb:Update*
-                  - dynamodb:Put*
-                Resource:
-                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
-              - Effect: Allow
-                Action:
-                  - ssm:AddTagsToResource
-                  - ssm:DescribeParameters
-                  - ssm:GetOpsSummary
-                  - ssm:GetParameter
-                  - ssm:GetParameterHistory
-                  - ssm:GetParameters
-                  - ssm:GetParametersByPath
-                  - ssm:ListTagsForResource
-                  - ssm:RemoveTagsFromResource
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-              - Effect: Allow
-                Action:
-                  - ssm:PutParameter
-                  - ssm:DeleteParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/${pTeamName}/*
-              - Effect: Allow
-                Action:
-                  - s3:GetBucketAcl
-                  - s3:GetBucketLocation
-                  - s3:GetBucketVersioning
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:ListBucket
-                  - s3:PutObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pPipelineBucket}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pCFNBucket}/*
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
@@ -1344,493 +1378,6 @@ Resources:
       Topics:
         - !Ref rSNSTopic
 
-  ######## CODEBUILD JOBS #########
-  rBuildDatasetMappings:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Name: !Sub sdlf-${pTeamName}-dataset-mappings
-      Description: Updates octagon-Datasets DynamoDB entries with transforms
-      EncryptionKey: !GetAtt rKMSInfraKey.Arn
-      Environment:
-        EnvironmentVariables:
-          - Name: TEAM_NAME
-            Type: PLAINTEXT
-            Value: !Ref pTeamName
-          - Name: ENV_NAME
-            Type: PLAINTEXT
-            Value: !Ref pEnvironment
-          - Name: LAMBDA_PUBLISHING_ROLE
-            Type: PLAINTEXT
-            Value: !GetAtt rCodeBuildPublishLayerRole.Arn
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
-      Source:
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-              commands:
-                - pip3 install boto3
-            build:
-              commands:
-                - account_id=$(aws sts get-caller-identity | jq .Account)
-                - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
-                - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - cd ./python/datalake_library/transforms/
-                - python3 ./dataset_mappings.py $TEAM_NAME $ENV_NAME
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 20
-
-  rBuildDeployDatalakeLibraryLayer:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}
-      Artifacts:
-        Type: CODEPIPELINE
-      Description: Creates a Lambda Layer with the repository provided
-      EncryptionKey: !GetAtt rKMSInfraKey.Arn
-      Environment:
-        EnvironmentVariables:
-          - Name: LAYER_NAME
-            Type: PLAINTEXT
-            Value: !Ref pDatalakeLibsLambdaLayerName
-          - Name: TEAM_NAME
-            Type: PLAINTEXT
-            Value: !Ref pTeamName
-          - Name: LAMBDA_PUBLISHING_ROLE
-            Type: PLAINTEXT
-            Value: !GetAtt rCodeBuildPublishLayerRole.Arn
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
-      Source:
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                python: 3.9
-            build:
-              commands:
-                - ls && echo "-----> making artifactory directory"
-                - mkdir artifacts
-                - zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
-                - account_id=$(aws sts get-caller-identity | jq .Account)
-                - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
-                - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
-                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
-                - aws ssm put-parameter --name "/SDLF/Lambda/$TEAM_NAME/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 20
-
-  rTeamUnitTestCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Condition: RunUnitTestingStage
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-cicd-unit-test-coverage
-      Artifacts:
-        Type: CODEPIPELINE
-      EncryptionKey: !GetAtt rKMSInfraKey.Arn
-      Environment:
-        EnvironmentVariables:
-          - Name: COV_PERCENT
-            Type: PLAINTEXT
-            Value: !Ref pMinTestCoverage
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
-        Type: LINUX_CONTAINER
-      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
-      TimeoutInMinutes: 20
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-            build:
-              commands:
-                - DIR=$CODEBUILD_SRC_DIR/python/datalake_library
-                - min_coverage=$COV_PERCENT
-                - pip install -r $DIR/requirements.txt
-                - |-
-                    for filename in $(find "$DIR" -name 'test*.py');
-                      do
-                          [ -e "$filename" ] || continue;
-                          pname=$(dirname "$filename");
-                          fbname=$(basename "$filename");
-                          if [ -f $pname/requirements.txt ]; then
-                              echo "Installing package specific dependencies...";
-                              pip install -r $pname/requirements.txt;
-                          fi
-                          cov_output="$pname/coverage_report.txt";
-                          code=$(echo $fbname | cut -d _ -f 2-);
-                          package=$(find $DIR -name $code | xargs dirname);
-                          python3 -m pytest "$filename" --cov-report term --cov=$package --cov-fail-under $min_coverage -x
-                      done
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-
-  rBuildDeployRequirementsLayer:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Name: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}
-      Description: Creates a Lambda Layer containing the libraries and version numbers listed in the requirements.txt file in the repository provided
-      EncryptionKey: !GetAtt rKMSInfraKey.Arn
-      Environment:
-        EnvironmentVariables:
-          - Name: LAYER_NAME
-            Type: PLAINTEXT
-            Value: !Ref pDefaultPipLibrariesLambdaLayerName
-          - Name: TEAM_NAME
-            Type: PLAINTEXT
-            Value: !Ref pTeamName
-          - Name: LAMBDA_PUBLISHING_ROLE
-            Type: PLAINTEXT
-            Value: !GetAtt rCodeBuildPublishLayerRole.Arn
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
-      Source:
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-              commands:
-                - pip3 install boto3
-            build:
-              commands:
-                - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
-                - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - echo ">>>>> Beginning build of subdirectories >>>>>"
-                - bash build.sh $TEAM_NAME
-                - echo ">>>>> Beginning build of default layer >>>>>"
-                - ls && echo "-----> making temporary directory"
-                - mkdir -p layer/python
-                - pip3 -q install -r ./requirements.txt -t layer/python
-                - cd layer/
-                - zip -r layer.zip python/ -x \*__pycache__\*
-                - echo "Uploading default Lambda Layer..."
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$TEAM_NAME-$LAYER_NAME --description "Contains a default Pip library layer" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
-                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
-                - aws ssm put-parameter --name "/SDLF/Lambda/$TEAM_NAME/LatestDefaultPipLibraryLayer" --value $latest_layer_version --type String --overwrite
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 20
-
-  ######## LAMBDA LAYER PIPELINE #########
-  rCommonDatalakeLibs:
-    Type: AWS::CodePipeline::Pipeline
-    Condition: NotRunUnitTestingStage
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                RepositoryName: !Ref pDatalakeLibraryRepositoryName
-                BranchName: !Ref pLibrariesBranchName
-                PollForSourceChanges: false
-              RunOrder: 1
-        - Name: Map
-          Actions:
-            - Name: Map
-              InputArtifacts:
-                - Name: SourceArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              OutputArtifacts:
-                - Name: DatalakeRepositoryArtifact
-              Configuration:
-                ProjectName: !Ref rBuildDatasetMappings
-              RunOrder: 1
-        - Name: Build
-          Actions:
-            - Name: Build
-              InputArtifacts:
-                - Name: DatalakeRepositoryArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref rBuildDeployDatalakeLibraryLayer
-              RunOrder: 2
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !GetAtt rKMSInfraKey.Arn
-          Type: KMS
-        Location: !Ref pCFNBucket
-
-  rCommonDatalakeTestLibs:
-    Type: AWS::CodePipeline::Pipeline
-    Condition: RunUnitTestingStage
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-test
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                RepositoryName: !Ref pDatalakeLibraryRepositoryName
-                BranchName: !Ref pLibrariesBranchName
-                PollForSourceChanges: false
-              RunOrder: 1
-        - Name: Test
-          Actions:
-            - Name: Test
-              InputArtifacts:
-                - Name: SourceArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref rTeamUnitTestCodeBuildProject
-              RunOrder: 1
-        - Name: Map
-          Actions:
-            - Name: Map
-              InputArtifacts:
-                - Name: SourceArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              OutputArtifacts:
-                - Name: DatalakeRepositoryArtifact
-              Configuration:
-                ProjectName: !Ref rBuildDatasetMappings
-              RunOrder: 1
-        - Name: Build
-          Actions:
-            - Name: Build
-              InputArtifacts:
-                - Name: DatalakeRepositoryArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref rBuildDeployDatalakeLibraryLayer
-              RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !GetAtt rKMSInfraKey.Arn
-          Type: KMS
-        Location: !Ref pCFNBucket
-
-  rCommonPipLibs:
-    Type: AWS::CodePipeline::Pipeline
-    DependsOn: rDatalakePipelineTriggerRule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                RepositoryName: !Ref pPipLibrariesRepositoryName
-                BranchName: !Ref pLibrariesBranchName
-                PollForSourceChanges: false
-              RunOrder: 1
-        - Name: Build
-          Actions:
-            - Name: Build
-              InputArtifacts:
-                - Name: SourceArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref rBuildDeployRequirementsLayer
-              RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !GetAtt rKMSInfraKey.Arn
-          Type: KMS
-        Location: !Ref pCFNBucket
-
-  rDatalakePipelineTriggerRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-trigger
-      Description: !Sub "Trigger ${pTeamName} team Data Lake Library pipeline"
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pDatalakeLibraryRepositoryName}
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !Ref pLibrariesBranchName
-      Targets:
-        - Arn:
-            !If [
-              NotRunUnitTestingStage,
-              !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonDatalakeLibs}",
-              !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonDatalakeTestLibs}",
-            ]
-          Id: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-trigger
-          RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
-
-  rDatalakePipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-failure
-      Description: !Sub "Notify ${pTeamName} team of Data Lake Library pipeline failure"
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !If [
-                NotRunUnitTestingStage,
-                !Ref rCommonDatalakeLibs,
-                !Ref rCommonDatalakeTestLibs,
-              ]
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: !Sub sdlf-${pTeamName}-${pDatalakeLibsLambdaLayerName}-failure
-          InputTransformer:
-            InputTemplate:
-              !If [
-                NotRunUnitTestingStage,
-                !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonDatalakeLibs}"',
-                !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonDatalakeTestLibs}"',
-              ]
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
-  rPipPipelineTriggerRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}-trigger
-      Description: !Sub "Trigger ${pTeamName} team Pip Library pipeline"
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pPipLibrariesRepositoryName}
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !Ref pLibrariesBranchName
-      Targets:
-        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonPipLibs}
-          Id: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}-trigger
-          RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
-
-  rPipPipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}-failure
-      Description: !Sub "Notify ${pTeamName} team of Pip Library pipeline failure"
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !Ref rCommonPipLibs
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: !Sub sdlf-${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}-failure
-          InputTransformer:
-            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonPipLibs}"'
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
   rLambdaCodeBuildTriggerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -1886,8 +1433,13 @@ Resources:
                 Action:
                   - ssm:GetParametersByPath
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}
+              - Effect: Allow
+                Action:
+                  - codepipeline:PutJobSuccessResult
+                  - codepipeline:PutJobFailureResult
+                Resource: "*"
 
   rPipelinesDynamodbLambda:
     Type: AWS::Lambda::Function
@@ -1915,12 +1467,12 @@ Resources:
 
           dynamodb = boto3.client("dynamodb")
           ssm = boto3.client("ssm")
-
+          codepipeline = boto3.client("codepipeline")
 
           def delete_dynamodb_pipeline_entry(table_name, team_name, pipeline_name, stage_name):
               response = dynamodb.delete_item(
                   TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{pipeline_stage}"}},
+                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{stage_name}"}},
               )
               return response
 
@@ -1930,9 +1482,8 @@ Resources:
           ):
               response = dynamodb.update_item(
                   TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{pipeline_stage}"}},
+                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{stage_name}"}},
                   ExpressionAttributeNames={
-                      "#N": "name",
                       "#T": "type",
                       "#S": "status",
                       "#EP": "entrypoint",
@@ -1953,34 +1504,41 @@ Resources:
 
 
           def lambda_handler(event, context):
-              environment = os.getenv("ENVIRONMENT")
-              team_name = os.getenv("TEAM_NAME")
-              table = f"octagon-Pipelines-{environment}"
+              try:
+                  environment = os.getenv("ENVIRONMENT")
+                  team_name = os.getenv("TEAM_NAME")
+                  table = f"octagon-Pipelines-{environment}"
 
-              paginator = ssm.get_paginator("get_parameters_by_path")
-              stages_pages = paginator.paginate(
-                  Path=f"/SDLF/Pipelines/{team_name}",
-                  Recursive=True,
-                  PaginationConfig={"MaxItems": 30},
-              )
-              for stages_page in stages_pages:
-                for stage in stages_page["Parameters"]:
-                    pipeline_name = stage["Name"].split("/")[-2]
-                    stage_name = stage["Name"].split("/")[-1]
-                    if stage["Value"] == "entrypoint":
-                        entrypoint = "true"  # not a boolean in dynamodb
-                    else:
-                        entrypoint = "false"
-                    create_dynamodb_pipeline_entry(
-                        table, team_name, pipeline_name, stage_name, entrypoint
-                    )
-                    logger.info(
-                        f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
-                    )
+                  paginator = ssm.get_paginator("get_parameters_by_path")
+                  stages_pages = paginator.paginate(
+                      Path=f"/SDLF/Pipelines/{team_name}",
+                      Recursive=True,
+                      PaginationConfig={"MaxItems": 30},
+                  )
+                  for stages_page in stages_pages:
+                    for stage in stages_page["Parameters"]:
+                        pipeline_name = stage["Name"].split("/")[-2]
+                        stage_name = stage["Name"].split("/")[-1]
+                        if stage["Value"] == "entrypoint":
+                            entrypoint = "true"  # not a boolean in dynamodb
+                        else:
+                            entrypoint = "false"
+                        create_dynamodb_pipeline_entry(
+                            table, team_name, pipeline_name, stage_name, entrypoint
+                        )
+                        logger.info(
+                            f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
+                        )
 
-              logger.info(
-                  "INFO: Entries for stages that no longer exist are *not* removed from DynamoDB"
-              )
+                  logger.info(
+                      "INFO: Entries for stages that no longer exist are *not* removed from DynamoDB"
+                  )
+              except Exception as e:
+                  message = "Function exception: " + str(e)
+                  codepipeline.put_job_failure_result(jobId=event["CodePipeline.job"]["id"], failureDetails={"message": message, "type": "JobFailed"})
+                  raise
+
+              codepipeline.put_job_success_result(jobId=event["CodePipeline.job"]["id"])
               return "Success"
 
   rDatasetsDynamodbLambda:
@@ -2003,13 +1561,16 @@ Resources:
           import os
 
           import boto3
+          import json
+
+          from boto3.dynamodb.types import TypeSerializer
 
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
 
           dynamodb = boto3.client("dynamodb")
           ssm = boto3.client("ssm")
-
+          codepipeline = boto3.client("codepipeline")
 
           def delete_dynamodb_dataset_entry(table_name, team_name, dataset_name):
               response = dynamodb.delete_item(
@@ -2018,59 +1579,90 @@ Resources:
               )
               return response
 
-
-          def create_dynamodb_dataset_entry(table_name, team_name, dataset_name, pipeline_name):
+          def create_dynamodb_dataset_entry(table_name, team_name, dataset_name, pipeline_details):
+              pipeline_details_dynamodb_json = TypeSerializer().serialize(pipeline_details)
+              logger.info("PIPELINE DETAILS DYNAMODB JSON: %s", pipeline_details_dynamodb_json)
               response = dynamodb.update_item(
                   TableName=table_name,
                   Key={"name": {"S": f"{team_name}-{dataset_name}"}},
                   ExpressionAttributeNames={
                       "#P": "pipeline",
-                      "#T": "transforms",
                       "#MXIP": "max_items_process",
                       "#MIP": "min_items_process",
                       "#V": "version",
                   },
                   ExpressionAttributeValues={
-                      ":p": {"S": pipeline_name},
-                      ":t": {"M":{"stage_a_transform": {"S": "light_transform_blueprint"},"stage_b_transform": {"S": "heavy_transform_blueprint"}}}, # todo replace with a nested "pipeline_modifiers" field
-                      ":mxip": {"M":{"stage_b": {"N": "100"},"stage_c": {"N": "100"}}},
+                      ":p": pipeline_details_dynamodb_json,
+                      ":mxip": {"M":{"stage_b": {"N": "100"},"stage_c": {"N": "100"}}}, # todo replace with a nested "pipeline_modifiers" field (half done)
                       ":mip": {"M":{"stage_b": {"N": "1"},"stage_c": {"N": "1"}}},
                       ":v": {"N": "1"},
                   },
-                  UpdateExpression="SET #P = :p, #T = :st, #MXIP = :mxip, #MIP = :mip, #V = :v",
+                  UpdateExpression="SET #P = :p, #MXIP = :mxip, #MIP = :mip, #V = :v",
                   ReturnValues="UPDATED_NEW",
               )
               return response
 
 
           def lambda_handler(event, context):
-              environment = os.getenv("ENVIRONMENT")
-              team_name = os.getenv("TEAM_NAME")
-              table = f"octagon-Datasets-{environment}"
+              try:
+                  environment = os.getenv("ENVIRONMENT")
+                  team_name = os.getenv("TEAM_NAME")
+                  table = f"octagon-Datasets-{environment}"
 
-              paginator = ssm.get_paginator("get_parameters_by_path")
-              datasets_pages = paginator.paginate(
-                  Path=f"/SDLF/Datasets/{team_name}",
-                  PaginationConfig={"MaxItems": 30},
-              )
+                  paginator = ssm.get_paginator("get_parameters_by_path")
+                  datasets_pages = paginator.paginate(
+                      Path=f"/SDLF/Datasets/{team_name}",
+                      PaginationConfig={"MaxItems": 30},
+                  )
 
-              for datasets_page in datasets_pages:
-                for dataset in datasets["Parameters"]:
-                    dataset_name = dataset["Name"].split("/")[-1]
-                    pipeline_name = dataset["Value"]
-                    create_dynamodb_dataset_entry(table, team_name, dataset_name, pipeline_name)
-                    logger.info(
-                        f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
-                    )
+                  for datasets_page in datasets_pages:
+                    for dataset in datasets_page["Parameters"]:
+                        dataset_name = dataset["Name"].split("/")[-1]
+                        logger.info("DATASET SSM CONTENT: %s", dataset["Value"])
+                        dataset_pipeline_details = json.loads(dataset["Value"])
+                        create_dynamodb_dataset_entry(table, team_name, dataset_name, dataset_pipeline_details)
+                        logger.info(
+                            f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
+                        )
 
-              logger.info(
-                  "INFO: Entries for datasets that no longer exist are not removed from DynamoDB"
-              )
+                  logger.info(
+                      "INFO: Entries for datasets that no longer exist are not removed from DynamoDB"
+                  )
+              except Exception as e:
+                  message = "Function exception: " + str(e)
+                  codepipeline.put_job_failure_result(jobId=event["CodePipeline.job"]["id"], failureDetails={"message": message, "type": "JobFailed"})
+                  raise
+
+              codepipeline.put_job_success_result(jobId=event["CodePipeline.job"]["id"])
               return "Success"
 
-  rPipelineTeamCodePipeline:
+  rTeamPipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:sdlf-${pTeamName}-main
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
+          Id: !Sub sdlf-${pTeamName}-cicd-team-pipeline
+          RoleArn: !GetAtt rCloudWatchRepositoryTriggerRole.Arn
+
+  rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
+      Name: !Sub sdlf-${pTeamName}-cicd-main-${pEnvironment}
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
         - Name: Source
@@ -2090,7 +1682,7 @@ Resources:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
-        - Name: DeployInfrastructure
+        - Name: DeployPipelinesInfrastructure
           Actions:
             - Name: CreateStack
               ActionTypeId:
@@ -2103,7 +1695,7 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCICDCloudFormationRole.Arn
-                StackName: !Sub sdlf-${pTeamName}-pipelines
+                StackName: !Sub sdlf-${pTeamName}-pipelines-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::pipelines-${pEnvironment}.yaml"
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: '1'
@@ -2116,36 +1708,7 @@ Resources:
               Configuration:
                 FunctionName: !Ref rPipelinesDynamodbLambda
               RunOrder: '2'
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !GetAtt rKMSInfraKey.Arn
-          Type: KMS
-        Location: !Ref pCFNBucket
-
-  rDatasetTeamCodePipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      RoleArn: !GetAtt rCodePipelineRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-team-codecommit-${pEnvironment}-${pTeamName}
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Provider: CodeCommit
-                Version: "1"
-              OutputArtifacts:
-                - Name: TemplateSource
-              Configuration:
-                RepositoryName: !Ref pTeamMainRepository
-                BranchName:
-                  !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-        - Name: DeployInfrastructure
+        - Name: DeployDatasetsInfrastructure
           Actions:
             - Name: CreateStack
               ActionTypeId:
@@ -2158,8 +1721,12 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCICDCloudFormationRole.Arn
-                StackName: !Sub sdlf-${pTeamName}-datasets
+                StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::datasets-${pEnvironment}.yaml"
+                ParameterOverrides: |
+                  {
+                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
+                  }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: '1'
             - Name: CreateDynamodbEntry
@@ -2226,27 +1793,6 @@ Resources:
       Type: String
       Value: !Ref rSNSTopic
       Description: The ARN of the team-specific SNS Topic
-  rDatalakeLibraryLayerSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Lambda/${pTeamName}/LatestDatalakeLibraryLayer
-      Type: String
-      Value: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:${pTeamName}-${pDatalakeLibsLambdaLayerName}:1
-      Description: The ARN of the latest version of the Datalake Library layer
-  rPipLibrariesLayerSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Lambda/${pTeamName}/LatestDefaultPipLibraryLayer
-      Type: String
-      Value: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:${pTeamName}-${pDefaultPipLibrariesLambdaLayerName}:1
-      Description: The ARN of the latest version of the Lambda Layer containing the Pip libraries
-  rBuildDeployDatalakeLibraryLayerSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/CodeBuild/${pTeamName}/BuildDeployDatalakeLibraryLayer
-      Type: String
-      Value: !Ref rBuildDeployDatalakeLibraryLayer
-      Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
 
   ######## LAKEFORMATION PERMISSIONS #########
   rCentralTeamLakeFormationPermissions:

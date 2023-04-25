@@ -311,7 +311,7 @@ Resources:
         !If [
           StartStage,
           "entrypoint",
-          ""
+          "-"
         ] # bit of a hack for the pipelines lambda to work
       Description:
         Fn::Sub:

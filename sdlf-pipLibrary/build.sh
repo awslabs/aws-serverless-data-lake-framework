@@ -1,7 +1,5 @@
 #!/bin/bash 
 
-team_name=$1
-
 for dir in ./*/
 do
     dir=${dir%*/}      # remove the trailing "/"
@@ -20,10 +18,10 @@ do
         cd layer/
         zip -r layer.zip python/ -x \*__pycache__\*
         dir_name="${dir//.\/}"
-        echo "Uploading Lambda Layer as sdlf-$team_name-$dir_name..."
+        echo "Uploading Lambda Layer as sdlf-$dir_name..."
         
         set +e
-        layer=$(aws lambda publish-layer-version --layer-name sdlf-"$team_name-$dir_name" --description "Contains the libraries specified in requirements.txt" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
+        layer=$(aws lambda publish-layer-version --layer-name "sdlf-$dir_name" --description "Contains the libraries specified in requirements.txt" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
         status=$?
         set -e
 
@@ -32,7 +30,7 @@ do
         fi
         
         latest_layer_version=$(echo "$layer" | jq -r .LayerVersionArn)
-        paramname=$(printf '/SDLF/Lambda/%s/%s' "$team_name" "$dir_name")
+        paramname=$(printf '/SDLF/Lambda/%s' "$dir_name")
         aws ssm put-parameter --name "$paramname" --value "$latest_layer_version" --type String --overwrite
         cd ../..
 
@@ -40,12 +38,12 @@ do
         artifacts_bucket=$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
         if [ -f "./external_layers.json" ]; then
             echo "external_layers.json exists"
-            python3 ../external_layers.py "$artifacts_bucket" "$team_name"
+            python3 ../external_layers.py "$artifacts_bucket"
         fi
         
         if [ -f "./external_wheels.json" ]; then
             echo "external_wheels.json exists"
-            python3 ../external_wheels.py "$artifacts_bucket" "$team_name"
+            python3 ../external_wheels.py "$artifacts_bucket"
         fi
         cd ../   
             

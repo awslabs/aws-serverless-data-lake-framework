@@ -56,8 +56,8 @@ def get_item(table, team, dataset):
         print(e.response["Error"]["Message"])
     else:
         item = response["Item"]
-        return item["pipeline"]
-
+        for key in item["pipeline"]:
+            return key # there is only one element currently
 
 def get_pipeline_entrypoint(table, team, pipeline):
     query = paginate_dynamodb_response(

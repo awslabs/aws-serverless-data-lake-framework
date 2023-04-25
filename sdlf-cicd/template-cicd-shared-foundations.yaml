@@ -34,6 +34,14 @@ Parameters:
   pStageRepositoryPrefix:
     Type: String
     Default: cfn-stage-*
+  pDatalakeLibraryRepositoryName:
+    Description: Name of the repository containing the code for the Datalake Library.
+    Type: String
+    Default: sdlf-datalakeLibrary
+  pPipLibrariesRepositoryName:
+    Description: The repository containing requirements.txt
+    Type: String
+    Default: sdlf-pipLibrary
 
 Mappings:
   pCodeCommitBranch:
@@ -255,6 +263,8 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageRepositoryPrefix}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepositoryName}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipLibrariesRepositoryName}
               - Effect: Allow
                 Action:
                   - s3:Get*

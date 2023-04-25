@@ -19,7 +19,6 @@ Please ensure that you follow this file structure, with a folder named `python` 
                     ├── stage_b_transforms
                     │   ├── heavy_transform_blueprint.py
                     │   └── ...
-                    └── dataset_mappings.json
                     └── transform_handler.py
  
 ## Adding Transformations 

@@ -2,46 +2,56 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Contains all the resources necessary for a single dataset
 
 Parameters:
+  pPipelineReference:
+    Type: String
+    Default: none
   pAnalyticsBucket:
     Description: The analytics bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/AnalyticsBucket
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/AnalyticsBucket}}"
   pApp:
     Description: Name of the application
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pApp
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pApp}}"
   pCentralBucket:
     Description: The central bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/CentralBucket
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
   pDatasetName:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,14}"
   pEnvironment:
     Description: Environment name
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pEnv
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pOrg:
     Description: Name of the organization owning the datalake
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pOrg
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pPipelineBucket:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/ArtifactsBucket
-  pPipelineName:
-    Description: The name of the pipeline (all lowercase, no symbols or spaces)
     Type: String
-    AllowedPattern: "[a-z0-9]*"
+    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
   pStageBucket:
     Description: The stage bucket for the solution
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/StageBucket
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
+  pPipelineDetails: # TODO make it more generic, like pPipelineMetadata
+    Type: String
+    Default: >-
+      {
+        "main": {
+          "transforms": {
+            "stage_A_transform": "light_transform_blueprint",
+            "stage_B_transform": "heavy_transform_blueprint"
+          }
+        }
+      }
 
 Resources:
   ######## GLUE #########
@@ -91,5 +101,13 @@ Resources:
     Properties:
       Name: !Sub /SDLF/Datasets/${pTeamName}/${pDatasetName}
       Type: String
-      Value: !Ref pPipelineName # bit of a hack for datasets lambda
+      Value: !Ref pPipelineDetails # bit of a hack for datasets lambda
       Description: !Sub "Placeholder ${pTeamName} ${pDatasetName}"
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference
+  oPipelineTransforms:
+    Description: Transforms to put in DynamoDB
+    Value: !Ref pPipelineDetails

@@ -718,6 +718,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsCodePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-cfn-modules-*
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-*
 
   # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
   rDataLakeAdminRole:
@@ -903,7 +904,7 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCodeBuildRole.Arn
-                StackName: sdlf-foundations
+                StackName: !Sub sdlf-foundations-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::foundations-${pEnvironment}.yaml"
                 ParameterOverrides: |
                   {
@@ -924,7 +925,7 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !GetAtt rCodeBuildRole.Arn
-                StackName: sdlf-teams
+                StackName: !Sub sdlf-teams-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::teams-${pEnvironment}.yaml"
                 ParameterOverrides: |
                   {

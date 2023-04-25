@@ -49,7 +49,7 @@ def lambda_handler(event, context):
 
         # Call custom transform created by user and process the file
         logger.info("Calling user custom processing code")
-        transform_handler = TransformHandler().stage_transform(team, dataset, stage)
+        transform_handler = TransformHandler().stage_transform(team, dataset, pipeline, stage)
         response = transform_handler().transform_object(
             bucket, keys_to_process, team, dataset, pipeline, stage
         )  # custom user code called

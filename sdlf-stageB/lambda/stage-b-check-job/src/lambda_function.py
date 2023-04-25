@@ -21,6 +21,7 @@ def lambda_handler(event, context):
         bucket = event["body"]["bucket"]
         keys_to_process = event["body"]["keysToProcess"]
         team = event["body"]["team"]
+        pipeline = event["body"]["pipeline"]
         stage = event["body"]["pipeline_stage"]
         dataset = event["body"]["dataset"]
         job_details = event["body"]["job"]["jobDetails"]
@@ -33,7 +34,7 @@ def lambda_handler(event, context):
         )
 
         logger.info("Checking Job Status with user custom code")
-        transform_handler = TransformHandler().stage_transform(team, dataset, stage)
+        transform_handler = TransformHandler().stage_transform(team, dataset, pipeline, stage)
         response = transform_handler().check_job_status(
             bucket, keys_to_process, processed_keys_path, job_details
         )  # custom user code called

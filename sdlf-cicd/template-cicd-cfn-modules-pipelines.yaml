@@ -24,6 +24,35 @@ Parameters:
   pEventBridgeRepositoryTriggerRoleArn:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
+  pDatalakeLibraryRepositoryName:
+    Description: Name of the repository containing the code for the Datalake Library.
+    Type: String
+    Default: sdlf-datalakeLibrary
+  pDatalakeLibsLambdaLayerName:
+    Description: Name to give the Lambda Layer containing the Datalake Library.
+    Type: String
+    Default: datalake-lib-layer
+  pDefaultPipLibrariesLambdaLayerName:
+    Description: Name to give the Lambda Layer containing the libraries installed through Pip.
+    Type: String
+    Default: default-pip-libraries
+  pLibrariesBranchName:
+    Description: Name of the default branch for Python libraries
+    Type: String
+    Default: master
+  pMinTestCoverage:
+    Description: "[OPTIONAL] The minimum code coverage percentage that is required for the pipeline to proceed to the next stage. Specify only if `pEnforceCodeCoverage` is set to 'true'."
+    Type: String
+    Default: 80
+  pPipLibrariesRepositoryName:
+    Description: The repository containing requirements.txt
+    Type: String
+    Default: sdlf-pipLibrary
+  pRunCodeCoverage:
+    Description: "Creates code coverage reports from the unit tests included in `pDatalakeLibraryRepositoryName`. Enforces the minimum threshold specified in `pMinTestCoverage`"
+    Type: String
+    AllowedValues: ["false", "true"]
+    Default: "false"
 
 Mappings:
   pCodeCommitBranch:
@@ -37,6 +66,11 @@ Mappings:
 Conditions:
   CrossAccount:
     !Not [!Equals [!Ref pSharedDevOpsAccountId, !Ref "AWS::AccountId"]]
+  RunUnitTestingStage: !Equals
+    - !Ref pRunCodeCoverage
+    - "true"
+  NotRunUnitTestingStage: !Not
+    - Condition: RunUnitTestingStage
 
 Resources:
   rCloudFormationModuleInfrastructure:
@@ -231,7 +265,10 @@ Resources:
                   - codebuild:CreateProject
                   - codebuild:StartBuild
                   - codebuild:UpdateProject
-                Resource: !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                Resource:
+                  - !GetAtt [rCloudFormationModuleInfrastructure, Outputs.oBuildCloudformationModuleStageArn]
+                  - !GetAtt rBuildDeployDatalakeLibraryLayer.Arn
+                  - !GetAtt rBuildDeployRequirementsLayer.Arn
               - Effect: Allow
                 Action:
                   - states:CreateActivity
@@ -347,7 +384,6 @@ Resources:
 
   rPipelineStateMachinePipeline: # and that's why it cannot be here. own cicd module? cicd-pipeline? as we add pipeline to every stage TODO
     Type: AWS::CodePipeline::Pipeline
-    DependsOn: rCloudFormationModuleInfrastructure
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
@@ -422,7 +458,6 @@ Resources:
 
   rDatasetStateMachinePipeline:
     Type: AWS::CodePipeline::Pipeline
-    DependsOn: rCloudFormationModuleInfrastructure
     Properties:
       RoleArn: !GetAtt rCodePipelineRole.Arn
       Stages:
@@ -521,6 +556,514 @@ Resources:
         pSharedDevOpsAccountKmsKeyArn: !Ref pSharedDevOpsAccountKmsKeyArn
         pEventBridgeRepositoryTriggerRoleArn: /SDLF/IAM/EventBridgeRepositoryTriggerRoleArn
 
+  ######## LAMBDA LAYERS ########
+  rCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sdlf-codebuild
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-codebuild
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pSharedDevOpsAccountKmsKeyArn
+
+  rCodeBuildPublishLayerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sdlf-codebuild-publish-layer
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt rCodeBuildServiceRole.Arn
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-codebuild-publish-layer
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:PublishLayerVersion
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
+              - Effect: Allow
+                Action:
+                  - dynamodb:Get*
+                  - dynamodb:Update*
+                  - dynamodb:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - Effect: Allow
+                Action:
+                  - ssm:AddTagsToResource
+                  - ssm:DescribeParameters
+                  - ssm:GetOpsSummary
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetBucketVersioning
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListBucket
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+
+  rBuildDeployDatalakeLibraryLayer:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Creates a Lambda Layer with the repository provided
+      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
+      Environment:
+        EnvironmentVariables:
+          - Name: LAYER_NAME
+            Type: PLAINTEXT
+            Value: !Ref pDatalakeLibsLambdaLayerName
+          - Name: LAMBDA_PUBLISHING_ROLE
+            Type: PLAINTEXT
+            Value: !GetAtt rCodeBuildPublishLayerRole.Arn
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.9
+            build:
+              commands:
+                - ls && echo "-----> making artifactory directory"
+                - mkdir artifacts
+                - zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
+                - account_id=$(aws sts get-caller-identity | jq .Account)
+                - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
+                - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
+                - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
+                - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
+                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
+                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
+                - aws ssm put-parameter --name "/SDLF/Lambda/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 20
+
+  rBuildDeployRequirementsLayer:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Name: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}
+      Description: Creates a Lambda Layer containing the libraries and version numbers listed in the requirements.txt file in the repository provided
+      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
+      Environment:
+        EnvironmentVariables:
+          - Name: LAYER_NAME
+            Type: PLAINTEXT
+            Value: !Ref pDefaultPipLibrariesLambdaLayerName
+          - Name: LAMBDA_PUBLISHING_ROLE
+            Type: PLAINTEXT
+            Value: !GetAtt rCodeBuildPublishLayerRole.Arn
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.9
+              commands:
+                - pip3 install boto3
+            build:
+              commands:
+                - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
+                - export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
+                - export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
+                - export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
+                - echo ">>>>> Beginning build of subdirectories >>>>>"
+                - bash build.sh
+                - echo ">>>>> Beginning build of default layer >>>>>"
+                - ls && echo "-----> making temporary directory"
+                - mkdir -p layer/python
+                - pip3 -q install -r ./requirements.txt -t layer/python
+                - cd layer/
+                - zip -r layer.zip python/ -x \*__pycache__\*
+                - echo "Uploading default Lambda Layer..."
+                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains a default Pip library layer" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
+                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
+                - aws ssm put-parameter --name "/SDLF/Lambda/LatestDefaultPipLibraryLayer" --value $latest_layer_version --type String --overwrite
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 20
+
+  rCommonPipLibs:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: rDatalakePipelineTriggerRule
+    Properties:
+      Name: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pPipLibrariesRepositoryName
+                BranchName: !Ref pLibrariesBranchName
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref rBuildDeployRequirementsLayer
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rDatalakePipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}-trigger
+      Description: "Trigger team Data Lake Library pipeline"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pDatalakeLibraryRepositoryName}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref pLibrariesBranchName
+      Targets:
+        - Arn:
+            !If [
+              NotRunUnitTestingStage,
+              !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonDatalakeLibs}",
+              !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonDatalakeTestLibs}",
+            ]
+          Id: !Sub sdlf-${pDatalakeLibsLambdaLayerName}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
+  # rDatalakePipelineFailedRule:
+  #   Type: AWS::Events::Rule
+  #   Properties:
+  #     Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}-failure
+  #     Description: "Notify team of Data Lake Library pipeline failure"
+  #     EventPattern:
+  #       source:
+  #         - aws.codepipeline
+  #       detail-type:
+  #         - CodePipeline Pipeline Execution State Change
+  #       detail:
+  #         state:
+  #           - FAILED
+  #         pipeline:
+  #           - !If [
+  #               NotRunUnitTestingStage,
+  #               !Ref rCommonDatalakeLibs,
+  #               !Ref rCommonDatalakeTestLibs,
+  #             ]
+  #     State: ENABLED
+  #     Targets:
+  #       - Arn: !Ref rSNSTopic
+  #         Id: !Sub sdlf-${pDatalakeLibsLambdaLayerName}-failure
+  #         InputTransformer:
+  #           InputTemplate:
+  #             !If [
+  #               NotRunUnitTestingStage,
+  #               !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonDatalakeLibs}"',
+  #               !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonDatalakeTestLibs}"',
+  #             ]
+  #           InputPathsMap:
+  #             pipeline: $.detail.pipeline
+
+  rPipPipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}-trigger
+      Description: "Trigger team Pip Library pipeline"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${pSharedDevOpsAccountId}:${pPipLibrariesRepositoryName}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref pLibrariesBranchName
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rCommonPipLibs}
+          Id: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}-trigger
+          RoleArn: !Ref pEventBridgeRepositoryTriggerRoleArn
+
+  # rPipPipelineFailedRule:
+  #   Type: AWS::Events::Rule
+  #   Properties:
+  #     Name: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}-failure
+  #     Description: "Notify admin team of Pip Library pipeline failure"
+  #     EventPattern:
+  #       source:
+  #         - aws.codepipeline
+  #       detail-type:
+  #         - CodePipeline Pipeline Execution State Change
+  #       detail:
+  #         state:
+  #           - FAILED
+  #         pipeline:
+  #           - !Ref rCommonPipLibs
+  #     State: ENABLED
+  #     Targets:
+  #       - Arn: !Ref rSNSTopic
+  #         Id: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}-failure
+  #         InputTransformer:
+  #           InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${rCommonPipLibs}"'
+  #           InputPathsMap:
+  #             pipeline: $.detail.pipeline
+
+  ######## LAMBDA LAYER PIPELINE #########
+  rCommonDatalakeLibs:
+    Type: AWS::CodePipeline::Pipeline
+    Condition: NotRunUnitTestingStage
+    Properties:
+      Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pDatalakeLibraryRepositoryName
+                BranchName: !Ref pLibrariesBranchName
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref rBuildDeployDatalakeLibraryLayer
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rCommonDatalakeTestLibs:
+    Type: AWS::CodePipeline::Pipeline
+    Condition: RunUnitTestingStage
+    Properties:
+      Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}-test
+      RoleArn: !GetAtt rCodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pSharedDevOpsAccountId}:role/sdlf-cicd-module-codecommit-${pEnvironment}
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                RepositoryName: !Ref pDatalakeLibraryRepositoryName
+                BranchName: !Ref pLibrariesBranchName
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: Test
+          Actions:
+            - Name: Test
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref rTeamUnitTestCodeBuildProject
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref rBuildDeployDatalakeLibraryLayer
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pSharedDevOpsAccountKmsKeyArn
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  ######## CODEBUILD JOBS #########
+  rTeamUnitTestCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Condition: RunUnitTestingStage
+    Properties:
+      Name: sdlf-cicd-unit-test-coverage
+      Artifacts:
+        Type: CODEPIPELINE
+      EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
+      Environment:
+        EnvironmentVariables:
+          - Name: COV_PERCENT
+            Type: PLAINTEXT
+            Value: !Ref pMinTestCoverage
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      TimeoutInMinutes: 20
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.9
+            build:
+              commands:
+                - DIR=$CODEBUILD_SRC_DIR/python/datalake_library
+                - min_coverage=$COV_PERCENT
+                - pip install -r $DIR/requirements.txt
+                - |-
+                    for filename in $(find "$DIR" -name 'test*.py');
+                      do
+                          [ -e "$filename" ] || continue;
+                          pname=$(dirname "$filename");
+                          fbname=$(basename "$filename");
+                          if [ -f $pname/requirements.txt ]; then
+                              echo "Installing package specific dependencies...";
+                              pip install -r $pname/requirements.txt;
+                          fi
+                          cov_output="$pname/coverage_report.txt";
+                          code=$(echo $fbname | cut -d _ -f 2-);
+                          package=$(find $DIR -name $code | xargs dirname);
+                          python3 -m pytest "$filename" --cov-report term --cov=$package --cov-fail-under $min_coverage -x
+                      done
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+
   ######## SSM OUTPUTS #########
   rCodePipelineRoleSsm:
     Type: AWS::SSM::Parameter
@@ -529,3 +1072,25 @@ Resources:
       Type: String
       Value: !GetAtt rCodePipelineRole.Arn
       Description: Code Pipeline role ARN
+
+  rDatalakeLibraryLayerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Lambda/LatestDatalakeLibraryLayer
+      Type: String
+      Value: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:${pDatalakeLibsLambdaLayerName}:1
+      Description: The ARN of the latest version of the Datalake Library layer
+  rPipLibrariesLayerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Lambda/LatestDefaultPipLibraryLayer
+      Type: String
+      Value: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:${pDefaultPipLibrariesLambdaLayerName}:1
+      Description: The ARN of the latest version of the Lambda Layer containing the Pip libraries
+  rBuildDeployDatalakeLibraryLayerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeBuild/BuildDeployDatalakeLibraryLayer
+      Type: String
+      Value: !Ref rBuildDeployDatalakeLibraryLayer
+      Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
