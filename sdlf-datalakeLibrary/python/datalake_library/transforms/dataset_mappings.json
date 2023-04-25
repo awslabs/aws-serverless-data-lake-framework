@@ -1,9 +1,0 @@
-[
-    {
-        "name": "legislators",
-        "transforms": {
-            "stage_a_transform": "light_transform_blueprint",
-            "stage_b_transform": "heavy_transform_blueprint"
-        }
-    }
-]

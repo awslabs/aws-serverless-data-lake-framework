@@ -11,7 +11,7 @@ class TransformHandler:
     def __init__(self):
         logger.info("Transformation Handler initiated")
 
-    def stage_transform(self, team, dataset, stage):
+    def stage_transform(self, team, dataset, pipeline, stage):
         """Returns relevant stage Transformation
 
         Arguments:
@@ -20,11 +20,11 @@ class TransformHandler:
         Returns:
             class -- Transform object
         """
-        stage_suffix = stage
+
         dynamo_config = DynamoConfiguration()
         dynamo_interface = DynamoInterface(dynamo_config)
-        dataset_transforms = dynamo_interface.get_transform_table_item("{}-{}".format(team, dataset))["transforms"][
-            "stage_{}_transform".format(stage_suffix)
+        dataset_transforms = dynamo_interface.get_transform_table_item("{}-{}".format(team, dataset))["pipeline"][pipeline]["transforms"][
+            "stage_{}_transform".format(stage)
         ]
-        transform_info = "datalake_library.transforms.stage_{}_transforms.{}".format(stage_suffix, dataset_transforms)
+        transform_info = "datalake_library.transforms.stage_{}_transforms.{}".format(stage, dataset_transforms)
         return getattr(import_module(transform_info), "CustomTransform")

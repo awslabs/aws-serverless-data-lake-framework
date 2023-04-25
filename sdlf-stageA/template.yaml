@@ -116,12 +116,12 @@ Globals:
     Runtime: python3.9
     Handler: lambda_function.lambda_handler
     Layers:
-      - !Sub "{{resolve:ssm:/SDLF/Lambda/${pTeamName}/LatestDatalakeLibraryLayer}}"
+      - !Sub "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
 Resources:
   rPipelineInterface:
-    Type: sdlf::engineering::pipeline::MODULE
+    Type: awslabs::sdlf::pipeline::MODULE
     Properties:
       pRandomSource: !Ref pRandomSource
       pOrg: !Ref pOrg

@@ -19,7 +19,6 @@ import botocore
 
 def main():
     bucket = sys.argv[1]
-    team_name = sys.argv[2]
     print(f"bucket: {bucket}")
     client_s3 = boto3.client(service_name="s3")
     client_lambda = boto3.client(service_name="lambda")
@@ -31,9 +30,9 @@ def main():
         url = info["url"]
         file_name = url.rsplit(sep="/", maxsplit=1)[1]
         print(f"file_name: {file_name}")
-        key = f"lambda_layers/{team_name}/{file_name}"
+        key = f"lambda_layers/{file_name}"
         print(f"key: {key}")
-        print(f"Checking if this layer exists: {team_name}/{file_name}")
+        print(f"Checking if this layer exists: file_name}")
         try:
             client_s3.head_object(
                 Bucket=bucket,
@@ -52,13 +51,13 @@ def main():
             else:
                 raise ex
         res = client_lambda.publish_layer_version(
-            LayerName=f"sdlf-{team_name}-{name}",
+            LayerName=f"sdlf-{name}",
             Description=url,
             Content={"S3Bucket": bucket, "S3Key": key},
             CompatibleRuntimes=info["runtimes"],
         )
         client_ssm.put_parameter(
-            Name=f"/SDLF/Lambda/{team_name}/{name}",
+            Name=f"/SDLF/Lambda/{name}",
             Description=url,
             Value=res["LayerVersionArn"],
             Type="String",
