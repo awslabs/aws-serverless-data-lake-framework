@@ -1663,3 +1663,10 @@ Resources:
       Type: String
       Value: !Ref rTeamUnitTestCodeBuildProject
       Description: Name of the CodeBuild job that Unit Tests
+  rBuildCloudFormationPackageSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeBuild/BuildCloudFormationPackage
+      Type: String
+      Value: !Ref rCloudFormationPackageCodeBuildProject
+      Description: CodeBuild job that packages a CloudFormation template
