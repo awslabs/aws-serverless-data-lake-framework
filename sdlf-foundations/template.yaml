@@ -12,10 +12,6 @@ Parameters:
     Type: String
     AllowedValues: ["false", "true"]
     Default: "true"
-  pCognitoAdminEmail:
-    Description: Email address of the Cognito admin
-    Type: String
-    Default: nobody@amazon.com
   pCustomBucketPrefix:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
@@ -179,8 +175,7 @@ Resources:
     Properties:
       TemplateURL: "./nested-stacks/template-kibana.yaml"
       Parameters:
-        CognitoAdminEmail: !Ref pCognitoAdminEmail
-        DomainAdminEmail: !Ref pElasticSearchDomainAdminEmail
+        AdminEmail: !Ref pElasticSearchDomainAdminEmail
         LambdaCatalog: !GetAtt [rS3Stack, Outputs.oLambdaCatalog]
         LambdaRouting: !GetAtt [rS3Stack, Outputs.oLambdaRouting]
         LambdaCatalogRedrive: !GetAtt [rS3Stack, Outputs.oLambdaCatalogRedrive]
@@ -193,6 +188,7 @@ Resources:
           !GetAtt [rGlueReplicationStack, Outputs.oLambdaReplicate]
         KMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
         SpokeAccounts: ""
+        SpokeRegions: ""
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-foundations

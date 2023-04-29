@@ -153,6 +153,16 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
+            Action: iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                  - es.amazonaws.com
+                  - firehose.amazonaws.com
+                  - logs.amazonaws.com
+          - Effect: Allow
             Action:
               - cloudtrail:DescribeTrails # W13 exception
             Resource: "*"
@@ -209,13 +219,51 @@ Resources:
               - cognito-idp:CreateResourceServer
               - cognito-idp:CreateUserPoolClient
               - cognito-idp:CreateUserPoolDomain
+              - cognito-idp:DeleteUserPoolDomain
               - cognito-idp:DeleteGroup
               - cognito-idp:DeleteUserPool
               - cognito-idp:DeleteUserPoolClient
               - cognito-idp:UpdateGroup
               - cognito-idp:UpdateUserPool
               - cognito-idp:UpdateUserPoolClient
+              - cognito-idp:AdminAddUserToGroup
+              - cognito-idp:AdminRemoveUserFromGroup
             Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${AWS::Region}_*
+          - Effect: Allow
+            Action:
+              - kinesis:DescribeStreamSummary
+              - kinesis:CreateStream
+              - kinesis:StartStreamEncryption
+              - kinesis:AddTagsToStream
+              - kinesis:DeleteStream
+            Resource: !Sub arn:${AWS::Partition}:kinesis:${AWS::Region}:${AWS::AccountId}:stream/sdlf-foundations-rKibanaStack-*
+          - Effect: Allow
+            Action:
+              - firehose:DescribeDeliveryStream
+              - firehose:CreateDeliveryStream
+              - firehose:DeleteDeliveryStream
+              - firehose:StartDeliveryStreamEncryption
+            Resource: !Sub arn:${AWS::Partition}:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/CL-Firehose
+          - Effect: Allow
+            Action:
+              - logs:DescribeDestinations # W13 exception
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - logs:DescribeSubscriptionFilters
+              - logs:DeleteSubscriptionFilter
+            Resource:
+              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group::log-stream:"
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+          - Effect: Allow
+            Action:
+              - logs:PutDestination
+              - logs:PutDestinationPolicy
+              - logs:DeleteDestination
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-*
 
   rCodeBuildRole:
     Type: AWS::IAM::Role
@@ -402,6 +450,8 @@ Resources:
                   - logs:PutLogEvents
                   - logs:TagLogGroup
                   - logs:UntagLogGroup
+                  - logs:DescribeSubscriptionFilters
+                  - logs:DeleteSubscriptionFilter
                 Resource:
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*:log-stream:*
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*:log-stream:*
