@@ -176,30 +176,35 @@ Resources:
           Principal:
             Service: lambda.amazonaws.com
           Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub logstreamer-${AWS::Region}
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-            - Effect: Allow
-              Action:
-                - logs:CreateLogGroup
-                - logs:CreateLogStream
-                - logs:PutLogEvents
-              Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
-            - Effect: Allow
-              Action:
-                - es:ESHttpPost
-                - es:ESHttpGet
-                - es:ESHttpPut
-              Resource: !GetAtt ESDomain.Arn
-            - Effect: "Allow"
-              Action:
-                - dynamodb:DescribeStream
-                - dynamodb:GetRecords
-                - dynamodb:GetShardIterator
-                - dynamodb:ListStreams
-              Resource: !ImportValue octagon-ObjectMetadata-stream-arn
+
+  rCatalogIndexRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub catalogindex-${AWS::Region}
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+        - Effect: Allow
+          Action:
+            - es:ESHttpPost
+            - es:ESHttpGet
+            - es:ESHttpPut
+          Resource: !GetAtt ESDomain.Arn
+        - Effect: "Allow"
+          Action:
+            - dynamodb:DescribeStream
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+          Resource: !ImportValue octagon-ObjectMetadata-stream-arn
+      Roles:
+        - !Ref rCatalogIndexRole
 
   rCatalogIndexFunction:
     Type: AWS::Serverless::Function
@@ -586,6 +591,14 @@ Resources:
               - es:DescribeElasticsearchDomain
               - es:DescribeElasticsearchDomains
               - es:DescribeElasticsearchDomainConfig
+              - es:ESHttpGet
+              - es:ESHttpPut
+              - es:ESHttpPost
+            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
+          - Principal:
+              AWS: !GetAtt rCatalogIndexRole.Arn
+            Effect: Allow
+            Action:
               - es:ESHttpGet
               - es:ESHttpPut
               - es:ESHttpPost
