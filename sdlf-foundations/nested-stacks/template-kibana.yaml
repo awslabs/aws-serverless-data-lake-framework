@@ -28,13 +28,6 @@ Parameters:
       - Medium
       - Large
 
-  SpokeAccounts:
-    Description: Account IDs which you want to allow for centralized logging (comma separated list eg. 11111111,22222222)
-    Type: CommaDelimitedList
-
-  SpokeRegions:
-    Description: Regions which you want to allow for centralized logging (comma separated list eg. us-east-1,us-west-2)
-    Type: CommaDelimitedList
 
   # SDLF specific parameters
   LambdaCatalog:
@@ -103,66 +96,74 @@ Resources:
   ######## LAMBDA AND ROLE FOR STAGE CLOUDWATCH UPDATE #########
   rLambdaCatalogUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaCatalog}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaRoutingUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaRouting}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaCatalogRedriveUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaCatalogRedrive}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaRoutingRedriveUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaRoutingRedrive}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   LambdaStep1UpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaStep1}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   LambdaJobCheckStepUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaJobCheckStep}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   LambdaStep2UpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaStep2}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   LambdaReplicateUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestination
+    DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaReplicate}"
-      DestinationArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}"
+      DestinationArn: !GetAtt CLDataStream.Arn
+      RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rCatalogIndexRole:
@@ -182,14 +183,23 @@ Resources:
             Statement:
             - Effect: Allow
               Action:
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
               Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
             - Effect: Allow
               Action:
-              - es:ESHttpPost
-              Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/*
+                - es:ESHttpPost
+                - es:ESHttpGet
+                - es:ESHttpPut
+              Resource: !GetAtt ESDomain.Arn
+            - Effect: "Allow"
+              Action:
+                - dynamodb:DescribeStream
+                - dynamodb:GetRecords
+                - dynamodb:GetShardIterator
+                - dynamodb:ListStreams
+              Resource: !ImportValue octagon-ObjectMetadata-stream-arn
 
   rCatalogIndexFunction:
     Type: AWS::Serverless::Function
@@ -633,6 +643,10 @@ Resources:
             Action: 
               - firehose:PutRecordBatch
             Resource: !GetAtt CLFirehose.Arn
+          - Effect: "Allow"
+            Action:
+              - kms:Decrypt
+            Resource: !Ref KMSKeyId
       Roles:
         - !Ref CLTransformerServiceRole
 
@@ -723,7 +737,7 @@ Resources:
       ShardCount: 1
       StreamEncryption:
         EncryptionType: KMS
-        "KeyId": !Ref KMSKeyId
+        KeyId: !Ref KMSKeyId
       StreamModeDetails:
         StreamMode: PROVISIONED
 
@@ -879,7 +893,8 @@ Resources:
     DependsOn: FirehosePolicy
     Properties:
       DeliveryStreamEncryptionConfigurationInput:
-        KeyType: AWS_OWNED_CMK
+        KeyType: CUSTOMER_MANAGED_CMK
+        KeyARN: !Ref KMSKeyId
       DeliveryStreamName: CL-Firehose
       DeliveryStreamType: DirectPut
       ElasticsearchDestinationConfiguration:
@@ -911,6 +926,9 @@ Resources:
             Service: logs.amazonaws.com
           Action:
           - sts:AssumeRole
+          Condition:
+            StringLike:
+              "aws:SourceArn": !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
 
   CWDestPolicy:
     Type: AWS::IAM::Policy
@@ -924,12 +942,16 @@ Resources:
             - kinesis:PutRecord
           Resource:
             - !GetAtt CLDataStream.Arn
+        - Effect: Allow
+          Action:
+            - kms:GenerateDataKey
+          Resource:
+            - !Ref KMSKeyId
       Roles:
         - !Ref CWDestinationRole
 
   HelperRoleCWDestPolicy:
     Type: AWS::IAM::Policy
-    DependsOn: CWDestPolicy
     Properties:
       PolicyName: HelperRoleCWDestPolicy
       PolicyDocument:
@@ -941,17 +963,6 @@ Resources:
             Resource: !GetAtt CWDestinationRole.Arn
       Roles:
         - !Ref HelperRole
-
-  CWDestination:
-    Type: Custom::CWDestination
-    DependsOn: HelperRoleCWDestPolicy
-    Properties:
-      ServiceToken: !GetAtt CustomResourceProviderframeworkonEvent.Arn
-      Regions: !Ref SpokeRegions
-      DestinationName: !Sub CL-Destination-${CreateUUID.UUID}
-      Role: !GetAtt CWDestinationRole.Arn
-      DataStream: !GetAtt CLDataStream.Arn
-      SpokeAccounts: !Ref SpokeAccounts
 
   #
   # CloudWatch Alarms
@@ -1178,9 +1189,9 @@ Resources:
       Threshold: 1
 
 Outputs:
-  DestinationSubscriptionCommand:
-    Description: Command to run in spoke accounts/regions
-    Value: !Sub "aws logs put-subscription-filter       --destination-arn arn:${AWS::Partition}:logs:<region>:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}       --log-group-name <MyLogGroup>       --filter-name <MyFilterName>       --filter-pattern <MyFilterPattern>       --profile <MyAWSProfile> "
+#  DestinationSubscriptionCommand:
+#    Description: Command to run in spoke accounts/regions
+#    Value: !Sub "aws logs put-subscription-filter       --destination-arn arn:${AWS::Partition}:logs:<region>:${AWS::AccountId}:destination:CL-Destination-${CreateUUID.UUID}       --log-group-name <MyLogGroup>       --filter-name <MyFilterName>       --filter-pattern <MyFilterPattern>       --profile <MyAWSProfile> "
 
   UniqueID:
     Description: UUID for Centralized Logging Stack
@@ -1205,3 +1216,11 @@ Outputs:
   ClusterSize:
     Description: ES Cluster size
     Value: !Ref ClusterSize
+
+  oKibanaStreamArn:
+    Description: ARN of the Kinesis Stream that collates logs
+    Value: !GetAtt CLDataStream.Arn
+
+  oKibanaStreamRoleArn:
+    Description: ARN of the Kinesis Stream that collates logs
+    Value: !GetAtt CWDestinationRole.Arn

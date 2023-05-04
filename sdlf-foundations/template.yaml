@@ -187,8 +187,6 @@ Resources:
         LambdaReplicate:
           !GetAtt [rGlueReplicationStack, Outputs.oLambdaReplicate]
         KMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
-        SpokeAccounts: ""
-        SpokeRegions: ""
       Tags:
         - Key: tagging-policy
           Value: !Sub ${pOrganizationName}-${pApplicationName}-${pEnvironment}-foundations
@@ -215,27 +213,27 @@ Resources:
       Type: String
       Value: !Ref pElasticSearchEnabled
       Description: Boolean for wether ElasticSearch is enabled
-  rUpdateSubscriptionFilterSsm:
+  rKibanaStreamRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Lambda/UpdateCloudWatchSubscriptionFilterFunctionArn
+      Description: ARN of the role used to forward logs to Kinesis
+      Name: /SDLF/Lambda/KibanaStreamRoleArn
+      Type: String
+        Value:
+          !If [
+            DeployElasticSearch,
+            !GetAtt [rKibanaStack, Outputs.oKibanaStreamRoleArn],
+            None,
+          ]
+  rKibanaStreamSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Lambda/KibanaStreamArn
       Type: String
       Value:
         !If [
           DeployElasticSearch,
-          !GetAtt [rKibanaStack, Outputs.oUpdateSubscriptionFilterArn],
-          None,
-        ]
-      Description: ARN of the Lambda function used by the Custom Resource to update CloudWatch subscription filters
-  rKibanaLambdaSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/Lambda/KibanaLambdaArn
-      Type: String
-      Value:
-        !If [
-          DeployElasticSearch,
-          !GetAtt [rKibanaStack, Outputs.oKibanaLambdaArn],
+          !GetAtt [rKibanaStack, Outputs.oKibanaStreamArn],
           None,
         ]
       Description: ARN of the Lambda function that collates logs
