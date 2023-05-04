@@ -219,12 +219,12 @@ Resources:
       Description: ARN of the role used to forward logs to Kinesis
       Name: /SDLF/Lambda/KibanaStreamRoleArn
       Type: String
-        Value:
-          !If [
-            DeployElasticSearch,
-            !GetAtt [rKibanaStack, Outputs.oKibanaStreamRoleArn],
-            None,
-          ]
+      Value:
+        !If [
+          DeployElasticSearch,
+          !GetAtt [rKibanaStack, Outputs.oKibanaStreamRoleArn],
+          None,
+        ]
   rKibanaStreamSsm:
     Type: AWS::SSM::Parameter
     Properties:

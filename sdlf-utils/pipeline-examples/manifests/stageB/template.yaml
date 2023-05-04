@@ -53,20 +53,44 @@ Parameters:
     Description: Boolean for wether ElasticSearch is enabled
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/ElasticSearch/Enabled
-  pUpdateSubscriptionLambda:
-    Description: ARN of the Lambda function used by the Custom Resource to update CloudWatch subscription filters
+  pKibanaStreamRole:
+    Description: ARN of the role used to forward logs to Kinesis
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/UpdateCloudWatchSubscriptionFilterFunctionArn
-  pKibanaFunction:
-    Description: ARN of the Lambda function that collates logs
+    Default: /SDLF/Lambda/KibanaStreamRoleArn
+  pKibanaStream:
+    Description: ARN of the Kinesis stream that collates logs
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/KibanaLambdaArn
+    Default: /SDLF/Lambda/KibanaStreamArn
   pStatesExecutionRole:
     Type: AWS::SSM::Parameter::Value<String>
     Description: The ARN of the States Execution Role
   pSNSTopic:
     Description: The team SNS topic
     Type: String
+  pCloudWatchLogsRetentionInDays:
+    Description: The number of days log events are kept in CloudWatch Logs
+    Type: Number
+    Default: 30
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
 
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
@@ -528,15 +552,16 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterRoutingStep:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaRoutingStepLogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaRoutingStepCloudWatchAlarm:
@@ -562,120 +587,128 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterRedriveStep:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaRedriveStepLogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep1LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep1:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep1LogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaJobCheckStepLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterJobCheckStep:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaJobCheckStepLogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep2LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep2:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep2LogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep3LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep3:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep3LogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep4LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep4}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep4:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep4LogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaStep5LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep5}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterStep5:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaStep5LogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Ref pKMSInfraKeyId
 
   rUpdateSubscriptionFilterErrorStep:
-    Type: Custom::UpdateSubscriptionFilter
+    Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
-    Version: 0.1
     Properties:
-      ServiceToken: !Ref pUpdateSubscriptionLambda
       LogGroupName: !Ref rLambdaErrorStepLogGroup
-      DestinationArn: !Ref pKibanaFunction
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
   rLambdaErrorStepCloudWatchAlarm:
