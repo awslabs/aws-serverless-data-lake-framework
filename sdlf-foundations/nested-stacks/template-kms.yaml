@@ -2,6 +2,32 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: KMS resources to be created by the common stack
 
 Resources:
+  rLakeFormationDataAccessRole: # https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lakeformation.amazonaws.com
+                - glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:CreateLogGroup
+                - logs:PutLogEvents
+              Resource:
+                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-lakeformation-acceleration/*"
+                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-lakeformation-acceleration/*:log-stream:*"
+
   ######## KMS #########
   rKMSKey:
     Type: AWS::KMS::Key
@@ -101,6 +127,18 @@ Resources:
                 kms:ViaService: !Sub es.${AWS::Region}.amazonaws.com
               Bool:
                 kms:GrantIsForAWSResource: true
+          - Sid: Allow LakeFormation access
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt rLakeFormationDataAccessRole.Arn
+            Action:
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: "*"
+
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
@@ -117,7 +155,19 @@ Resources:
       Value: !GetAtt rKMSKey.Arn
       Description: Arn of the KMS key
 
+  rLakeFormationDataAccessRoleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/IAM/LakeFormationDataAccessRoleArn
+      Type: String
+      Value: !GetAtt rLakeFormationDataAccessRole.Arn
+      Description: Lake Formation Data Access Role
+
 Outputs:
   oKMSKeyId:
     Description: Arn of the KMS key
     Value: !GetAtt rKMSKey.Arn
+
+  oLakeFormationDataAccessRole:
+    Description: Name of the Lake FOrmation Data Access role
+    Value: !Ref rLakeFormationDataAccessRole
