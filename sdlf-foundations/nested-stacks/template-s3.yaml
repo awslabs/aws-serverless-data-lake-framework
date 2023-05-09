@@ -11,6 +11,8 @@ Parameters:
     Type: String
   pKMSKeyId:
     Type: String
+  pLakeFormationDataAccessRole:
+    Type: String
   pNumBuckets:
     Type: String
   pOrganizationName:
@@ -30,6 +32,61 @@ Globals:
     KmsKeyArn: !Ref pKMSKeyId
 
 Resources:
+  rLakeFormationDataAccessRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: sdlf-lakeformation
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Resource:
+              !If [
+                CreateMultipleBuckets,
+                [
+                  !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rDataQualityBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}/*",
+                  !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}/*",
+                  !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*",
+                  !Sub "arn:${AWS::Partition}:s3:::${rDataQualityBucket}/*",
+                ],
+                [
+                  !Sub "arn:${AWS::Partition}:s3:::${rCentralBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rDataQualityBucket}",
+                  !Sub "arn:${AWS::Partition}:s3:::${rCentralBucket}/*",
+                  !Sub "arn:${AWS::Partition}:s3:::${rDataQualityBucket}/*",
+                ]
+              ]
+          - Effect: Allow
+            Action:
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: "*"
+            Condition:
+              "ForAnyValue:StringLike":
+                "kms:ResourceAliases":
+                  - alias/sdlf-kms-key
+                  - alias/sdlf-*-kms-data-key
+      Roles:
+        - !Ref pLakeFormationDataAccessRole
+
   ####### S3 Buckets #########
   rPipelineBucket:
     Type: AWS::S3::Bucket
@@ -120,9 +177,11 @@ Resources:
   rCentralBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateSingleBucket
+    DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}/
-      UseServiceLinkedRole: True
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
+      UseServiceLinkedRole: False
 
   rRawBucket:
     Type: AWS::S3::Bucket
@@ -175,9 +234,11 @@ Resources:
   rRawBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
+    DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rRawBucket}/
-      UseServiceLinkedRole: True
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
+      UseServiceLinkedRole: False
 
   rStageBucket:
     Type: AWS::S3::Bucket
@@ -230,9 +291,11 @@ Resources:
   rStageBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
+    DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rStageBucket}/
-      UseServiceLinkedRole: True
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
+      UseServiceLinkedRole: False
 
   rAnalyticsBucket:
     Type: AWS::S3::Bucket
@@ -285,9 +348,11 @@ Resources:
   rAnalyticsBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
     Condition: CreateMultipleBuckets
+    DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/
-      UseServiceLinkedRole: True
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
+      UseServiceLinkedRole: False
 
   rDataQualityBucket:
     Type: AWS::S3::Bucket
@@ -328,9 +393,11 @@ Resources:
 
   rDataQualityBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
+    DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rDataQualityBucket}/
-      UseServiceLinkedRole: True
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pLakeFormationDataAccessRole}
+      UseServiceLinkedRole: False
 
   rAthenaBucket:
     Type: AWS::S3::Bucket

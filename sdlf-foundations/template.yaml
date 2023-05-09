@@ -96,6 +96,7 @@ Resources:
         pCustomBucketPrefix: !Ref pCustomBucketPrefix
         pEnvironment: !Ref pEnvironment
         pKMSKeyId: !GetAtt [rKMSStack, Outputs.oKMSKeyId]
+        pLakeFormationDataAccessRole: !GetAtt [rKMSStack, Outputs.oLakeFormationDataAccessRole]
         pNumBuckets: !Ref pNumBuckets
         pOrganizationName: !Ref pOrganizationName
         pCloudWatchLogsRetentionInDays: !Ref pCloudWatchLogsRetentionInDays

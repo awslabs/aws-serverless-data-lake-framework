@@ -353,6 +353,11 @@ Resources:
                       - glue.amazonaws.com
                       - lambda.amazonaws.com
                       - states.amazonaws.com
+                      - lakeformation.amazonaws.com
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-foundations-*-rLakeFormationDataAccess-*
               - Effect: Allow
                 Action:
                   - iam:GetRole
@@ -374,7 +379,6 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess
               - Effect: Allow
                 Action:
                   - iam:ListPolicyVersions
