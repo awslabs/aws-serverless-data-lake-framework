@@ -768,6 +768,8 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+      VersioningConfiguration:
+        Status: Enabled
 
   CLBucketPolicy:
     Type: AWS::S3::BucketPolicy
