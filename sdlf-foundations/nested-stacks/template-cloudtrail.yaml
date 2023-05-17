@@ -155,7 +155,6 @@ Resources:
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: false
-      EventSelectors:
       EventSelectors: !If
         - IsS3DataEvents
         -
