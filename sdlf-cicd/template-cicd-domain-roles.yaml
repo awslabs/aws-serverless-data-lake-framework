@@ -113,6 +113,8 @@ Resources:
                   - s3:PutBucketPolicy
                   - s3:PutBucketVersioning
                   - s3:PutEncryptionConfiguration
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:DeleteBucketPublicAccessBlock
                   - s3:PutObject # necessary for cfn submit
                   - s3:SetBucketEncryption
                 Resource:
