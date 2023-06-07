@@ -55,6 +55,12 @@ Resources:
                   "ForAnyValue:StringLike":
                     "kms:ResourceAliases": !Ref pDevOpsKMSKey
               - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:PutParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+              - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-cfn-modules
                 # Condition:
