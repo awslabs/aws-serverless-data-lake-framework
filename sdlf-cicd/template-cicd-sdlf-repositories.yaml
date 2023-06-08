@@ -78,6 +78,11 @@ Resources:
   ######## CODECOMMIT #########
   rCicdCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -87,6 +92,11 @@ Resources:
 
   rFoundationsCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -96,6 +106,11 @@ Resources:
 
   rTeamCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -105,6 +120,11 @@ Resources:
 
   rPipelineCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -114,6 +134,11 @@ Resources:
 
   rDatasetCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -123,6 +148,11 @@ Resources:
 
   rStageACodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -132,6 +162,11 @@ Resources:
 
   rStageBCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -141,6 +176,11 @@ Resources:
 
   rDatalakeLibraryCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master
@@ -150,6 +190,11 @@ Resources:
 
   rPipLibraryCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
       Code:
         BranchName: master

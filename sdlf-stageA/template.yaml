@@ -112,7 +112,7 @@ Globals:
     Runtime: python3.9
     Handler: lambda_function.lambda_handler
     Layers:
-      - !Sub "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
+      - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
 Resources:
