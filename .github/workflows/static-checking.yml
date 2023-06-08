@@ -1,0 +1,27 @@
+name: Static Checking
+
+on:
+  pull_request:
+    branches:
+      - 2.0.0
+
+permissions:
+  contents: read
+
+jobs:
+  cfnlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - name: install requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install cfn-lint
+      - name: cfn-lint
+        run: |
+          find . -not \( -path ./sdlf-utils -prune \) -type f -name '*.yaml' -print0 \
+          | xargs -0 cfn-lint
