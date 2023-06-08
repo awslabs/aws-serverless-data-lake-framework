@@ -1524,3 +1524,6 @@ Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with
     Value: !Ref pPipelineReference
+  oChildAccountId:
+    Description: Child AWS account ID
+    Value: !Ref pChildAccountId
