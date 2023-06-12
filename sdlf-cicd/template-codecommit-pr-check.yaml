@@ -133,6 +133,8 @@ Resources:
 
   rPullRequestLambdaLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rPullRequestLambdaFunction}
       KmsKeyId: !Ref pKMSKeyArn
@@ -390,6 +392,8 @@ Resources:
 
   rCodeBuildResultLambdaLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rCodeBuildResultFunction}
       KmsKeyId: !Ref pKMSKeyArn

@@ -657,16 +657,21 @@ Resources:
   ######## Lambda & SQS #########
   rQueueCatalog:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       QueueName: sdlf-catalog-queue
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt rDeadLetterQueueCatalog.Arn
         maxReceiveCount: 1
       VisibilityTimeout: 60
+      MessageRetentionPeriod: 604800
       KmsMasterKeyId: !GetAtt rKMSKey.Arn
 
   rDeadLetterQueueCatalog:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       QueueName: sdlf-catalog-dlq
       MessageRetentionPeriod: 1209600
@@ -675,16 +680,21 @@ Resources:
 
   rQueueRouting:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       QueueName: sdlf-routing-queue
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt rDeadLetterQueueRouting.Arn
         maxReceiveCount: 1
       VisibilityTimeout: 60
+      MessageRetentionPeriod: 604800
       KmsMasterKeyId: !GetAtt rKMSKey.Arn
 
   rDeadLetterQueueRouting:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       QueueName: sdlf-routing-dlq
       MessageRetentionPeriod: 1209600
@@ -741,6 +751,8 @@ Resources:
 
   rLambdaRoutingLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRouting}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -762,6 +774,8 @@ Resources:
 
   rLambdaCatalogRedriveLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -780,8 +794,11 @@ Resources:
       MemorySize: 256
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecution.Arn
+
   rLambdaRoutingRedriveLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -1460,6 +1477,8 @@ Resources:
 
   rLambdaReplicateLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaReplicate}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
