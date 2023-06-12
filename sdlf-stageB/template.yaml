@@ -445,6 +445,8 @@ Resources:
   ######## CLOUDWATCH #########
   rLambdaRoutingStepLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -480,6 +482,8 @@ Resources:
 
   rLambdaRedriveStepLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -496,6 +500,8 @@ Resources:
 
   rLambdaStep1LogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -512,6 +518,8 @@ Resources:
 
   rLambdaJobCheckStepLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -528,6 +536,8 @@ Resources:
 
   rLambdaStep2LogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -544,6 +554,8 @@ Resources:
 
   rLambdaStep3LogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
@@ -560,6 +572,8 @@ Resources:
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
