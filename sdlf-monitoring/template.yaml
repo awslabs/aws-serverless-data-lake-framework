@@ -7,20 +7,16 @@ Parameters:
     Type: String
   pEnvironment:
     Type: String
-  pLambdaCatalog:
-    Type: String
-  pLambdaRouting:
-    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
   pSNSNotificationsEmail:
     Type: CommaDelimitedList
   pCustomBucketPrefix:
     Type: String
+    Default: sdlf
   pExternalTrailBucket:
     Description: Optional The name of the Amazon S3 bucket where CloudTrail publishes log files. If empty, the Amazon S3 bucket is created for you.
     Type: String
     Default: ""
-  pKMSKeyId:
-    Type: String
   pLogFilePrefix:
     Description: Optional The log file prefix.
     Type: String
@@ -80,6 +76,8 @@ Parameters:
 
 
   # SDLF specific parameters
+  octagonObjectMetadatastreamarn:
+    Type: String
   LambdaCatalog:
     Type: String
   LambdaRouting:
@@ -88,16 +86,11 @@ Parameters:
     Type: String
   LambdaRoutingRedrive:
     Type: String
-  LambdaStep1:
-    Type: String
-  LambdaJobCheckStep:
-    Type: String
-  LambdaStep2:
-    Type: String
   LambdaReplicate:
     Type: String
   KMSKeyId:
     Type: String
+    Default: "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -155,8 +148,8 @@ Resources:
     Properties:
       Runtime: python3.9
       Handler: lambda_function.lambda_handler
-      KmsKeyArn: !Ref pKMSKeyId
-      CodeUri: ../lambda/topic/src
+      KmsKeyArn: !Ref KMSKeyId
+      CodeUri: ./lambda/topic/src
       FunctionName: sdlf-cr-sns-topic-endpoints-subscription
       Description: Subscribes multiple endpoints to an SNS topic.
       Role: !GetAtt rSNSTopicSubscriptionRole.Arn
@@ -220,7 +213,7 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: sdlf-notifications
-      KmsMasterKeyId: !Ref pKMSKeyId
+      KmsMasterKeyId: !Ref KMSKeyId
 
   rSNSTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -266,7 +259,7 @@ Resources:
       Unit: Count
       Dimensions:
         - Name: FunctionName
-          Value: !Ref pLambdaCatalog
+          Value: !Ref LambdaCatalog
 
   rLambdaRoutingCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -285,7 +278,7 @@ Resources:
       Unit: Count
       Dimensions:
         - Name: FunctionName
-          Value: !Ref pLambdaRouting
+          Value: !Ref LambdaRouting
 
   ####### Event Rules #######
   rCICDFoundationsPipelineFailedRule:
@@ -442,7 +435,7 @@ Resources:
             IncludeManagementEvents: true
             ReadWriteType: All
         - !Ref "AWS::NoValue"
-      KMSKeyId: !Ref pKMSKeyId
+      KMSKeyId: !Ref KMSKeyId
       S3BucketName: !Ref rTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
       EnableLogFileValidation: true
@@ -466,7 +459,7 @@ Resources:
             IncludeManagementEvents: true
             ReadWriteType: All
         - !Ref "AWS::NoValue"
-      KMSKeyId: !Ref pKMSKeyId
+      KMSKeyId: !Ref KMSKeyId
       S3BucketName: !Ref pExternalTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
       EnableLogFileValidation: true
@@ -520,33 +513,6 @@ Resources:
       RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  LambdaStep1UpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaStep1}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  LambdaJobCheckStepUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaJobCheckStep}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  LambdaStep2UpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaStep2}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
   LambdaReplicateUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
     DependsOn: CWDestPolicy
@@ -592,14 +558,14 @@ Resources:
             - dynamodb:GetRecords
             - dynamodb:GetShardIterator
             - dynamodb:ListStreams
-          Resource: !ImportValue octagon-ObjectMetadata-stream-arn
+          Resource: !Ref octagonObjectMetadatastreamarn
       Roles:
         - !Ref rCatalogIndexRole
 
   rCatalogIndexFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../lambda/catalog-search/src
+      CodeUri: ./lambda/catalog-search/src
       Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch
       Environment:
         Variables:
@@ -615,7 +581,7 @@ Resources:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
       BatchSize: 10
-      EventSourceArn: !ImportValue octagon-ObjectMetadata-stream-arn
+      EventSourceArn: !Ref octagonObjectMetadatastreamarn
       FunctionName: !GetAtt rCatalogIndexFunction.Arn
       StartingPosition: LATEST
 
