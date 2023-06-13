@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboards, ELK, Budgets
+
+Parameters:
+  pOrganizationName:
+    Description: Name of the organization owning the datalake
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg:1}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain:1}}"
+  pEnvironment:
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
+  pKMSKeyId:
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
+  pExternalTrailBucket:
+    Description: Optional The name of the Amazon S3 bucket where CloudTrail publishes log files. If empty, the Amazon S3 bucket is created for you.
+    Type: String
+    Default: ""
+  pCustomBucketPrefix:
+    Type: String
+    Default: sdlf
+  pLogFilePrefix:
+    Description: Optional The log file prefix.
+    Type: String
+    Default: ""
+  pCloudWatchLogsRetentionInDays:
+    Description: The number of days log events are kept in CloudWatch Logs
+    Type: Number
+    Default: 30
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
+  pS3DataEvents:
+    Description: Record data events of all S3 buckets
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+
+Conditions:
+  InternalBucket: !Equals [!Ref pExternalTrailBucket, ""]
+  ExternalBucket: !Not [!Equals [!Ref pExternalTrailBucket, ""]]
+  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, "sdlf"]]
+  HasLogFilePrefix: !Not [!Equals [!Ref pLogFilePrefix, ""]]
+  IsS3DataEvents: !Equals [!Ref pS3DataEvents, "true"]
+
+Resources:
+  ######## CUSTOM RESOURCE #########
+  rSNSTopicSubscriptionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      KmsKeyArn: !Ref pKMSKeyId
+      CodeUri: ./lambda/topic/src
+      FunctionName: sdlf-cr-sns-topic-endpoints-subscription
+      Description: Subscribes multiple endpoints to an SNS topic.
+      Role: !GetAtt rSNSTopicSubscriptionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          TEAM_METADATA_TABLE_SSM_PARAM: /SDLF/Dynamo/TeamMetadata
+
+  ######## ELK #########
+  rLogGroupSubscriptionStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-monitoring
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:PutSubscriptionFilter
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:*
+                Condition:
+                  StringLike:
+                    "aws:ResourceTag/Framework": sdlf
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref rSNSTopic
+
+  rLogGroupSubscriptionStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: ./state-machine/loggroup-subscription.asl.json
+      DefinitionSubstitutions:
+        KinesisDataStreamArn: !GetAtt CLDataStream.Arn
+        SnsTopicArn: !Ref rSNSTopic
+      Role: !GetAtt rLogGroupSubscriptionStateMachineRole.Arn
+
+  rLogGroupTriggerTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: sdlf-monitoring
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource:
+                  - !Ref rLogGroupSubscriptionStateMachine
+
+  rLogGroupTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.logs
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - logs.amazonaws.com
+          eventName:
+            - CreateLogGroup
+          requestParameters:
+            tags:
+              Framework:
+                - sdlf
+      Targets:
+        - Arn: !Ref rLogGroupSubscriptionStateMachine
+          RoleArn: !GetAtt rLogGroupTriggerTriggerRole.Arn
+          Id: sdlf-monitoring

@@ -6,17 +6,17 @@ Parameters:
   pOrganizationName:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg:1}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain:1}}"
   pEnvironment:
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
   pKMSKeyId:
     Type: String
-    Default: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+    Default: "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
   pExternalTrailBucket:
     Description: Optional The name of the Amazon S3 bucket where CloudTrail publishes log files. If empty, the Amazon S3 bucket is created for you.
     Type: String

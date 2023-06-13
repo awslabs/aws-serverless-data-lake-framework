@@ -22,6 +22,14 @@ Resources:
       Value: false
       Description: Add Lambda layer builder infrastructure and pipeline stages
 
+  rMonitoringFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Monitoring/Enabled
+      Type: String
+      Value: true
+      Description: Add monitoring module infrastructure
+
   ######## KMS #########
   rKMSKey:
     Type: AWS::KMS::Key

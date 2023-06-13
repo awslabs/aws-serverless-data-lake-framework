@@ -1,0 +1,32 @@
+{
+  "Comment": "Manage subscription filters for log groups",
+  "StartAt": "PutSubscriptionFilter",
+  "States": {
+    "PutSubscriptionFilter": {
+      "Type": "Task",
+      "End": true,
+      "Parameters": {
+        "DestinationArn": "${KinesisDataStreamArn}",
+        "FilterName": "$.detail.requestParameters.logGroupName",
+        "FilterPattern": "[log_type, log_timestamp, log_id, log_message]",
+        "LogGroupName": "$.detail.requestParameters.logGroupName"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:cloudwatchlogs:putSubscriptionFilter",
+      "Catch": [
+        {
+          "ErrorEquals": [ "States.ALL" ],
+          "Next": "SNS Publish"
+        }
+      ]
+    },
+    "SNS Publish": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "Message.$": "$",
+        "TopicArn": "${SnsTopicArn}"
+      },
+      "End": true
+    }
+  }
+}

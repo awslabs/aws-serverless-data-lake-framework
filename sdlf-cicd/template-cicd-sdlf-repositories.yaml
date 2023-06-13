@@ -52,9 +52,14 @@ Parameters:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/LambdaLayerBuilder/Enabled
+  pEnableMonitoring:
+    Description: Add Lambda layer builder infrastructure and pipeline stages
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Monitoring/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, false]
 
 Resources:
   ######## CODECOMMIT #########
@@ -946,3 +951,26 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-lambda-layer.yaml
+
+  rMonitoringCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Condition: EnableMonitoring
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
+    Properties:
+      Code:
+        BranchName: main
+        S3: ../sdlf-monitoring
+      RepositoryDescription: sdlf-monitoring repository
+      RepositoryName: !Ref pMonitoringRepository
+
+  rMonitoringCodeCommitSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeCommit/MonitoringCodeCommit
+      Type: String
+      Value: !GetAtt rMonitoringCodeCommit.Name
+      Description: Name of the Monitoring repository
