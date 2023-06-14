@@ -162,18 +162,20 @@ Resources:
                 Provider: CloudFormation
                 Version: '1'
               InputArtifacts:
+                - Name: TemplateSource
                 - Name: TemplatePackage
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
                 StackName: !Sub sdlf-${pTeamName}-pipelines-${pEnvironment}
                 TemplatePath: "TemplatePackage::packaged-template.yaml"
+                TemplateConfiguration: "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
                   }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-              RunOrder: '1'
+              RunOrder: 1
         - Name: DeployDatasetsInfrastructure
           Actions:
             - Name: CreateStack
@@ -182,7 +184,7 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: TemplateSource
               Configuration:
@@ -190,12 +192,13 @@ Resources:
                 RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
                 StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::datasets-${pEnvironment}.yaml"
+                TemplateConfiguration: !Sub "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
                   }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-              RunOrder: '1'
+              RunOrder: 1
       ArtifactStore:
         Type: S3
         Location: !Ref pArtifactsBucket

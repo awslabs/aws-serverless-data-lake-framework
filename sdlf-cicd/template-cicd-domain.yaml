@@ -89,6 +89,10 @@ Parameters:
     Type: String
     AllowedValues: ["false", "true"]
     Default: "false"
+  pBuildCloudFormationPackage:
+    Description: CodeBuild job that packages a CloudFormation template
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeBuild/BuildCloudFormationPackage
 
 Mappings:
   pCodeCommitBranch:
@@ -977,6 +981,12 @@ Resources:
                   - kms:List*
                   - kms:ReEncrypt*
                 Resource: !Ref pKMSKey
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudFormationPackage}"
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
             Version: 2012-10-17
@@ -1008,7 +1018,24 @@ Resources:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
-        - Name: DeployFoundationsInfrastructure
+        - Name: BuildTemplate
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: TemplateSource
+              OutputArtifacts:
+                - Name: TemplatePackage
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudFormationPackage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"TEMPLATE", "value":"foundations-${pDomain}-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
+              RunOrder: 1
+        - Name: DeployFoundationsAndTeamsInfrastructure
           Actions:
             - Name: CreateStack
               RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain-crossaccount-pipeline
@@ -1019,39 +1046,19 @@ Resources:
                 Version: '1'
               InputArtifacts:
                 - Name: TemplateSource
+                - Name: TemplatePackage
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain
                 StackName: !Sub sdlf-domain-${pDomain}-${pEnvironment}
-                TemplatePath: !Sub "TemplateSource::foundations-${pDomain}-${pEnvironment}.yaml"
+                TemplatePath: "TemplatePackage::packaged-template.yaml"
+                TemplateConfiguration: "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
                   }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-              RunOrder: '1'
-        - Name: DeployTeamInfrastructure
-          Actions:
-            - Name: CreateStack
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain-crossaccount-pipeline
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: '1'
-              InputArtifacts:
-                - Name: TemplateSource
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain
-                StackName: !Sub sdlf-domain-${pDomain}-${pEnvironment}-teams
-                TemplatePath: !Sub "TemplateSource::teams-${pDomain}-${pEnvironment}.yaml"
-                ParameterOverrides: |
-                  {
-                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
-                  }
-                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-              RunOrder: '1'
+              RunOrder: 1
       ArtifactStore:
         Type: S3
         Location: !Ref pArtifactsBucket
