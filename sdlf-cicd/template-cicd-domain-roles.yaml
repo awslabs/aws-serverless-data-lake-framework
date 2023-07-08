@@ -668,19 +668,6 @@ Resources:
                   - lambda:UpdateEventSourceMapping
                   - lambda:DeleteEventSourceMapping
               - Resource: "*"
-                Effect: Allow
-                Action:
-                  - states:CreateStateMachine
-                  - states:ListStateMachines
-                  - states:TagResource
-                  - states:UntagResource
-              - Resource: !Sub "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-*"
-                Effect: Allow
-                Action:
-                  - states:DeleteStateMachine
-                  - states:DescribeStateMachine
-                  - states:UpdateStateMachine
-              - Resource: "*"
                 Effect: "Allow"
                 Action:
                   - logs:CreateLogGroup
@@ -699,17 +686,6 @@ Resources:
                   - logs:PutLogEvents
                   - logs:TagLogGroup
                   - logs:UntagLogGroup
-              - Resource: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-*
-                Effect: Allow
-                Action:
-                  - cloudwatch:DeleteAlarms
-                  - cloudwatch:DescribeAlarms
-                  - cloudwatch:DisableAlarmActions
-                  - cloudwatch:EnableAlarmActions
-                  - cloudwatch:GetMetricData
-                  - cloudwatch:PutMetricAlarm
-                  - cloudwatch:PutMetricData
-                  - cloudwatch:SetAlarmState
               - Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:*
                 Effect: Allow
                 Action: sns:ListTopics
@@ -800,22 +776,6 @@ Resources:
               - Resource: "*"
                 Effect: Allow
                 Action:
-                  - cloudtrail:DescribeTrails
-              - Resource: !Sub arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/sdlf-*
-                Effect: Allow
-                Action:
-                  - cloudtrail:AddTags
-                  - cloudtrail:CreateTrail
-                  - cloudtrail:DeleteTrail
-                  - cloudtrail:ListTags
-                  - cloudtrail:PutEventSelectors
-                  - cloudtrail:RemoveTags
-                  - cloudtrail:StartLogging
-                  - cloudtrail:StopLogging
-                  - cloudtrail:UpdateTrail
-              - Resource: "*"
-                Effect: Allow
-                Action:
                   - kms:CreateAlias
                   - kms:CreateKey
                   - kms:DeleteAlias
@@ -877,42 +837,6 @@ Resources:
                   - glue:UpdateCrawler
                   - glue:UpdateDatabase
                   - glue:UpdateJob
-              - Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/*
-                Effect: Allow
-                Action:
-                  - es:AddTags
-                  - es:ListDomainNames
-                  - es:ListTags
-                  - es:RemoveTags
-              - Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/sdlf
-                Effect: Allow
-                Action:
-                  - es:CreateElasticsearchDomain
-                  - es:DescribeElasticsearchDomain
-                  - es:DeleteElasticsearchDomain
-                  - es:UpdateElasticsearchDomainConfig
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - cognito-identity:CreateIdentityPool
-                  - cognito-identity:DeleteIdentityPool
-                  - cognito-identity:DescribeIdentityPool
-                  - cognito-identity:GetIdentityPoolRoles
-                  - cognito-identity:UpdateIdentityPool
-                  - cognito-identity:SetIdentityPoolRoles
-                  - cognito-idp:AdminCreateUser
-                  - cognito-idp:AdminDeleteUser
-                  - cognito-idp:CreateGroup
-                  - cognito-idp:CreateResourceServer
-                  - cognito-idp:CreateUserPool
-                  - cognito-idp:CreateUserPoolClient
-                  - cognito-idp:CreateUserPoolDomain
-                  - cognito-idp:DeleteGroup
-                  - cognito-idp:DeleteUserPool
-                  - cognito-idp:DeleteUserPoolClient
-                  - cognito-idp:UpdateGroup
-                  - cognito-idp:UpdateUserPool
-                  - cognito-idp:UpdateUserPoolClient
 
   rTeamCodePipelineRole:
     Type: AWS::IAM::Role
