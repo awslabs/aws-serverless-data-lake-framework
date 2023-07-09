@@ -179,74 +179,58 @@ Resources:
         Fn::GetAtt: [rQueueRoutingStep, Arn]
       FunctionName: !Ref pLambdaRoutingStep
 
-  rPostStateRule:
-    Type: AWS::Events::Rule
+  rPostStateScheduleRole:
+    Type: AWS::IAM::Role
     Condition: ScheduleBased
     Properties:
-      Name:
-        Fn::Sub:
-          - sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
-      Description:
-        Fn::Sub:
-          - Trigger ${pStageName} Routing Lambda on a specified schedule
-          - pStageName:
-              Ref: pStageName
-      State: ENABLED
-      ScheduleExpression:
-        Ref: pSchedule
-      Targets:
-        - Id:
-            Fn::Sub:
-              - sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
-              - pTeamName:
-                  Ref: pTeamName
-                pPipelineName:
-                  Ref: pPipelineName
-                pStageName:
-                  Ref: pStageName
-          Arn: !Ref pLambdaRoutingStep
-          Input:
-            Fn::Sub:
-              - |
-                {
-                  "team": "${pTeamName}",
-                  "pipeline": "${pPipelineName}",
-                  "pipeline_stage": "${pStageName}",
-                  "trigger_type": "${pTriggerType}",
-                  "org": "${pOrg}",
-                  "domain": "${pDomain}",
-                  "env": "${pEnv}"
-                }
-              - pTeamName:
-                  Ref: pTeamName
-                pPipelineName:
-                  Ref: pPipelineName
-                pStageName:
-                  Ref: pStageName
-                pTriggerType:
-                  Ref: pTriggerType
-                pOrg:
-                  Ref: pOrg
-                pDomain:
-                  Ref: pDomain
-                pEnv:
-                  Ref: pEnv
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-schedule
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Ref pLambdaRoutingStep
+                  - !Sub "${pLambdaRoutingStep}:*"
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource:
+                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  rPermissionEventsInvokeRoutingLambda:
-    Type: AWS::Lambda::Permission
+  rPostStateSchedule:
+    Type: AWS::Scheduler::Schedule
     Condition: ScheduleBased
     Properties:
-      FunctionName: !Ref pLambdaRoutingStep
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn:
-        Fn::GetAtt: [rPostStateRule, Arn]
+      Description: !Sub Trigger ${pStageName} Routing Lambda on a specified schedule
+      GroupName: !Sub "{{resolve:ssm:/SDLF/EventBridge/${pTeamName}/ScheduleGroupName}}"
+      KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      Name: !Sub sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
+      ScheduleExpression: !Ref pSchedule
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      State: ENABLED
+      Target:
+        Arn: !Sub arn:${AWS::Partition}:scheduler:::aws-sdk:lambda:invoke
+        RoleArn: !GetAtt rPostStateScheduleRole.Arn
+        Input: !Sub >-
+          {
+            "FunctionName": "${pLambdaRoutingStep}",
+            "InvocationType": "Event",
+            "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
+          }
 
   ######## SSM OUTPUTS #########
   rQueueRoutingStepSsm:
