@@ -726,6 +726,18 @@ Resources:
                   - codepipeline:GetPipelineState
                   - codepipeline:GetPipeline
                   - codepipeline:UpdatePipeline
+              - Resource:
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/sdlf-*
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/sdlf-*
+                Effect: Allow
+                Action:
+                  - scheduler:GetScheduleGroup
+                  - scheduler:CreateScheduleGroup
+                  - scheduler:DeleteScheduleGroup
+                  - scheduler:ListTagsForResource
+                  - scheduler:UntagResource
+                  - scheduler:TagResource
+                  - scheduler:DeleteSchedule
               - Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:*
                 Effect: Allow
                 Action: sqs:ListQueues
@@ -941,6 +953,21 @@ Resources:
                 Condition:
                   "ForAnyValue:StringLike":
                     "kms:ResourceAliases": !Ref pDevOpsKMSKey
+        - PolicyName: sdlf-pipeline-interface
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/sdlf-*
+                Effect: Allow
+                Action:
+                  - scheduler:ListTagsForResource
+                  - scheduler:UntagResource
+                  - scheduler:TagResource
+                  - scheduler:DeleteSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:CreateSchedule
+                  - scheduler:UpdateSchedule
 
   rCodeBuildPublishLayerRole:
     Type: AWS::IAM::Role

@@ -928,6 +928,11 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource: !GetAtt rKMSKey.Arn
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/*
 
   ####### SSM #######
   rS3ArtifactBucketSsm:
@@ -981,7 +986,6 @@ Resources:
       Value: !Ref rDeadLetterQueueRouting
       Description: URL of dead letter routing queue
 
-  ######## DYNAMODB #########
   ######## DYNAMODB #########
   rDynamoOctagonObjectMetadata:
     Type: AWS::DynamoDB::Table
