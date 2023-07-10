@@ -608,19 +608,17 @@ Resources:
                 Action:
                   - logs:CreateLogGroup
                   - logs:DescribeLogGroups
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
+                  - logs:DeleteLogGroup
+                  - logs:TagLogGroup
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:DescribeLogStreams
                   - logs:CreateLogStream
                   - logs:DeleteLogStream
-                  - logs:DeleteLogGroup
-                  - logs:DescribeLogStreams
                   - logs:PutLogEvents
-                  - logs:PutRetentionPolicy
-                  - logs:TagLogGroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb:*
               - Effect: Allow
                 Action:
                   - cloudwatch:DeleteAlarms
@@ -788,19 +786,17 @@ Resources:
                 Action:
                   - logs:CreateLogGroup
                   - logs:DescribeLogGroups
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
+                  - logs:DeleteLogGroup
+                  - logs:TagLogGroup
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:DescribeLogStreams
                   - logs:CreateLogStream
                   - logs:DeleteLogStream
-                  - logs:DeleteLogGroup
-                  - logs:DescribeLogStreams
                   - logs:PutLogEvents
-                  - logs:PutRetentionPolicy
-                  - logs:TagLogGroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*:log-stream:*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*:log-stream:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb:*
               - Effect: Allow
                 Action:
                   - cloudwatch:DeleteAlarms
