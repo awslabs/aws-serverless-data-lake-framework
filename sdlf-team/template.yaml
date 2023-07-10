@@ -403,60 +403,6 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
 
-  rRoleCloudWatchEventRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Effect: Allow
-            Action: sts:AssumeRole
-            Principal:
-              Service: events.amazonaws.com
-        Version: "2012-10-17"
-      Path: /
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-trigger-lambda
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - lambda:ListFunctions
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
-        - PolicyName: !Sub sdlf-${pTeamName}-describe-state-machines
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - states:ListStateMachines
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*
-        - PolicyName: !Sub sdlf-${pTeamName}-dataset-state-machine
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - states:DescribeStateMachineForExecution
-                  - states:DescribeStateMachine
-                  - states:StartExecution
-                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
-
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -477,12 +423,6 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetBucketLocation
-                  - s3:ListBucket
-                  - s3:ListAllMyBuckets
-                Resource: "*"
               - Effect: Allow
                 Action:
                   - s3:CreateBucket
@@ -540,13 +480,6 @@ Resources:
       Type: String
       Value: !Ref rTeamIAMManagedPolicy
       Description: The permissions boundary IAM Managed policy for the team
-  rCloudWatchEventStateMachineRoleNameSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/IAM/${pTeamName}/CloudWatchEventStateMachineRole
-      Type: String
-      Value: !Ref rRoleCloudWatchEventRole
-      Description: The name of the CloudWatch Event role that triggers the State Machines
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -954,7 +887,6 @@ Resources:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-states-execution
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-              - !GetAtt rRoleCloudWatchEventRole.Arn
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR
