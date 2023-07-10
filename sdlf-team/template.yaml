@@ -404,79 +404,6 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
 
-  rStatesExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub sdlf-${pTeamName}-states-execution
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - !Sub states.${AWS::Region}.amazonaws.com
-            Action: sts:AssumeRole
-      Path: /
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-states-execution
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - states:DescribeExecution
-                  - states:StopExecution
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - events:DescribeRule
-                  - events:PutRule
-                  - events:PutTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
-              - Effect: Allow
-                Action:
-                  - elasticmapreduce:DescribeCluster
-                  - elasticmapreduce:RunJobFlow
-                  - elasticmapreduce:AddTags
-                  - elasticmapreduce:TerminateJobFlows
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - elasticmapreduce:AddJobFlowSteps
-                  - elasticmapreduce:CancelSteps
-                  - elasticmapreduce:DescribeStep
-                  - elasticmapreduce:ListInstanceFleets
-                  - elasticmapreduce:ListInstanceGroups
-                  - elasticmapreduce:ModifyInstanceFleet
-                  - elasticmapreduce:ModifyInstanceGroups
-                  - elasticmapreduce:SetTerminationProtection
-                Resource: !Sub arn:${AWS::Partition}:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR*
-              - Effect: Allow
-                Action:
-                  - iam:CreateServiceLinkedRole
-                  - iam:PutRolePolicy
-                  - iam:UpdateRoleDescription
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/elasticmapreduce.amazonaws.com/AWSServiceRoleForEMRCleanup*
-                Condition:
-                  StringLike:
-                    iam:AWSServiceName: elasticmapreduce.amazonaws.com
-              - Effect: Allow
-                Action:
-                  - xray:PutTraceSegments
-                  - xray:PutTelemetryRecords
-                  - xray:GetSamplingRules
-                  - xray:GetSamplingTargets
-                  - xray:GetSamplingStatisticSummaries
-                Resource: "*"
-
   rRoleCloudWatchEventRole:
     Type: AWS::IAM::Role
     Properties:
@@ -623,13 +550,6 @@ Resources:
       Type: String
       Value: !Ref rRoleCloudWatchEventRole
       Description: The name of the CloudWatch Event role that triggers the State Machines
-  rStatesExecutionRoleArnSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/IAM/${pTeamName}/StatesExecutionRoleArn
-      Type: String
-      Value: !GetAtt rStatesExecutionRole.Arn
-      Description: The ARN of the States Execution role
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
     Properties:
