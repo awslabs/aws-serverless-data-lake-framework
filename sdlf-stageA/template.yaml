@@ -132,7 +132,6 @@ Resources:
   rLambdaCommonPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-common-a
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -179,7 +178,6 @@ Resources:
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-a
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -221,7 +219,6 @@ Resources:
   rRoleLambdaExecutionStep1:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -256,7 +253,6 @@ Resources:
   rRoleLambdaExecutionStep2:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-process-a
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -307,7 +303,6 @@ Resources:
   rRoleLambdaExecutionStep3:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-a
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -353,7 +348,6 @@ Resources:
   rRoleLambdaExecutionErrorStep:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -473,7 +467,6 @@ Resources:
   rLambdaRoutingStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-a
       AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Routing Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
@@ -582,7 +575,6 @@ Resources:
   rLambdaErrorStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
       AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Error Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
