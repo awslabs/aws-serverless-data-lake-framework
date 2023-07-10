@@ -258,7 +258,6 @@ Resources:
           - id: F5
             reason: Condition Applied
     Properties:
-      ManagedPolicyName: !Sub sdlf-${pTeamName}-permissions-boundary
       Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
       PolicyDocument:
         Version: "2012-10-17"
@@ -407,7 +406,6 @@ Resources:
   rRoleCloudWatchEventRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-cloudwatch-event
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -462,7 +460,6 @@ Resources:
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub sdlf-${pTeamName}-datalake-crawler
       Path: /service-role/
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
