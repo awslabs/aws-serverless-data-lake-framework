@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help us improve
 title: ''
 labels: bug
-assignees: jaidisido
+assignees: cnfait
 
 ---
 
@@ -24,7 +24,7 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **SDLF release (if known):**
-E.g. 1.0.1.1
+E.g. 1.5.2
 
 **Additional context**
 Add any other context about the problem here.
