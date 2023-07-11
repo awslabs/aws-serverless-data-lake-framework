@@ -598,6 +598,11 @@ Resources:
   ######## STEP FUNCTION #########
   rStatesExecutionRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
@@ -608,6 +613,11 @@ Resources:
               Service:
                 - !Sub states.${AWS::Region}.amazonaws.com
             Action: sts:AssumeRole
+            Condition:
+              ArnLike:
+                "aws:SourceArn": !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}-sm-b
+              StringEquals:
+                "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-states-execution
           PolicyDocument:
@@ -616,56 +626,13 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipeline}-*
               - Effect: Allow
                 Action:
-                  - states:DescribeExecution
-                  - states:StopExecution
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - events:DescribeRule
-                  - events:PutRule
-                  - events:PutTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
-              - Effect: Allow
-                Action:
-                  - elasticmapreduce:DescribeCluster
-                  - elasticmapreduce:RunJobFlow
-                  - elasticmapreduce:AddTags
-                  - elasticmapreduce:TerminateJobFlows
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - elasticmapreduce:AddJobFlowSteps
-                  - elasticmapreduce:CancelSteps
-                  - elasticmapreduce:DescribeStep
-                  - elasticmapreduce:ListInstanceFleets
-                  - elasticmapreduce:ListInstanceGroups
-                  - elasticmapreduce:ModifyInstanceFleet
-                  - elasticmapreduce:ModifyInstanceGroups
-                  - elasticmapreduce:SetTerminationProtection
-                Resource: !Sub arn:${AWS::Partition}:elasticmapreduce:${AWS::Region}:${AWS::AccountId}:cluster/*
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR*
-              - Effect: Allow
-                Action:
-                  - iam:CreateServiceLinkedRole
-                  - iam:PutRolePolicy
-                  - iam:UpdateRoleDescription
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/elasticmapreduce.amazonaws.com/AWSServiceRoleForEMRCleanup*
-                Condition:
-                  StringLike:
-                    iam:AWSServiceName: elasticmapreduce.amazonaws.com
-              - Effect: Allow
-                Action:
-                  - xray:PutTraceSegments
-                  - xray:PutTelemetryRecords
-                  - xray:GetSamplingRules
-                  - xray:GetSamplingTargets
-                  - xray:GetSamplingStatisticSummaries
+                  - xray:PutTraceSegments # W11 exception
+                  - xray:PutTelemetryRecords # W11 exception
+                  - xray:GetSamplingRules # W11 exception
+                  - xray:GetSamplingTargets # W11 exception
                 Resource: "*"
 
   rStateMachine:
