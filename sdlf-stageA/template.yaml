@@ -138,12 +138,10 @@ Resources:
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
-            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-          - Effect: Allow
-            Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-${pPipeline}-*
           - Effect: Allow
             Action:
               - ssm:GetParameter
@@ -382,6 +380,11 @@ Resources:
   ######## LAMBDA FUNCTIONS #########
   rLambdaRoutingStep:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-routing/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
@@ -392,6 +395,11 @@ Resources:
 
   rLambdaRedriveStep:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-redrive/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-a
@@ -407,6 +415,11 @@ Resources:
 
   rLambdaStep1:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-preupdate-metadata/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
@@ -417,6 +430,11 @@ Resources:
 
   rLambdaStep2:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-process-object/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-process-a
@@ -427,6 +445,11 @@ Resources:
 
   rLambdaStep3:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-postupdate-metadata/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-a
@@ -437,6 +460,11 @@ Resources:
 
   rLambdaErrorStep:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-error/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
