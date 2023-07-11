@@ -550,8 +550,8 @@ Resources:
                   - logs:DeleteLogStream
                   - logs:PutLogEvents
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-datasets-dynamodb:*
               - Effect: Allow
                 Action:
                   - cloudwatch:DeleteAlarms
