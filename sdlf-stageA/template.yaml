@@ -7,12 +7,8 @@ Parameters:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
     Default: none
-  pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
   pDatasetBucket:
-    Description: The central bucket for the solution
+    Description: The raw or central bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
   pStageBucket:
@@ -274,7 +270,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
