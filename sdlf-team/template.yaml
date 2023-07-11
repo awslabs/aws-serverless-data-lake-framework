@@ -932,6 +932,8 @@ Resources:
               - iam:UpdateRole
               - iam:UpdateRoleDescription
               - iam:TagRole
+              - iam:UpdateAssumeRolePolicy
+              - iam:PutRolePermissionsBoundary
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
