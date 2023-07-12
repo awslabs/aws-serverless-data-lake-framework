@@ -108,33 +108,6 @@ Resources:
               StringEquals:
                 kms:CallerAccount: !Ref AWS::AccountId
                 kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
-          - Sid: Allow Routing Lambda and Shared DevOps access
-            Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
-            Action:
-              - kms:Decrypt
-              - kms:Describe*
-              - kms:DescribeKey
-              - kms:Encrypt
-              - kms:GenerateDataKey*
-              - kms:List*
-              - kms:ReEncrypt*
-            Resource: "*"
-          - Sid: Allow DevOps account grant
-            Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-routing
-            Action:
-              - kms:CreateGrant
-              - kms:ListGrants
-              - kms:RevokeGrant
-            Resource: "*"
-            Condition:
-              Bool:
-                kms:GrantIsForAWSResource: true
 
   rKMSInfraKeyAlias:
     Type: AWS::KMS::Alias
@@ -728,8 +701,8 @@ Resources:
                   - logs:DeleteLogStream
                   - logs:PutLogEvents
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-pipelines-dynamodb:*
               - Effect: Allow
                 Action:
                   - cloudwatch:DeleteAlarms
@@ -783,7 +756,7 @@ Resources:
 
 
           def create_dynamodb_pipeline_entry(
-              table_name, team_name, pipeline_name, stage_name, entrypoint
+              table_name, team_name, pipeline_name, stage_name
           ):
               response = dynamodb.update_item(
                   TableName=table_name,
@@ -791,7 +764,6 @@ Resources:
                   ExpressionAttributeNames={
                       "#T": "type",
                       "#S": "status",
-                      "#EP": "entrypoint",
                       "#V": "version",
                   },
                   ExpressionAttributeValues={
@@ -799,10 +771,9 @@ Resources:
                           "S": "TRANSFORMATION",
                       },
                       ":s": {"S": "ACTIVE"},
-                      ":ep": {"S": entrypoint},
                       ":v": {"N": "1"},
                   },
-                  UpdateExpression="SET #T = :t, #S = :s, #EP = :ep, #V = :v",
+                  UpdateExpression="SET #T = :t, #S = :s, #V = :v",
                   ReturnValues="UPDATED_NEW",
               )
               return response
@@ -824,12 +795,8 @@ Resources:
                     for stage in stages_page["Parameters"]:
                         pipeline_name = stage["Name"].split("/")[-2]
                         stage_name = stage["Name"].split("/")[-1]
-                        if stage["Value"] == "entrypoint":
-                            entrypoint = "true"  # not a boolean in dynamodb
-                        else:
-                            entrypoint = "false"
                         create_dynamodb_pipeline_entry(
-                            table, team_name, pipeline_name, stage_name, entrypoint
+                            table, team_name, pipeline_name, stage_name
                         )
                         logger.info(
                             f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
@@ -887,7 +854,7 @@ Resources:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-states-execution
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-domain-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/EMR
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-foundations-rKibanaStack-*-CWDestinationRole-*
@@ -902,7 +869,7 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-domain-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
             Condition:
               StringEquals:
@@ -914,7 +881,7 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-domain-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
             Condition:
               ArnEquals:
@@ -937,7 +904,7 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-domain-*
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/glue/sdlf-${pTeamName}-*
           - Effect: Allow
             Action:

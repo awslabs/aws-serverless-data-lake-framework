@@ -386,6 +386,13 @@ Resources:
       Description: Routes S3 PutObject Logs to the relevant StageA State Machine
       MemorySize: 256
       Timeout: 60
+      Environment:
+        Variables:
+          PIPELINE: !Ref pPipeline
+          PIPELINE_STAGE: !Ref pStageName
+          ORG: !Ref pOrg
+          DOMAIN: !Ref pDomain
+          ENV: !Ref pEnv
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
 
   rLambdaRedriveStep:
