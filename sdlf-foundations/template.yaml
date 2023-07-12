@@ -412,11 +412,8 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Queue: !GetAtt rQueueCatalog.Arn
-          - Event: s3:ObjectRemoved:*
-            Queue: !GetAtt rQueueCatalog.Arn
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   rCentralBucketPolicy:
     Condition: CreateSingleBucket
@@ -469,11 +466,8 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Queue: !GetAtt rQueueCatalog.Arn
-          - Event: s3:ObjectRemoved:*
-            Queue: !GetAtt rQueueCatalog.Arn
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   rRawBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -526,11 +520,8 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Queue: !GetAtt rQueueCatalog.Arn
-          - Event: s3:ObjectRemoved:*
-            Queue: !GetAtt rQueueCatalog.Arn
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   rStageBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -583,11 +574,8 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Queue: !GetAtt rQueueCatalog.Arn
-          - Event: s3:ObjectRemoved:*
-            Queue: !GetAtt rQueueCatalog.Arn
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   rAnalyticsBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -678,29 +666,6 @@ Resources:
       VisibilityTimeout: 60
       KmsMasterKeyId: !GetAtt rKMSKey.Arn
 
-  rQueueRouting:
-    Type: AWS::SQS::Queue
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      QueueName: sdlf-routing-queue
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt rDeadLetterQueueRouting.Arn
-        maxReceiveCount: 1
-      VisibilityTimeout: 60
-      MessageRetentionPeriod: 604800
-      KmsMasterKeyId: !GetAtt rKMSKey.Arn
-
-  rDeadLetterQueueRouting:
-    Type: AWS::SQS::Queue
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      QueueName: sdlf-routing-dlq
-      MessageRetentionPeriod: 1209600
-      VisibilityTimeout: 60
-      KmsMasterKeyId: !GetAtt rKMSKey.Arn
-
   rQueueLambdaCatalogEventSourceMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -708,14 +673,6 @@ Resources:
       Enabled: True
       EventSourceArn: !GetAtt rQueueCatalog.Arn
       FunctionName: !GetAtt rLambdaCatalog.Arn
-
-  rQueueLambdaRoutingEventSourceMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      BatchSize: 10
-      Enabled: True
-      EventSourceArn: !GetAtt rQueueRouting.Arn
-      FunctionName: !GetAtt rLambdaRouting.Arn
 
   rLambdaCatalog:
     Type: AWS::Serverless::Function
@@ -726,37 +683,10 @@ Resources:
         Variables:
           ENV: !Ref pEnvironment
           NUM_BUCKETS: !Ref pNumBuckets
-          ROUTING_QUEUE: !GetAtt rQueueRouting.QueueName
       Description: Catalogs S3 Put and Delete to ObjectMetaDataCatalog
       MemorySize: 256
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecution.Arn
-
-  rLambdaRouting:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ./lambda/routing/src
-      FunctionName: sdlf-routing
-      Environment:
-        Variables:
-          ACCOUNT_ID: !Ref "AWS::AccountId"
-          ORG: !Ref pOrganizationName
-          DOMAIN: !Ref pDomain
-          ENV: !Ref pEnvironment
-          NUM_BUCKETS: !Ref pNumBuckets
-      Description: Routes S3 PutObject Logs to the relevant StageA Queue
-      MemorySize: 256
-      Timeout: 60
-      Role: !GetAtt rRoleLambdaExecution.Arn
-
-  rLambdaRoutingLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaRouting}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !GetAtt rKMSKey.Arn
 
   rLambdaCatalogRedrive:
     Type: AWS::Serverless::Function
@@ -778,29 +708,6 @@ Resources:
     UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !GetAtt rKMSKey.Arn
-
-  rLambdaRoutingRedrive:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ./lambda/routing-redrive/src
-      FunctionName: sdlf-routing-redrive
-      Environment:
-        Variables:
-          QUEUE: !GetAtt rQueueRouting.QueueName
-          DLQ: !GetAtt rDeadLetterQueueRouting.QueueName
-      Description: Redrives Failed S3 PutObject Logs to the routing queue
-      MemorySize: 256
-      Timeout: 60
-      Role: !GetAtt rRoleLambdaExecution.Arn
-
-  rLambdaRoutingRedriveLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaRoutingRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !GetAtt rKMSKey.Arn
 
@@ -845,25 +752,9 @@ Resources:
       Queues:
         - !Ref rQueueCatalog
 
-  rQueueRoutingPolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !GetAtt rRoleLambdaExecution.Arn
-            Action:
-              - SQS:SendMessage
-            Resource: !GetAtt rQueueRouting.Arn
-      Queues:
-        - !Ref rQueueRouting
-
   rRoleLambdaExecution:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: sdlf-routing
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -871,21 +762,17 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /
       Policies:
-        - PolicyName: sdlf-routing
+        - PolicyName: sdlf-catalog
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-catalog*
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
@@ -900,11 +787,6 @@ Resources:
                   - sqs:SendMessageBatch
                 Resource:
                   - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
-              - Effect: Allow
-                Action:
-                  - events:PutEvents
-                Resource:
-                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
               - Effect: Allow
                 Action:
                   - dynamodb:BatchGetItem
@@ -933,6 +815,38 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/*
+
+  rS3ObjectTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+          - Object Deleted
+        detail:
+          bucket:
+            !If [
+              CreateMultipleBuckets,
+              [
+                !Ref rRawBucket,
+                !Ref rStageBucket,
+                !Ref rAnalyticsBucket,
+              ],
+              [
+                !Ref rCentralBucket,
+              ]
+            ]
+      Targets:
+        - Arn: !GetAtt rQueueCatalog.Arn
+          RetryPolicy:
+            MaximumRetryAttempts: 3
+            MaximumEventAgeInSeconds: 600
+          DeadLetterConfig:
+            Arn: !GetAtt rDeadLetterQueueCatalog.Arn
+          Id: sdlf-catalog
 
   ####### SSM #######
   rS3ArtifactBucketSsm:
@@ -971,20 +885,6 @@ Resources:
       Type: String
       Value: !Ref rAthenaBucket
       Description: Name of the Athena results S3 bucket
-  rQueueRoutingSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/SQS/QueueRouting
-      Type: String
-      Value: !Ref rQueueRouting
-      Description: URL of routing queue
-  rDeadLetterQueueRoutingSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/SQS/DeadLetterQueueRouting
-      Type: String
-      Value: !Ref rDeadLetterQueueRouting
-      Description: URL of dead letter routing queue
 
   ######## DYNAMODB #########
   rDynamoOctagonObjectMetadata:
@@ -1215,17 +1115,6 @@ Resources:
       AttributeDefinitions:
         - AttributeName: name
           AttributeType: S
-        - AttributeName: entrypoint
-          AttributeType: S
-      GlobalSecondaryIndexes:
-        - IndexName: entrypoint-name-index
-          KeySchema:
-          - AttributeName: entrypoint
-            KeyType: HASH
-          - AttributeName: name
-            KeyType: RANGE
-          Projection:
-            ProjectionType: KEYS_ONLY
       BillingMode: PAY_PER_REQUEST
       TableName: !Sub octagon-Pipelines-${pEnvironment}
       SSESpecification:
