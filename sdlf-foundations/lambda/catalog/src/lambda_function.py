@@ -71,10 +71,6 @@ def lambda_handler(event, context):
                     item["stage"] = item["bucket"].split("-")[-1]
                 put_item(catalog_table, item, "id")
 
-                if item["stage"] == "raw":
-                    logger.info("Sending event to routing queue to process")
-                    queue = sqs.get_queue_by_name(QueueName=os.environ["ROUTING_QUEUE"])
-                    queue.send_message(MessageBody=json.dumps(message))
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e
