@@ -72,7 +72,6 @@ Resources:
   rDataLakeAdminRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: sdlf-lakeformation-admin
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -92,23 +91,17 @@ Resources:
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              - Sid: CreateLogGroup
-                Effect: Allow
+              - Effect: Allow
                 Action:
-                  - logs:AssociateKmsKey
                   - logs:CreateLogGroup
-                Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
-              - Sid: CreateLogStream
-                Effect: Allow
-                Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
+                  - logs:AssociateKmsKey
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-glue-replication
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/glue/*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
               - Sid: DynamoDBAccess
                 Effect: Allow
                 Action:
@@ -302,8 +295,6 @@ Resources:
   ####### Access Logging Bucket ######
   rS3AccessLogsBucket:
     Type: AWS::S3::Bucket
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -367,6 +358,11 @@ Resources:
   ####### S3 Buckets #########
   rLakeFormationDataAccessRolePolicy:
     Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: Condition Applied to restrict access, and the KMS keys do not exist at this stage
     Properties:
       PolicyName: sdlf-lakeformation
       PolicyDocument:
@@ -1002,6 +998,11 @@ Resources:
   ######## DYNAMODB #########
   rDynamoOctagonObjectMetadata:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       AttributeDefinitions:
         - AttributeName: id
@@ -1024,6 +1025,11 @@ Resources:
 
   rDynamoOctagonDatasets:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: name
@@ -1044,6 +1050,11 @@ Resources:
 
   rDynamoOctagonArtifacts:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: id
@@ -1116,6 +1127,11 @@ Resources:
 
   rDynamoOctagonMetrics:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: root
@@ -1172,6 +1188,11 @@ Resources:
 
   rDynamoOctagonConfiguration:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: key
@@ -1201,6 +1222,11 @@ Resources:
 
   rDynamoOctagonTeams:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: team
@@ -1221,6 +1247,11 @@ Resources:
 
   rDynamoOctagonPipelines:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: name
@@ -1241,6 +1272,11 @@ Resources:
 
   rDynamoOctagonEvents:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: id
@@ -1297,6 +1333,11 @@ Resources:
 
   rDynamoOctagonExecutionHistory:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: id
@@ -1389,6 +1430,11 @@ Resources:
 
   rDynamoOctagonSchemas:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: name
@@ -1412,6 +1458,11 @@ Resources:
 
   rDynamoOctagonManifests:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: DynamoDB tables require specific names to be compatible with Octagon
     Properties:
       KeySchema:
         - AttributeName: dataset_name
