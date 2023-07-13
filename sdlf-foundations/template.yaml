@@ -299,6 +299,71 @@ Resources:
       Description: Lake Formation Data Access Role
 
   ######## S3 #########
+  ####### Access Logging Bucket ######
+  rS3AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: Access logs bucket should not have logging enabled https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html
+    Properties:
+      BucketName:
+        !If [
+          UseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-s3-access-logs",
+          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3-access-logs",
+        ]
+      LifecycleConfiguration:
+        Rules:
+          - Id: InfrequentAccess
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+          - Id: DeepArchive
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 60
+                StorageClass: DEEP_ARCHIVE
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rS3AccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rS3AccessLogsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}
+            Condition:
+              ArnLike:
+                "aws:SourceArn":
+                  !If [
+                    UseCustomBucketPrefix,
+                    !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*",
+                    !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*",
+                  ]
+              StringEquals:
+                "aws:SourceAccount": !Sub ${AWS::AccountId}
+
   ####### S3 Buckets #########
   rLakeFormationDataAccessRolePolicy:
     Type: AWS::IAM::Policy
@@ -360,6 +425,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-artifactory",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifactory",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-artifactory",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifactory",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -400,6 +473,14 @@ Resources:
           !Ref pCustomBucketPrefix,
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Ref pCustomBucketPrefix,
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -454,6 +535,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-raw",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-raw",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -508,6 +597,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-stage",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-stage",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -562,6 +659,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-analytics",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-analytics",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -614,6 +719,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-athena",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-athena",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
