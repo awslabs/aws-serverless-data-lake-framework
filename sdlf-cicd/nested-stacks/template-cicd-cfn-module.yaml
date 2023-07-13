@@ -168,7 +168,7 @@ Resources:
               commands:
                 - |-
                     pip3 uninstall -y aws-sam-cli
-                    curl -L -O https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip \
+                    aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip aws-sam-cli-linux-x86_64.zip \
                     && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
                     ./sam-installation/install \
                     && sam --version
