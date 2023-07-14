@@ -54,7 +54,7 @@ Resources:
   rGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
-      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn:1}}"
+      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
       CrawlerSecurityConfiguration: !Sub sdlf-${pTeamName}-glue-security-config
       DatabaseName: !Ref rGlueDataCatalog
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
@@ -66,7 +66,7 @@ Resources:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
-        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn:1}}"
+        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
       Permissions:
         - CREATE_TABLE
         - ALTER

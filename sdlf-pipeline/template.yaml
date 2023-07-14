@@ -178,6 +178,7 @@ Resources:
     Type: AWS::IAM::Role
     Condition: ScheduleBased
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"

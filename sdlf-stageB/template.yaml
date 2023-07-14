@@ -125,6 +125,7 @@ Resources:
   rLambdaCommonPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
+      Path: /sdlf-team/
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -169,6 +170,7 @@ Resources:
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -179,7 +181,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /state-machine/
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-b
           PolicyDocument:
@@ -209,6 +210,7 @@ Resources:
   rRoleLambdaExecutionStep1:
     Type: AWS::IAM::Role
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -219,7 +221,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /state-machine/
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-b
           PolicyDocument:
@@ -251,6 +252,7 @@ Resources:
   rRoleLambdaExecutionStep2:
     Type: AWS::IAM::Role
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -261,7 +263,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /state-machine/
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-crawl-b
           PolicyDocument:
@@ -277,6 +278,7 @@ Resources:
   rRoleLambdaExecutionStep3:
     Type: AWS::IAM::Role
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -287,7 +289,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /state-machine/
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-b
           PolicyDocument:
@@ -312,6 +313,7 @@ Resources:
   rRoleLambdaExecutionErrorStep:
     Type: AWS::IAM::Role
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -322,7 +324,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Path: /state-machine/
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-error-b
           PolicyDocument:
@@ -633,6 +634,7 @@ Resources:
           - id: W11
             reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
+      Path: /sdlf-team/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
