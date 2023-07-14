@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: SDLF CICD roles in child account
 
 Parameters:
@@ -20,7 +20,7 @@ Resources:
     Properties:
       RoleName: sdlf-cicd-domain-crossaccount-cfn-modules
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -31,7 +31,7 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-codepipeline
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -147,7 +147,7 @@ Resources:
     Properties:
       RoleName: sdlf-cicd-cfn-modules
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -430,7 +430,7 @@ Resources:
     Properties:
       RoleName: sdlf-cicd-domain-crossaccount-pipeline
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -441,7 +441,7 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-codepipeline
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -495,7 +495,7 @@ Resources:
       RoleName: sdlf-cicd-domain
       Description: Role assumed by CodePipeline to deploy the Domain CloudFormation stack
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -506,7 +506,7 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -529,7 +529,7 @@ Resources:
                     "kms:ResourceAliases": !Ref pDevOpsKMSKey
         - PolicyName: sdlf-cicd
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Resource:
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
@@ -622,7 +622,7 @@ Resources:
                   - iam:UntagRole
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-*
+              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf/sdlf-domain-*
                 Effect: Allow
                 Action:
                   - iam:CreatePolicy
@@ -855,7 +855,7 @@ Resources:
     Properties:
       RoleName: sdlf-cicd-team-crossaccount-pipeline
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -921,7 +921,7 @@ Resources:
       RoleName: sdlf-cicd-team
       Description: Role assumed by CodePipeline to deploy the Team CloudFormation stack
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -932,7 +932,7 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -955,7 +955,7 @@ Resources:
                     "kms:ResourceAliases": !Ref pDevOpsKMSKey
         - PolicyName: sdlf-pipeline-interface
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Resource:
                   - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/sdlf-*
@@ -968,13 +968,271 @@ Resources:
                   - scheduler:GetSchedule
                   - scheduler:CreateSchedule
                   - scheduler:UpdateSchedule
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-team/sdlf-*
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService": scheduler.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:DescribeRule
+                  - events:DisableRule
+                  - events:EnableRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
+              - Effect: Allow
+                Action:
+                  - sqs:AddPermission
+                  - sqs:CreateQueue
+                  - sqs:ChangeMessageVisibility
+                  - sqs:ChangeMessageVisibilityBatch
+                  - sqs:DeleteQueue
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListQueueTags
+                  - sqs:RemovePermission
+                  - sqs:SetQueueAttributes
+                  - sqs:TagQueue
+                  - sqs:UntagQueue
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
+              - Effect: Allow
+                Action:
+                  - lambda:CreateEventSourceMapping
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:UpdateEventSourceMapping
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ssm:AddTagsToResource
+                  - ssm:DescribeParameters
+                  - ssm:GetOpsSummary
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
+                Action:
+                  - ssm:DeleteParameter
+                  - ssm:DeleteParameters
+                  - ssm:PutParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*/*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases":
+                      - alias/sdlf-*-kms-infra-key
+
+  rTeamCloudFormationPolicy: # TODO for pipelines and datasets
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:DescribeLogGroups
+              - logs:CreateLogStream
+              - logs:DeleteLogStream
+              - logs:DeleteLogGroup
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+              - logs:PutRetentionPolicy
+              - logs:TagLogGroup
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+          - Effect: Allow
+            Action:
+              - cloudwatch:DeleteAlarms
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:PutMetricAlarm
+              - cloudwatch:PutMetricData
+              - cloudwatch:SetAlarmState
+            Resource:
+          - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:sdlf-*
+          - Effect: Allow
+            Action:
+              - lakeformation:GetDataAccess
+              - lakeformation:GrantPermissions
+              - lakeformation:RevokePermissions
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - glue:CreateCrawler
+              - glue:DeleteCrawler
+              - glue:GetCrawler
+              - glue:GetCrawlers
+              - glue:UpdateCrawler
+              - glue:StopCrawler
+              - glue:TagResource
+              - glue:UntagResource
+            Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-*
+          - Effect: Allow
+            Action:
+              - glue:CreateDatabase
+              - glue:DeleteDatabase
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:UpdateDatabase
+              - glue:TagResource
+              - glue:UntagResource
+            Resource:
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/*
+          - Effect: Allow
+            Action:
+              - lambda:GetLayerVersion
+              - lambda:ListFunctions
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - lambda:AddPermission
+              - lambda:CreateAlias
+              - lambda:CreateFunction
+              - lambda:DeleteFunction
+              - lambda:DeleteFunctionConcurrency
+              - lambda:GetFunction
+              - lambda:GetFunctionConfiguration
+              - lambda:InvokeFunction
+              - lambda:ListTags
+              - lambda:PublishVersion
+              - lambda:PutFunctionConcurrency
+              - lambda:RemovePermission
+              - lambda:TagResource
+              - lambda:UntagResource
+              - lambda:UpdateAlias
+              - lambda:UpdateFunctionCode
+              - lambda:UpdateFunctionConfiguration
+              - lambda:UpdateFunctionConfiguration
+              - lambda:AddPermission
+              - lambda:RemovePermission
+            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-*
+          - Effect: Allow
+            Action:
+              - states:CreateActivity
+              - states:CreateStateMachine
+              - states:ListActivities
+              - states:ListStateMachines
+              - states:TagResource
+              - states:UntagResource
+            Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - states:DeleteStateMachine
+              - states:DescribeStateMachine
+              - states:DescribeStateMachineForExecution
+              - states:UpdateStateMachine
+            Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-*
+          - Effect: Allow
+            Action:
+              - states:DescribeActivity
+              - states:DeleteActivity
+              - states:GetActivityTask
+            Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-*
+      Roles:
+        - !Ref rTeamCloudFormationRole
+
+  rTeamCloudFormationIamPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-team/sdlf-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-foundations-rKibanaStack-*-CWDestinationRole-*
+            Condition:
+              StringEquals:
+                "iam:PassedToService":
+                  - lambda.amazonaws.com
+                  - states.amazonaws.com
+                  - glue.amazonaws.com
+          - Effect: Allow
+            Action:
+              - iam:ListRoles
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
+          - Effect: Allow
+            Action:
+              - iam:CreateRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-team/sdlf-domain-*
+            Condition:
+              StringLike:
+                iam:PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf/sdlf-domain-*
+          - Effect: Allow
+            Action:
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-team/sdlf-domain-*
+            Condition:
+              ArnEquals:
+                iam:PolicyARN:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-team/*
+          - Effect: Allow
+            Action:
+              - iam:DeleteRole
+              - iam:DeleteRolePolicy
+              - iam:GetRole
+              - iam:GetRolePolicy
+              - iam:ListRolePolicies
+              - iam:PutRolePolicy
+              - iam:UntagRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+              - iam:TagRole
+              - iam:UpdateAssumeRolePolicy
+              - iam:PutRolePermissionsBoundary
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-team/sdlf-domain-*
+          - Effect: Allow
+            Action:
+              - iam:ListPolicies
+              - iam:ListPolicyVersions
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/*
+          - Effect: Allow
+            Action:
+              - iam:CreatePolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicy
+              - iam:DeletePolicyVersion
+              - iam:GetPolicy
+              - iam:GetPolicyVersion
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-team/sdlf-domain-*
+      Roles:
+        - !Ref rTeamCloudFormationRole
 
   rCodeBuildPublishLayerRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: sdlf-cicd-domain-crossaccount-lambda-layers
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
