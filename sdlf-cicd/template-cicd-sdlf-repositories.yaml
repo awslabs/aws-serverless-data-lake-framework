@@ -696,7 +696,6 @@ Resources:
               Service:
                 - events.amazonaws.com
             Action: sts:AssumeRole
-      Path: /
       Policies:
         - PolicyName: sdlf-cicd-events-trigger
           PolicyDocument:
@@ -754,12 +753,14 @@ Resources:
                 Effect: Allow
                 Action:
                   - logs:CreateLogGroup
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-              - Effect: Allow
-                Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-cicd-*
+              - Effect: Allow
+                Action:
+                  - codepipeline:PutJobSuccessResult
+                  - codepipeline:PutJobFailureResult
+                Resource: "*"
               - Action:
                   - codecommit:BatchGetCommits
                   - codecommit:BatchGetCommits
@@ -799,7 +800,9 @@ Resources:
                 Action:
                   - s3:PutObject
                   - s3:GetObject
-                Resource: !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/template-cicd-sdlf-repositories/*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/template-cicd-sdlf-repositories/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/sdlf-cicd-sdlf-repos/*
               - Effect: Allow
                 Action:
                   - kms:Decrypt
@@ -825,6 +828,16 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource: !GetAtt rMainRepositoryCloudFormationRole.Arn
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-crossaccount-pipeline
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:RevokeGrant
+                  - kms:ListGrants
+                Resource: !Ref pKMSKey
 
   rMainRepositoryCloudFormationRole:
     Type: AWS::IAM::Role
@@ -953,7 +966,9 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
               - Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-*
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf/sdlf-cicd-team-*
                 Condition:
                   StringEqualsIfExists:
                     iam:PassedToService:
@@ -963,24 +978,221 @@ Resources:
                       - lambda.amazonaws.com
                       - events.amazonaws.com
 
-  rMainRepositoryLambda:
+  rMainRepositoryDomainLambda:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Triggers CodePipeline pipelines for each domain-env defined in the main datalake repository
-      Handler: index.lambda_handler
+      Description: Creates a CodePipeline pipeline for each domain-env defined in the main datalake repository
+      Handler: lambda_function.lambda_handler
       MemorySize: 256
       Role: !GetAtt rMainRepositoryLambdaRole.Arn
       Runtime: python3.9
       Timeout: 450
       Environment:
         Variables:
-          ARTIFACTS_BUCKET: !Ref pArtifactsBucket
-          MAIN_REPOSITORY: !Ref pMainRepository
-          CICD_REPOSITORY: !Ref pCicdRepository
           CLOUDFORMATION_ROLE: !GetAtt rMainRepositoryCloudFormationRole.Arn
       Code: ./lambda/domain-cicd/src
 
-  rMainRepositoryLambdaTriggerRule:
+  rMainRepositoryCrossAccountTeamLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Creates a cross-account role for each team in each domain-env defined in the main datalake repository
+      Handler: lambda_function.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt rMainRepositoryLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 450
+      Environment:
+        Variables:
+          AWS_PARTITION: !Ref AWS::Partition
+          DEVOPS_KMS_KEY: !Ref pKMSKey
+      Code: ./lambda/crossaccountteam-cicd/src
+
+  rMainRepositoryTeamLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Creates a CodePipeline pipeline for each team in each domain-env defined in the main datalake repository
+      Handler: lambda_function.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt rMainRepositoryLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 450
+      Environment:
+        Variables:
+          AWS_PARTITION: !Ref AWS::Partition
+          DEVOPS_KMS_KEY: !Ref pKMSKey
+          CLOUDFORMATION_ROLE: !GetAtt rMainRepositoryCloudFormationRole.Arn
+      Code: ./lambda/team-cicd/src
+
+  rMainRepositoryCodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !Ref pKMSKey
+        - PolicyName: lambda-stages
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt rMainRepositoryDomainLambda.Arn
+                  - !GetAtt rMainRepositoryCrossAccountTeamLambda.Arn
+                  - !GetAtt rMainRepositoryTeamLambda.Arn
+
+  rMainRepositoryPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rMainRepositoryCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Sources
+          Actions:
+            -
+              Name: SourceMain
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceMainArtifact
+              Configuration:
+                RepositoryName: !Ref pMainRepository
+                BranchName: dev
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: dev
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: DomainPipeline
+          Actions:
+            - Name: CreateDomainCodePipeline
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref rMainRepositoryDomainLambda
+                UserParameters: dev
+              RunOrder: 1
+        -
+          Name: CrossAccountTeamPipelineRole
+          Actions:
+            - Name: CreateTeamCrossAccountRole
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref rMainRepositoryCrossAccountTeamLambda
+                UserParameters: dev
+              RunOrder: 1
+        -
+          Name: TeamPipeline
+          Actions:
+            - Name: CreateTeamCodePipeline
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref rMainRepositoryTeamLambda
+                UserParameters: dev
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pKMSKey
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rMainRepositoryCodeCommitTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rMainRepositoryPipeline}
+
+  rMainRepositoryCodePipelineTriggerRule:
     Type: AWS::Events::Rule
     Properties:
       EventPattern:
@@ -998,19 +1210,10 @@ Resources:
             - branch
           referenceName:
             - dev
-            - test
-            - master
       Targets:
-        - Arn: !GetAtt rMainRepositoryLambda.Arn
-          Id: sdlf-cicd-main-repository-lambda
-
-  rPermissionForEventsToInvokeLambda:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref rMainRepositoryLambda
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt rMainRepositoryLambdaTriggerRule.Arn
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rMainRepositoryPipeline}
+          RoleArn: !GetAtt rMainRepositoryCodeCommitTriggerRole.Arn
+          Id: sdlf-main
 
   ######## CODEBUILD JOBS #########
   rCloudFormationPackageCodeBuildServiceRole:
@@ -1077,7 +1280,7 @@ Resources:
           - Name: TEMPLATE
             Type: PLAINTEXT
             Value: template.yaml
-      ServiceRole: !GetAtt rLambdaLayersCodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt rCloudFormationPackageCodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE
         BuildSpec: |
@@ -1311,3 +1514,10 @@ Resources:
       Type: String
       Value: !Ref rCloudFormationPackageCodeBuildProject
       Description: CodeBuild job that packages a CloudFormation template
+  rMainRepositoryPipelineSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodePipeline/MainRepositoryPipeline
+      Type: String
+      Value: !Ref rMainRepositoryPipeline
+      Description: CodePipeline that triggers on sdlf-main changes

@@ -93,6 +93,10 @@ Parameters:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudFormationPackage
+  pMainRepositoryPipeline:
+    Description: CodePipeline that triggers on sdlf-main changes
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodePipeline/MainRepositoryPipeline
 
 Mappings:
   pCodeCommitBranch:
@@ -1033,7 +1037,7 @@ Resources:
               Configuration:
                 ProjectName: !Ref pBuildCloudFormationPackage
                 EnvironmentVariables: !Sub >-
-                  [{"name":"TEMPLATE", "value":"foundations-${pDomain}-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
+                  [{"name":"TEMPLATE", "value":"datadomain-${pDomain}-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
               RunOrder: 1
         - Name: DeployFoundationsAndTeamsInfrastructure
           Actions:
@@ -1093,19 +1097,14 @@ Resources:
       State: ENABLED
       EventPattern:
         source:
-          - custom.aws.codecommit
+          - aws.codepipeline
         detail-type:
-          - CodeCommit Repository State Change
+          - CodePipeline Pipeline Execution State Change
         resources:
-          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+          - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${pMainRepositoryPipeline}
         detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+          state:
+            - SUCCEEDED
       Targets:
         - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rDomainCodePipeline}
           RoleArn: !GetAtt rMainCodeCommitTriggerRole.Arn

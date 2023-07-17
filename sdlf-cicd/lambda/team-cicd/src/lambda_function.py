@@ -13,13 +13,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
-ssm = boto3.client("ssm")
+codecommit = boto3.client("codecommit")
 codepipeline = boto3.client("codepipeline")
 cloudformation = boto3.client("cloudformation")
+kms = boto3.client("kms")
 
 
-def delete_domain_cicd_stack(domain, environment, cloudformation_role):
-    stack_name = f"sdlf-cicd-domain-{domain}-{environment}"
+def delete_domain_team_role_stack(team, cloudformation_role):
+    stack_name = f"sdlf-cicd-team-role-{team}"
     cloudformation.delete_stack(
         StackName=stack_name,
         RoleARN=cloudformation_role,
@@ -27,12 +28,19 @@ def delete_domain_cicd_stack(domain, environment, cloudformation_role):
     return (stack_name, "stack_delete_complete")
 
 
-def create_domain_cicd_stack(
-    domain, environment, template_body_url, child_account, cloudformation_role
-):
+def delete_team_cicd_stack(domain, environment, team_name, cloudformation_role):
+    stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
+    cloudformation.delete_stack(
+        StackName=stack_name,
+        RoleARN=cloudformation_role,
+    )
+    return (stack_name, "stack_delete_complete")
+
+
+def create_team_cicd_stack(domain, environment, team_name, crossaccount_team_role, template_body_url, child_account, cloudformation_role):
     response = {}
     cloudformation_waiter_type = None
-    stack_name = f"sdlf-cicd-domain-{domain}-{environment}"
+    stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
     try:
         response = cloudformation.create_stack(
             StackName=stack_name,
@@ -51,6 +59,16 @@ def create_domain_cicd_stack(
                 {
                     "ParameterKey": "pEnvironment",
                     "ParameterValue": environment,
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pTeamName",
+                    "ParameterValue": team_name,
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pCrossAccountTeamRole",
+                    "ParameterValue": crossaccount_team_role,
                     "UsePreviousValue": False,
                 },
             ],
@@ -85,6 +103,16 @@ def create_domain_cicd_stack(
                         "ParameterValue": environment,
                         "UsePreviousValue": False,
                     },
+                    {
+                        "ParameterKey": "pTeamName",
+                        "ParameterValue": team_name,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pCrossAccountTeamRole",
+                        "ParameterValue": crossaccount_team_role,
+                        "UsePreviousValue": False,
+                    },
                 ],
                 Capabilities=[
                     "CAPABILITY_NAMED_IAM",
@@ -106,6 +134,20 @@ def create_domain_cicd_stack(
     return (stack_name, cloudformation_waiter_type)
 
 
+def create_codecommit_approval_rule(team_name, repository):
+    # unfortunately codecommit approval rule cannot be defined using cloudformation
+    try:
+        codecommit.create_approval_rule_template(
+            approvalRuleTemplateName=f"{team_name}-approval-to-production",
+            approvalRuleTemplateContent='{"Version": "2018-11-08","DestinationReferences": ["refs/heads/master"],"Statements": [{"Type": "Approvers","NumberOfApprovalsNeeded": 1}]}',
+        )
+        codecommit.associate_approval_rule_template_with_repository(
+            approvalRuleTemplateName=f"{team_name}-approval-to-production", repositoryName=repository
+        )
+    except codecommit.exceptions.ApprovalRuleTemplateNameAlreadyExistsException:
+        pass
+
+
 def lambda_handler(event, context):
     try:
         branch = event["CodePipeline.job"]["data"]["actionConfiguration"][
@@ -114,6 +156,8 @@ def lambda_handler(event, context):
         codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "master": "prod"}
         environment = codecommit_branch_env_mapping[branch]
         logger.info("ENVIRONMENT: %s", environment)
+        partition = os.getenv("AWS_PARTITION")
+        devops_kms_key = os.getenv("DEVOPS_KMS_KEY")
         cloudformation_role = os.getenv("CLOUDFORMATION_ROLE")
 
         for artifact in event["CodePipeline.job"]["data"]["inputArtifacts"]:
@@ -135,21 +179,26 @@ def lambda_handler(event, context):
             zip_ref.extractall(temp_directory)
         logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
 
-        template_cicd_domain = os.path.join(temp_directory, "template-cicd-domain.yaml")
-        template_cicd_domain_key = (
-            "template-cicd-sdlf-repositories/template-cicd-domain.yaml"
+        template_cicd_team = os.path.join(
+            temp_directory, "template-cicd-team.yaml"
+        )
+        template_cicd_team_key = (
+            "template-cicd-sdlf-repositories/template-cicd-team.yaml"
         )
         s3.upload_file(
-            Filename=template_cicd_domain,
+            Filename=template_cicd_team,
             Bucket=artifacts_bucket,
-            Key=template_cicd_domain_key,
+            Key=template_cicd_team_key,
         )
-        template_cicd_domain_url = s3.generate_presigned_url(
+        template_cicd_team_url = s3.generate_presigned_url(
             "get_object",
-            Params={"Bucket": artifacts_bucket, "Key": template_cicd_domain_key},
+            Params={
+                "Bucket": artifacts_bucket,
+                "Key": template_cicd_team_key,
+            },
             ExpiresIn=1200,
         )
-        logger.info("template_cicd_domain_url: %s", template_cicd_domain_url)
+        logger.info("template_cicd_team_url: %s", template_cicd_team_url)
 
         main_artifact_key = main_artifact_location["objectKey"]
         zipped_object = BytesIO(
@@ -174,20 +223,24 @@ def lambda_handler(event, context):
         logger.info("DATA DOMAIN FILES: %s", domain_files)
 
         domains = []
-        # for each domain, create a CICD stack that will be used to deploy domain resources in the child account
+        # for each domain, find all the team names and create a CICD stack per team that will be used to deploy team resources in the child account
         for domain_file in domain_files:
             domain = domain_file.split("-")[1]
             domains.append(f"{domain}-{environment}")
 
             child_account = ""
+            teams = []
             with open(
                 os.path.join(temp_directory, domain_file), "r", encoding="utf-8"
             ) as template_domain:
                 while line := template_domain.readline():
                     if "pChildAccountId:" in line:
                         child_account = line.split(":", 1)[-1].strip()
-                        break
-                    if "TemplateURL:" in line:
+                    elif "pTeamName:" in line:
+                        teams.append(line.split(":", 1)[-1].strip())
+                    elif (
+                        "TemplateURL:" in line
+                    ):  # teams can be declared in nested stacks
                         with open(
                             os.path.join(
                                 temp_directory, line.split(":", 1)[-1].strip()
@@ -197,26 +250,77 @@ def lambda_handler(event, context):
                         ) as nested_stack:
                             while nested_stack_line := nested_stack.readline():
                                 if "pChildAccountId:" in nested_stack_line:
-                                    child_account = nested_stack_line.split(":", 1)[-1].strip()
-                                    break
-                    if child_account:
-                        break
+                                    child_account = nested_stack_line.split(":", 1)[
+                                        -1
+                                    ].strip()
+                                elif "pTeamName:" in nested_stack_line:
+                                    teams.append(
+                                        nested_stack_line.split(":", 1)[-1].strip()
+                                    )
             logger.info("pChildAccountId: %s", child_account)
+            logger.info("DATA DOMAIN (%s) TEAMS: %s", domain, teams)
 
-            # create/update stacks for domains defined in git
+            ###### CLEANUP OLD TEAMS ######
+            paginator = cloudformation.get_paginator('list_stacks')
+            existing_stacks_pages = paginator.paginate(
+                StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
+                PaginationConfig={'MaxItems': 30}
+            )
+            existing_teams = [
+                existing_stack["StackName"].removeprefix(f"sdlf-cicd-teams-{domain}-{environment}-")
+                for existing_stack_page in existing_stacks_pages
+                for existing_stack in existing_stack_page["StackSummaries"]
+                if existing_stack["StackName"].startswith(f"sdlf-cicd-teams-{domain}-{environment}-")
+            ]
+
+            # remove stacks for teams that are no longer in git
+            legacy_teams = list(set(existing_teams) - set(teams))
+            logger.info("LEGACY TEAMS: %s", legacy_teams)
+            cloudformation_waiters = {
+                "stack_delete_complete": [],
+            }
+
+            # revoke grants for teams that will be removed
+            for legacy_team in legacy_teams:
+                grants = kms.list_grants(KeyId=devops_kms_key)["Grants"]
+                for grant in grants:
+                    if grant["GranteePrincipal"].endswith(f":role/sdlf/sdlf-cicd-team-{team}"):
+                        grant_id = grant["GrantId"]
+                        break
+                kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant_id)
+                codecommit.delete_approval_rule_template(approvalRuleTemplateName=f"{domain}-{legacy_team}-approval-to-production")
+                stack_details = delete_domain_team_role_stack(legacy_team, crossaccount_team_role)
+                cloudformation_waiters[stack_details[1]].append(stack_details[0])
+                stack_details = delete_team_cicd_stack(domain, environment, legacy_team, cloudformation_role)
+                cloudformation_waiters[stack_details[1]].append(stack_details[0])
+                crossaccount_team_role = (
+                    f"arn:{partition}:iam::{child_account}:role/sdlf/sdlf-cicd-team-{legacy_team}"
+                )
+
+            cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
+            for stack in cloudformation_waiters["stack_delete_complete"]:
+                cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+            ###### END CLEANUP OLD TEAMS ######
+
             cloudformation_waiters = {
                 "stack_create_complete": [],
                 "stack_update_complete": [],
             }
-            stack_details = create_domain_cicd_stack(
-                domain,
-                environment,
-                template_cicd_domain_url,
-                child_account,
-                cloudformation_role,
-            )
-            if stack_details[1]:
-                cloudformation_waiters[stack_details[1]].append(stack_details[0])
+            for team in teams:
+                crossaccount_team_role = (
+                    f"arn:{partition}:iam::{child_account}:role/sdlf/sdlf-cicd-team-{team}"
+                )
+                stack_details = create_team_cicd_stack(
+                    domain,
+                    environment,
+                    team,
+                    crossaccount_team_role,
+                    template_cicd_team_url,
+                    child_account,
+                    cloudformation_role,
+                )
+                if stack_details[1]:
+                    cloudformation_waiters[stack_details[1]].append(stack_details[0])
             cloudformation_create_waiter = cloudformation.get_waiter(
                 "stack_create_complete"
             )
@@ -232,38 +336,6 @@ def lambda_handler(event, context):
                     StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
                 )
 
-        logger.info("DATA DOMAINS: %s", domains)
-        # get the list of currently deployed domains, remove the CICD stack for domains that no longer exist in git
-        paginator = cloudformation.get_paginator("list_stacks")
-        existing_stacks_pages = paginator.paginate(
-            StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
-            PaginationConfig={"MaxItems": 30},
-        )
-        existing_domains = [
-            existing_stack["StackName"].removeprefix("sdlf-cicd-domain-")
-            for existing_stack_page in existing_stacks_pages
-            for existing_stack in existing_stack_page["StackSummaries"]
-            if existing_stack["StackName"].startswith("sdlf-cicd-domain-")
-            and existing_stack["StackName"].endswith(f"-{environment}")
-        ]
-
-        # remove stacks for domains that are no longer in git
-        # note this whole lambda assumes domains aren't defined in files other than foundations-{domain}-{environment}.yaml
-        legacy_domains = list(set(existing_domains) - set(domains))
-        logger.info("LEGACY DATA DOMAINS: %s", legacy_domains)
-        cloudformation_waiters = {
-            "stack_delete_complete": [],
-        }
-        for legacy_domain in legacy_domains:
-            stack_details = delete_domain_cicd_stack(
-                domain, environment, cloudformation_role
-            )
-            cloudformation_waiters[stack_details[1]].append(stack_details[0])
-        cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
-        for stack in cloudformation_waiters["stack_delete_complete"]:
-            cloudformation_waiter.wait(
-                StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
-            )
 
     except Exception as e:
         message = "Function exception: " + str(e)
