@@ -17,6 +17,9 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pCrossAccountTeamRole:
+    Description: Team-specific cross-account role used to deploy stacks
+    Type: String
   pChildAccountId:
     Description: Child AWS account ID
     Type: String
@@ -166,7 +169,7 @@ Resources:
                 - Name: TemplatePackage
               Configuration:
                 ActionMode: CREATE_UPDATE
-                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
+                RoleArn: !Ref pCrossAccountTeamRole
                 StackName: !Sub sdlf-${pTeamName}-pipelines-${pEnvironment}
                 TemplatePath: "TemplatePackage::packaged-template.yaml"
                 TemplateConfiguration: "TemplateSource::tags.json"
@@ -189,10 +192,10 @@ Resources:
                 - Name: TemplateSource
               Configuration:
                 ActionMode: CREATE_UPDATE
-                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team
+                RoleArn: !Ref pCrossAccountTeamRole
                 StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
                 TemplatePath: !Sub "TemplateSource::datasets-${pEnvironment}.yaml"
-                TemplateConfiguration: !Sub "TemplateSource::tags.json"
+                TemplateConfiguration: "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
                     "pPipelineReference" : "#{codepipeline.PipelineExecutionId}"
