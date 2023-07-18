@@ -96,7 +96,7 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: Elasticsearch Configuration
+          default: Elasticsearch/OpenSearch Configuration
         Parameters:
           - DomainName
           - AdminEmail
@@ -120,13 +120,13 @@ Mappings:
       Medium: 6
       Large: 6
     MasterSize:
-      Small: c5.large.elasticsearch
-      Medium: c5.large.elasticsearch
-      Large: c5.large.elasticsearch
+      Small: c5.large.search
+      Medium: c5.large.search
+      Large: c5.large.search
     InstanceSize:
-      Small: r5.large.elasticsearch
-      Medium: r5.2xlarge.elasticsearch
-      Large: r5.4xlarge.elasticsearch
+      Small: r5.large.search
+      Medium: r5.2xlarge.search
+      Large: r5.4xlarge.search
 
   # Lambda source code mapping
   SourceCode:
@@ -566,7 +566,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./lambda/catalog-search/src
-      Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch
+      Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch/OpenSearch
       Environment:
         Variables:
           ES_ENDPOINT: !GetAtt ESDomain.DomainEndpoint
@@ -886,7 +886,7 @@ Resources:
 # the VPC stuff has been removed - for now.
 
   ESDomain:
-    Type: AWS::Elasticsearch::Domain
+    Type: AWS::OpenSearchService::Domain
     DependsOn: ESUserPoolESCognitoDomain
     # DeletionPolicy: "Retain"
     # UpdateReplacePolicy: "Retain"
@@ -904,7 +904,7 @@ Resources:
         EBSEnabled: true
         VolumeSize: 10
         VolumeType: gp2
-      ElasticsearchClusterConfig:
+      ClusterConfig:
         DedicatedMasterEnabled: true
         DedicatedMasterCount: 3
         DedicatedMasterType: !FindInMap [ESMap, MasterSize, !Ref ClusterSize]
@@ -913,7 +913,7 @@ Resources:
         ZoneAwarenessEnabled: true
         ZoneAwarenessConfig:
           AvailabilityZoneCount: 2
-      ElasticsearchVersion: 7.10
+      EngineVersion: OpenSearch_2.5
       EncryptionAtRestOptions:
         Enabled: true
         KmsKeyId: !Ref KMSKeyId
