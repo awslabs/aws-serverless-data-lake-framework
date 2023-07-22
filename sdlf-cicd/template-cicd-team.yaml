@@ -117,6 +117,23 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
 
   ######## CODEPIPELINE #########
+  rArtifactsBucketAccessPoint:
+    Type: AWS::S3::AccessPoint
+    Properties:
+      Bucket: !Ref pArtifactsBucket
+      Name: !Sub sdlf-${pDomain}-${pTeamName}
+      Policy:
+        Version: "2012-10-17"
+        Statement:
+          - Principal:
+              AWS: !Ref pCrossAccountTeamRole
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Effect: Allow
+            Resource:
+               - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/sdlf-${pDomain}-${pTeamName}/object/*
+
   rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -153,7 +170,8 @@ Resources:
               Configuration:
                 ProjectName: !Ref pBuildCloudFormationPackage
                 EnvironmentVariables: !Sub >-
-                  [{"name":"TEMPLATE", "value":"pipelines-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
+                  [{"name":"ARTIFACTS_BUCKET", "value":"${rArtifactsBucketAccessPoint.Alias}", "type":"PLAINTEXT"},
+                  {"name":"TEMPLATE", "value":"pipelines-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
               RunOrder: 1
         - Name: DeployPipelinesInfrastructure
           Actions:

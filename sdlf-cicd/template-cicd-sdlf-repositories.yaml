@@ -977,6 +977,16 @@ Resources:
                       - codepipeline.amazonaws.com
                       - lambda.amazonaws.com
                       - events.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - s3:CreateAccessPoint
+                  - s3:DeleteAccessPoint
+                  - s3:PutAccessPointPolicy
+                  - s3:DeleteAccessPointPolicy
+                  - s3:ListAccessPoints
+                  - s3:*AccessPoint*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/*
 
   rMainRepositoryDomainLambda:
     Type: AWS::Lambda::Function
@@ -1248,6 +1258,7 @@ Resources:
                   - s3:PutObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/sdlf-*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
