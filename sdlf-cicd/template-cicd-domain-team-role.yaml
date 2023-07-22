@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: SDLF CICD roles in child account
 
 Parameters:
-  pDevOpsArtifactsBucket:
-    Description: DevOps Artifacts bucket
+  pDevOpsArtifactsBucketAccessPoint:
+    Description: Team access point to the DevOps Artifacts bucket
     Type: String
   pDevOpsKMSKey:
     Description: DevOps KMS key ARN
@@ -39,7 +39,7 @@ Resources:
                   - s3:ListBucket*
                   - s3:Put*
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/${pDevOpsArtifactsBucketAccessPoint}/object/*
               - Effect: Allow
                 Action:
                   - kms:Decrypt
