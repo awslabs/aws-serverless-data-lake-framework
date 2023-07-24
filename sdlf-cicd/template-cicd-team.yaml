@@ -2,6 +2,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CICD resources to handle deployment of a new team
 
 Parameters:
+  pCustomBucketPrefix:
+    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
+    Type: String
+    Default: sdlf
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
@@ -35,7 +39,6 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudFormationPackage
 
-
 Mappings:
   pCodeCommitBranch:
     dev:
@@ -44,6 +47,9 @@ Mappings:
       branch: test
     prod:
       branch: master
+
+Conditions:
+  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
 
 Resources:
   rTeamMainCodeCommit:
@@ -117,6 +123,58 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
 
   ######## CODEPIPELINE #########
+  ######## S3 #########
+  rTeamArtifactsBucket:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      BucketName:
+        !If [
+          UseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-cicd-${pDomain}-${pEnvironment}-${pTeamName}",
+          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-cicd-${pDomain}-${pEnvironment}-${pTeamName}",
+        ]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Ref pKMSKey
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rTeamArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rTeamArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: EnforceTlsRequests
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt rTeamArtifactsBucket.Arn
+              - !Sub ${rTeamArtifactsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+              NumericLessThan:
+                s3:TlsVersion: "1.2"
+          - Sid: CrossAccount Team Cfn
+            Effect: Allow
+            Principal:
+              AWS: !Ref pCrossAccountTeamRole
+            Action:
+              - s3:*
+            Resource:
+              - !GetAtt rTeamArtifactsBucket.Arn
+              - !Sub ${rTeamArtifactsBucket.Arn}/*
+
   rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -153,7 +211,8 @@ Resources:
               Configuration:
                 ProjectName: !Ref pBuildCloudFormationPackage
                 EnvironmentVariables: !Sub >-
-                  [{"name":"TEMPLATE", "value":"pipelines-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
+                  [{"name":"ARTIFACTS_BUCKET", "value":"${rTeamArtifactsBucket}", "type":"PLAINTEXT"},
+                   {"name":"TEMPLATE", "value":"pipelines-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
               RunOrder: 1
         - Name: DeployPipelinesInfrastructure
           Actions:
