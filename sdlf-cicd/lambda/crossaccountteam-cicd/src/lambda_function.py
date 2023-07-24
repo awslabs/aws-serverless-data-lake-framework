@@ -16,8 +16,14 @@ s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
 codepipeline = boto3.client("codepipeline")
 kms = boto3.client("kms")
 
+
 def create_domain_team_role_stack(
-    cloudformation, team, artifacts_bucket, kms_key, template_body_url, cloudformation_role
+    cloudformation,
+    team,
+    artifacts_bucket,
+    kms_key,
+    template_body_url,
+    cloudformation_role,
 ):
     response = {}
     cloudformation_waiter_type = None
@@ -207,18 +213,24 @@ def lambda_handler(event, context):
             logger.info("DATA DOMAIN (%s) TEAMS: %s", domain, teams)
 
             # assume role in child account to be able to deploy a cloudformation stack
-            crossaccount_pipeline_role = (
-                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-crossaccount-pipeline"
-            )
+            crossaccount_pipeline_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-crossaccount-pipeline"
             sts = boto3.client("sts")
             crossaccount_role_session = sts.assume_role(
                 RoleArn=crossaccount_pipeline_role,
-                RoleSessionName="CrossAccountTeamLambda"
+                RoleSessionName="CrossAccountTeamLambda",
             )
-            cloudformation = boto3.client("cloudformation",
-                                          aws_access_key_id=crossaccount_role_session["Credentials"]["AccessKeyId"],
-                                          aws_secret_access_key=crossaccount_role_session["Credentials"]["SecretAccessKey"],
-                                          aws_session_token=crossaccount_role_session["Credentials"]["SessionToken"])
+            cloudformation = boto3.client(
+                "cloudformation",
+                aws_access_key_id=crossaccount_role_session["Credentials"][
+                    "AccessKeyId"
+                ],
+                aws_secret_access_key=crossaccount_role_session["Credentials"][
+                    "SecretAccessKey"
+                ],
+                aws_session_token=crossaccount_role_session["Credentials"][
+                    "SessionToken"
+                ],
+            )
 
             # from this assumed role, deploy a cloudformation stack
             # this stack creates a role in the data domain that will be used to deploy a team's pipelines and datasets
@@ -233,7 +245,7 @@ def lambda_handler(event, context):
                 stack_details = create_domain_team_role_stack(
                     cloudformation,
                     team,
-                    artifacts_bucket,
+                    f"{artifacts_bucket.removesuffix('-cfn-artifacts')}-{domain}-{team}",
                     devops_kms_key,
                     template_cicd_domain_team_role_url,
                     crossaccount_cloudformation_role,
