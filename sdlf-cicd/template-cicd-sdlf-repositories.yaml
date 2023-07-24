@@ -2,6 +2,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Multi-environment CICD team repos resources in shared DevOps account
 
 Parameters:
+  pCustomBucketPrefix:
+    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
+    Type: String
+    Default: sdlf
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
@@ -73,6 +77,7 @@ Conditions:
   RunUnitTestingStage: !Equals
     - !Ref pRunCodeCoverage
     - "true"
+  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
 
 Resources:
   ######## CODECOMMIT #########
@@ -602,6 +607,8 @@ Resources:
                   - s3:PutBucketPolicy
                   - s3:PutBucketVersioning
                   - s3:PutEncryptionConfiguration
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:DeleteBucketPublicAccessBlock
                   - s3:PutObject
                   - s3:SetBucketEncryption
                 Resource:
@@ -977,6 +984,31 @@ Resources:
                       - codepipeline.amazonaws.com
                       - lambda.amazonaws.com
                       - events.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBuckets
+                  - s3:ListObjectsV2
+                  - s3:PutBucketAcl
+                  - s3:PutBucketLogging
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:DeleteBucketPublicAccessBlock
+                  - s3:PutObject
+                  - s3:SetBucketEncryption
+                Resource:
+                  !If [
+                    UseCustomBucketPrefix,
+                    !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-cicd-*",
+                    !Sub "arn:${AWS::Partition}:s3:::sdlf-${AWS::Region}-${AWS::AccountId}-cicd-*",
+                  ]
 
   rMainRepositoryDomainLambda:
     Type: AWS::Lambda::Function
@@ -1248,6 +1280,11 @@ Resources:
                   - s3:PutObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+                  - !If [
+                    UseCustomBucketPrefix,
+                    !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-cicd-*",
+                    !Sub "arn:${AWS::Partition}:s3:::sdlf-${AWS::Region}-${AWS::AccountId}-cicd-*",
+                  ]
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
