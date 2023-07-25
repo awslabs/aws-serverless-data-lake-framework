@@ -232,6 +232,24 @@ Resources:
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
+          - Sid: CrossAccount Team Cfn
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - s3:*
+            Resource:
+              - !GetAtt rArtifactsBucket.Arn
+              - !Sub ${rArtifactsBucket.Arn}/*
+            Condition:
+              "ArnLike":
+                "aws:PrincipalArn": !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf/sdlf-cicd-team-*"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-team-*,arn:${AWS::Partition}:iam::"
+                    - Ref: "pDomainAccounts"
 
   rArtifactsBucketSsm:
     Type: AWS::SSM::Parameter
