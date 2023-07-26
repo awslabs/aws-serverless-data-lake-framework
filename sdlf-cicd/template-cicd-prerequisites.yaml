@@ -232,17 +232,6 @@ Resources:
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
-          - Sid: Access Points
-            Effect: Allow
-            Principal:
-              AWS: "*"
-            Action: "*"
-            Resource:
-              - !GetAtt rArtifactsBucket.Arn
-              - !Sub ${rArtifactsBucket.Arn}/*
-            Condition:
-              StringEquals:
-                "s3:DataAccessPointAccount": !Ref AWS::AccountId
 
   rArtifactsBucketSsm:
     Type: AWS::SSM::Parameter

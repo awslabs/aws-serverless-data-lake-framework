@@ -17,7 +17,7 @@ codepipeline = boto3.client("codepipeline")
 kms = boto3.client("kms")
 
 def create_domain_team_role_stack(
-    cloudformation, team, artifacts_bucket_accesspoint, kms_key, template_body_url, cloudformation_role
+    cloudformation, team, artifacts_bucket, kms_key, template_body_url, cloudformation_role
 ):
     response = {}
     cloudformation_waiter_type = None
@@ -28,8 +28,8 @@ def create_domain_team_role_stack(
             TemplateURL=template_body_url,
             Parameters=[
                 {
-                    "ParameterKey": "pDevOpsArtifactsBucketAccessPoint",
-                    "ParameterValue": artifacts_bucket_accesspoint,
+                    "ParameterKey": "pDevOpsArtifactsBucket",
+                    "ParameterValue": artifacts_bucket,
                     "UsePreviousValue": False,
                 },
                 {
@@ -60,8 +60,8 @@ def create_domain_team_role_stack(
                 TemplateURL=template_body_url,
                 Parameters=[
                     {
-                        "ParameterKey": "pDevOpsArtifactsBucketAccessPoint",
-                        "ParameterValue": artifacts_bucket_accesspoint,
+                        "ParameterKey": "pDevOpsArtifactsBucket",
+                        "ParameterValue": artifacts_bucket,
                         "UsePreviousValue": False,
                     },
                     {
@@ -233,7 +233,7 @@ def lambda_handler(event, context):
                 stack_details = create_domain_team_role_stack(
                     cloudformation,
                     team,
-                    f"sdlf-{domain}-{team}",
+                    artifacts_bucket,
                     devops_kms_key,
                     template_cicd_domain_team_role_url,
                     crossaccount_cloudformation_role,
