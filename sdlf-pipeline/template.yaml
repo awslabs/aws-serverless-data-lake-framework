@@ -54,43 +54,16 @@ Resources:
   rStageRule:
     Type: AWS::Events::Rule
     Properties:
-      Name:
-        Fn::Sub:
-          - sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
-      Description:
-        Fn::Sub:
-          - Send events to ${pStageName} queue
-          - pStageName:
-              Ref: pStageName
+      Name: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
+      Description: !Sub Send events to ${pStageName} queue
       EventPattern:
         Ref: pEventPattern
       State: ENABLED
       Targets:
-        - Id:
-            Fn::Sub:
-              - sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
-              - pTeamName:
-                  Ref: pTeamName
-                pPipelineName:
-                  Ref: pPipelineName
-                pStageName:
-                  Ref: pStageName
-          Arn:
-            Fn::GetAtt: [rQueueRoutingStep, Arn]
+        - Id: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
+          Arn: !GetAtt rQueueRoutingStep.Arn
           SqsParameters:
-            MessageGroupId:
-              Fn::Sub:
-                - ${pTeamName}-${pPipelineName}
-                - pTeamName:
-                    Ref: pTeamName
-                  pPipelineName:
-                    Ref: pPipelineName
+            MessageGroupId: !Sub ${pTeamName}-${pPipelineName}
           InputPath: "$.detail"
 
   rQueueRoutingStep:
@@ -98,51 +71,26 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName:
-        Fn::Sub:
-          - sdlf-${pTeamName}-${pPipelineName}-queue-${pStageName}.fifo
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      QueueName: !Sub sdlf-${pTeamName}-${pPipelineName}-queue-${pStageName}.fifo
       FifoQueue: True
       ContentBasedDeduplication: True
       RedrivePolicy:
-        deadLetterTargetArn:
-          Fn::GetAtt: [rDeadLetterQueueRoutingStep, Arn]
+        deadLetterTargetArn: !GetAtt rDeadLetterQueueRoutingStep.Arn
         maxReceiveCount: 1
       VisibilityTimeout: 60
       MessageRetentionPeriod: 604800
-      KmsMasterKeyId:
-        Fn::Sub:
-          - "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-          - pTeamName:
-              Ref: pTeamName
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rDeadLetterQueueRoutingStep:
     Type: AWS::SQS::Queue
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName:
-        Fn::Sub:
-          - sdlf-${pTeamName}-${pPipelineName}-dlq-${pStageName}.fifo
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      QueueName: !Sub sdlf-${pTeamName}-${pPipelineName}-dlq-${pStageName}.fifo
       FifoQueue: True
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 60
-      KmsMasterKeyId:
-        Fn::Sub:
-          - "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-          - pTeamName:
-              Ref: pTeamName
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   rQueuePolicyEventsStageRule:
     Type: AWS::SQS::QueuePolicy
@@ -155,12 +103,10 @@ Resources:
               Service: events.amazonaws.com
             Action:
               - SQS:SendMessage
-            Resource:
-              Fn::GetAtt: [rQueueRoutingStep, Arn]
+            Resource: !GetAtt rQueueRoutingStep.Arn
             Condition:
               ArnEquals:
-                aws:SourceArn:
-                  Fn::GetAtt: [rStageRule, Arn]
+                aws:SourceArn: !GetAtt rStageRule.Arn
       Queues:
         - Ref: rQueueRoutingStep
 
@@ -170,8 +116,7 @@ Resources:
     Properties:
       BatchSize: 10
       Enabled: True
-      EventSourceArn:
-        Fn::GetAtt: [rQueueRoutingStep, Arn]
+      EventSourceArn: !GetAtt rQueueRoutingStep.Arn
       FunctionName: !Ref pLambdaRoutingStep
 
   rPostStateScheduleRole:
@@ -232,52 +177,18 @@ Resources:
   rQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name:
-        Fn::Sub:
-          - /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
       Type: String
-      Value:
-        Fn::GetAtt: [rQueueRoutingStep, QueueName]
-      Description:
-        Fn::Sub:
-          - "Name of the ${pStageName} ${pTeamName} ${pPipelineName} Queue"
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      Value: !GetAtt rQueueRoutingStep.QueueName
+      Description: !Sub "Name of the ${pStageName} ${pTeamName} ${pPipelineName} Queue"
 
   rDeadLetterQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name:
-        Fn::Sub:
-          - /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
       Type: String
-      Value:
-        Fn::GetAtt: [rDeadLetterQueueRoutingStep, QueueName]
-      Description:
-        Fn::Sub:
-          - "Name of the ${pStageName} ${pTeamName} ${pPipelineName} DLQ"
-          - pTeamName:
-              Ref: pTeamName
-            pPipelineName:
-              Ref: pPipelineName
-            pStageName:
-              Ref: pStageName
+      Value: !GetAtt rDeadLetterQueueRoutingStep.QueueName
+      Description: !Sub "Name of the ${pStageName} ${pTeamName} ${pPipelineName} DLQ"
 
   rPipelineStageSsm:
     Type: AWS::SSM::Parameter
