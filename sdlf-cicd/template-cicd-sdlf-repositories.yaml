@@ -306,6 +306,48 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-cfn-module.yaml
 
+  rCloudFormationModulesDevDeploymentPipelines:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: rCloudFormationModuleInfrastructure
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
+      Parameters:
+        pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
+        pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
+        pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pEnvironment: dev
+
+  rCloudFormationModulesTestDeploymentPipelines:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: rCloudFormationModuleInfrastructure
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
+      Parameters:
+        pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
+        pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
+        pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pEnvironment: test
+
+  rCloudFormationModulesProdDeploymentPipelines:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: rCloudFormationModuleInfrastructure
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
+      Parameters:
+        pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
+        pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
+        pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pEnvironment: prod
+
   rModulesCodePipelineRole:
     Type: AWS::IAM::Role
     Properties:

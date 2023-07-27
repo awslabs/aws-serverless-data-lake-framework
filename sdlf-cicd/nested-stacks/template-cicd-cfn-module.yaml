@@ -130,12 +130,16 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:Decrypt
                 Resource:
-                  - "*"
+                  - "*" # TODO
               - Effect: Allow
                 Action:
                   - cloudformation:DescribeTypeRegistration
                 Resource:
                   - "*"
+              - Effect: Allow
+                Action:
+                  - ssm:GetParametersByPath
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/Domains/*
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
@@ -178,45 +182,52 @@ Resources:
               commands:
                 - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
                 - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
+                - DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
+                - echo "Domain accounts found - $DOMAIN_ACCOUNTS"
                 - # aws cloudformation validate-template --template-body file://./translated-template.json
                 - |-
-                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
-                    export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                    export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-
-                    # compare hashes to avoid creating a new module version when there is no change
-                    NEW_MODULE="$CODEBUILD_RESOLVED_SOURCE_VERSION"
-                    if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
-                      echo "Current module version commit id: $CURRENT_MODULE"
-                      echo "New module version commit id: $NEW_MODULE"
-                      if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
-                        echo "No change since last build, exiting module creation."
-                        exit 0
-                      fi
-                    fi
-
                     mkdir module
-                    cd module
+                    cd module || exit
                     cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
                     cp -i -a ../translated-template.json fragments/
 
-                    cfn submit --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" > cfn.log 2>&1
-                    if grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*CREATE_IN_PROGRESS" cfn.log; then
-                      aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                      cfn submit > cfn.log 2>&1
-                    elif grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*UPDATE.*_IN_PROGRESS" cfn.log; then
-                      aws cloudformation wait stack-update-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                      cfn submit > cfn.log 2>&1
-                    fi
-                    echo "----- CFN CLI LOGS -----"
-                    cat cfn.log
-                    echo "----- END CFN CLI LOGS -----"
-                    TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
-                    echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
-                    aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
-                    aws ssm put-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --type "String" --value "$NEW_MODULE" --overwrite
-                    echo "done"
+                    for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
+                        temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                        AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
+                        AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
+                        AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
+                        export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+
+                        # compare hashes to avoid creating a new module version when there is no change
+                        NEW_MODULE="$CODEBUILD_RESOLVED_SOURCE_VERSION"
+                        if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
+                          echo "Current module version commit id: $CURRENT_MODULE"
+                          echo "New module version commit id: $NEW_MODULE"
+                          if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
+                            echo "No change since last build, exiting module creation."
+                            exit 0
+                          fi
+                        fi
+
+                        cfn submit --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" > cfn.log 2>&1
+                        if grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*CREATE_IN_PROGRESS" cfn.log; then
+                          aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
+                          cfn submit > cfn.log 2>&1
+                        elif grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*UPDATE.*_IN_PROGRESS" cfn.log; then
+                          aws cloudformation wait stack-update-complete --stack-name "CloudFormationManagedUploadInfrastructure"
+                          cfn submit > cfn.log 2>&1
+                        fi
+                        echo "----- CFN CLI LOGS -----"
+                        cat cfn.log
+                        echo "----- END CFN CLI LOGS -----"
+                        TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
+                        echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
+                        aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
+                        aws ssm put-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --type "String" --value "$NEW_MODULE" --overwrite
+                        echo "done for $DOMAIN_ACCOUNT_ID"
+                        rm cfn.log
+                    done
+
                     cd ..
                     rm -Rf module
           artifacts:
