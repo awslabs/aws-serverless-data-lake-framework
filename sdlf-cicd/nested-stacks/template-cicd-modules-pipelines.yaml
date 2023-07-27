@@ -1,0 +1,406 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD pipeline to publish CloudFormation module on multiple AWS accounts
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/DevOpsArtifactsBucket
+  pKMSKey:
+    Description: The KMS key used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/CICDKeyId
+  pBuildCloudformationModuleStage:
+    Description: CodeBuild job that build a CloudFormation module from a SAM template
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
+  pFoundationsRepository:
+    Type: String
+  pTeamRepository:
+    Type: String
+  pPipelineRepository:
+    Type: String
+  pDatasetRepository:
+    Type: String
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+  pSdlfModuleDomain:
+    Type: String
+    Default: awslabs
+    Description: "A placeholder domain used for default SDLF components"
+  pSdlfModuleTeam:
+    Type: String
+    Default: sdlf
+    Description: "A placeholder team used for default SDLF components"
+
+Mappings:
+  pCodeCommitBranch:
+    dev:
+      branch: dev
+    test:
+      branch: test
+    prod:
+      branch: master
+
+Resources:
+  rFoundationsTeamModulesCodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !Ref pKMSKey
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:CreateProject
+                  - codebuild:StartBuild
+                  - codebuild:UpdateProject
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
+
+  rFoundationsTeamModulesPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rFoundationsTeamModulesCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Sources
+          Actions:
+            -
+              Name: SourceFoundations
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceFoundationsArtifact
+              Configuration:
+                RepositoryName: !Ref pFoundationsRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceTeam
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceTeamArtifact
+              Configuration:
+                RepositoryName: !Ref pTeamRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: BuildFoundationsTeam
+          Actions:
+            -
+              Name: BuildFoundations
+              InputArtifacts:
+              - Name: SourceFoundationsArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            -
+              Name: BuildTeam
+              InputArtifacts:
+              - Name: SourceTeamArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                  {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pKMSKey
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rFoundationsTeamRepositoryEventsTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsTeamModulesPipeline}
+
+  rFoundationsTeamModulesTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Run Foundations & Team modules build on repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Ref pFoundationsRepository
+          - !Ref pTeamRepository
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsTeamModulesPipeline}
+          Id: sdlf-trigger
+          RoleArn: !GetAtt rFoundationsTeamRepositoryEventsTriggerRole.Arn
+
+  rPipelineDatasetModulesCodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !Ref pKMSKey
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:CreateProject
+                  - codebuild:StartBuild
+                  - codebuild:UpdateProject
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
+
+  rPipelineDatasetModulesPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rPipelineDatasetModulesCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Sources
+          Actions:
+            -
+              Name: SourcePipeline
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourcePipelineArtifact
+              Configuration:
+                RepositoryName: !Ref pPipelineRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceDataset
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceDatasetArtifact
+              Configuration:
+                RepositoryName: !Ref pDatasetRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: BuildPipelineDataset
+          Actions:
+            -
+              Name: BuildPipeline
+              InputArtifacts:
+              - Name: SourcePipelineArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            -
+              Name: BuildDataset
+              InputArtifacts:
+              - Name: SourceDatasetArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                  {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"dataset", "type":"PLAINTEXT"}]
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pKMSKey
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rPipelineDatasetRepositoryEventsTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rPipelineDatasetModulesPipeline}
+
+  rPipelineDatasetModulesTriggerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Run Pipeline & Dataset modules build on repository update"
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Ref pPipelineRepository
+          - !Ref pDatasetRepository
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rPipelineDatasetModulesPipeline}
+          Id: sdlf-trigger
+          RoleArn: !GetAtt rPipelineDatasetRepositoryEventsTriggerRole.Arn
