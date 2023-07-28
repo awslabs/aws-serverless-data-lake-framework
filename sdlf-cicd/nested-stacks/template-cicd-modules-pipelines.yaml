@@ -14,6 +14,8 @@ Parameters:
     Description: CodeBuild job that build a CloudFormation module from a SAM template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
+  pCicdRepository:
+    Type: String
   pFoundationsRepository:
     Type: String
   pTeamRepository:
@@ -21,6 +23,14 @@ Parameters:
   pPipelineRepository:
     Type: String
   pDatasetRepository:
+    Type: String
+  pMainRepository:
+    Type: String
+  pMainRepositoryDomainLambda:
+    Type: String
+  pMainRepositoryCrossAccountTeamLambda:
+    Type: String
+  pMainRepositoryTeamLambda:
     Type: String
   pEnvironment:
     Description: Environment name
@@ -404,3 +414,225 @@ Resources:
         - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rPipelineDatasetModulesPipeline}
           Id: sdlf-trigger
           RoleArn: !GetAtt rPipelineDatasetRepositoryEventsTriggerRole.Arn
+
+
+  rMainRepositoryCodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:ListBucket*
+                  - s3:Put*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Describe*
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:List*
+                  - kms:ReEncrypt*
+                Resource: !Ref pKMSKey
+        - PolicyName: lambda-stages
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryDomainLambda}
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryCrossAccountTeamLambda}
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryTeamLambda}
+
+  rMainRepositoryPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt rMainRepositoryCodePipelineRole.Arn
+      Stages:
+        -
+          Name: Sources
+          Actions:
+            -
+              Name: SourceMain
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceMainArtifact
+              Configuration:
+                RepositoryName: !Ref pMainRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+        -
+          Name: DomainPipeline
+          Actions:
+            - Name: CreateDomainCodePipeline
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref pMainRepositoryDomainLambda
+                UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+              RunOrder: 1
+        -
+          Name: CrossAccountTeamPipelineRole
+          Actions:
+            - Name: CreateTeamCrossAccountRole
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref pMainRepositoryCrossAccountTeamLambda
+                UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+              RunOrder: 1
+        -
+          Name: TeamPipeline
+          Actions:
+            - Name: CreateTeamCodePipeline
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceMainArtifact
+                - Name: SourceCicdArtifact
+              Configuration:
+                FunctionName: !Ref pMainRepositoryTeamLambda
+                UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        EncryptionKey:
+          Id: !Ref pKMSKey
+          Type: KMS
+        Location: !Ref pArtifactsBucket
+
+  rMainRepositoryCodeCommitTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rMainRepositoryPipeline}
+
+  rMainRepositoryCodePipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rMainRepositoryPipeline}
+          RoleArn: !GetAtt rMainRepositoryCodeCommitTriggerRole.Arn
+          Id: sdlf-main
+
+  # trigger Main Repository CodePipeline when sdlf-foundations/sdlf-team have been updated
+  # this will in turn trigger domain pipelines - all domains will get the new versions of sdlf-foundations/sdlf-team deployed
+  rMainRepositoryCodePipelineModulesTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        resources:
+          - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rFoundationsTeamModulesPipeline}
+        detail:
+          state:
+            - SUCCEEDED
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rMainRepositoryPipeline}
+          RoleArn: !GetAtt rMainRepositoryCodeCommitTriggerRole.Arn
+          Id: sdlf-main
+
+  rMainRepositoryPipelineSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/CodePipeline/MainRepository${pEnvironment}Pipeline
+      Type: String
+      Value: !Ref rMainRepositoryPipeline
+      Description: !Sub CodePipeline that triggers on sdlf-main ${pEnvironment} changes
