@@ -55,10 +55,6 @@ Parameters:
     Description: Name to give the Lambda Layer containing the Datalake Library.
     Type: String
     Default: datalake-lib-layer
-  pDefaultPipLibrariesLambdaLayerName:
-    Description: Name to give the Lambda Layer containing the libraries installed through Pip.
-    Type: String
-    Default: default-pip-libraries
   pMinTestCoverage:
     Description: "[OPTIONAL] The minimum code coverage percentage that is required for the pipeline to proceed to the next stage. Specify only if `pEnforceCodeCoverage` is set to 'true'."
     Type: String
@@ -1307,55 +1303,6 @@ Resources:
         Type: CODEPIPELINE
       TimeoutInMinutes: 20
 
-  rBuildDeployRequirementsLayer:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Name: !Sub sdlf-${pDefaultPipLibrariesLambdaLayerName}
-      Description: Creates a Lambda Layer containing the libraries and version numbers listed in the requirements.txt file in the repository provided
-      EncryptionKey: !Ref pKMSKey
-      Environment:
-        EnvironmentVariables:
-          - Name: LAYER_NAME
-            Type: PLAINTEXT
-            Value: !Ref pDefaultPipLibrariesLambdaLayerName
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
-        Type: LINUX_CONTAINER
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !GetAtt rLambdaLayersCodeBuildServiceRole.Arn
-      Source:
-        BuildSpec: !Sub |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-              commands:
-                - pip3 install boto3
-            build:
-              commands:
-                - |-
-                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-lambda-layers" --role-session-name "codebuild-lambda-layer")
-                    export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                    export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - echo ">>>>> Beginning build of subdirectories >>>>>"
-                - bash build.sh
-                - echo ">>>>> Beginning build of default layer >>>>>"
-                - ls && echo "-----> making temporary directory"
-                - mkdir -p layer/python
-                - pip3 -q install -r ./requirements.txt -t layer/python
-                - cd layer/
-                - zip -r layer.zip python/ -x \*__pycache__\*
-                - echo "Uploading default Lambda Layer..."
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains a default Pip library layer" --compatible-runtimes "python3.9" --zip-file fileb://./layer.zip)
-                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
-                - aws ssm put-parameter --name "/SDLF/Lambda/LatestDefaultPipLibraryLayer" --value $latest_layer_version --type String --overwrite
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 20
-
   rBuildDeployDatalakeLibraryLayerSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1363,13 +1310,6 @@ Resources:
       Type: String
       Value: !Ref rBuildDeployDatalakeLibraryLayer
       Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
-  rBuildDeployRequirementsLayerSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/CodeBuild/BuildDeployRequirementsLayer
-      Type: String
-      Value: !Ref rBuildDeployRequirementsLayer
-      Description: Name of the CodeBuild job that creates a Lambda Layer containing the libraries and version numbers listed in the requirements.txt file in the repository provided
   rTeamUnitTestCodeBuildProjectSsm:
     Type: AWS::SSM::Parameter
     Condition: RunUnitTestingStage

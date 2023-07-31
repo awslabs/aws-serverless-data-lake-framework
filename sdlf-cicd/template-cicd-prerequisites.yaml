@@ -14,6 +14,14 @@ Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
 
 Resources:
+  rBuildLambdaLayersFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/LambdaLayerBuilder/Enabled
+      Type: String
+      Value: false
+      Description: Add Lambda layer builder infrastructure and pipeline stages
+
   ######## KMS #########
   rKMSKey:
     Type: AWS::KMS::Key

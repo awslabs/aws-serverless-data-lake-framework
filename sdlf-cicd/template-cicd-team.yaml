@@ -34,7 +34,14 @@ Parameters:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudFormationPackage
-
+  pEnableLambdaLayerBuilder:
+    Description: Add Lambda layer builder infrastructure and pipeline stages
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/LambdaLayerBuilder/Enabled
+  pCicdRepository:
+    Description: Name of the Cicd repository
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/CicdCodeCommit
 
 Mappings:
   pCodeCommitBranch:
@@ -44,6 +51,9 @@ Mappings:
       branch: test
     prod:
       branch: master
+
+Conditions:
+  EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
 
 Resources:
   rTeamMainCodeCommit:
@@ -138,6 +148,68 @@ Resources:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
+            - !If
+              - EnableLambdaLayerBuilder
+              - Name: CicdSource
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: CicdTemplateSource
+                Configuration:
+                  RepositoryName: !Ref pCicdRepository
+                  BranchName:
+                    !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - !Ref AWS::NoValue
+        - !If
+          - EnableLambdaLayerBuilder
+          - Name: BuildLambdaLayers
+            Actions:
+              - Name: Build
+                InputArtifacts:
+                  - Name: CicdTemplateSource
+                OutputArtifacts:
+                  - Name: LambdaLayersTemplatePackage
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeBuild
+                Configuration:
+                  ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                  EnvironmentVariables: !Sub >-
+                    [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                    {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
+                    {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
+                RunOrder: 1
+          - !Ref AWS::NoValue
+        - !If
+          - EnableLambdaLayerBuilder
+          - Name: DeployLambdaLayers
+            Actions:
+              - Name: CreateStack
+                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Provider: CloudFormation
+                  Version: '1'
+                InputArtifacts:
+                  - Name: TemplateSource
+                  - Name: LambdaLayersTemplatePackage
+                Configuration:
+                  ActionMode: CREATE_UPDATE
+                  RoleArn: !Ref pCrossAccountTeamRole
+                  StackName: !Sub sdlf-${pTeamName}-lambdalayers-${pEnvironment}
+                  TemplatePath: "LambdaLayersTemplatePackage::packaged-template.yaml"
+                  TemplateConfiguration: "TemplateSource::tags.json"
+                  Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                RunOrder: 1
+          - !Ref AWS::NoValue
         - Name: BuildPipelinesTemplate
           Actions:
             - Name: Build

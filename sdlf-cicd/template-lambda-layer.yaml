@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::LanguageExtensions
+Description: Deploy Lambda Layers
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/DevOpsArtifactsBucket
+  pDomain:
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Type: String
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
+    Type: String
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+  pLayers:
+    Description: List of folder names from layers/ directory
+    Type: CommaDelimitedList
+
+Resources:
+  ######## LAMBDA LAYERS ########
+  "Fn::ForEach::LambdaLayerResources":
+  - LayerName
+  - !Ref pLayers
+  - "r${LayerName}LambdaLayer":
+      Type: AWS::Lambda::LayerVersion
+      Properties:
+        CompatibleRuntimes:
+          - python3.9
+        Content:
+          S3Bucket: !Ref pArtifactsBucket
+          S3Key: !Sub layers/${pDomain}/${pEnvironment}/${pTeamName}/${LayerName}.zip
+        Description: !Sub ${pTeamName} ${LayerName} Lambda Layer
+        LayerName: !Sub sdlf-${pTeamName}-${LayerName}
+    "r${LayerName}LambdaLayerSsm":
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: !Sub /SDLF/Lambda/${pTeamName}/Latest${LayerName}Layer
+        Type: String
+        Value: !Ref
+              "Fn::Sub": r${LayerName}LambdaLayer
+        Description: !Sub The ARN of the latest version of the ${pTeamName} ${LayerName} layer
