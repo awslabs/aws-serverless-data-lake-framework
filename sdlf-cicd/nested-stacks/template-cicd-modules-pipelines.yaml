@@ -14,6 +14,10 @@ Parameters:
     Description: CodeBuild job that build a CloudFormation module from a SAM template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
+  pBuildDeployDatalakeLibraryLayer:
+    Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeBuild/BuildDeployDatalakeLibraryLayer
   pCicdRepository:
     Type: String
   pFoundationsRepository:
@@ -23,6 +27,8 @@ Parameters:
   pPipelineRepository:
     Type: String
   pDatasetRepository:
+    Type: String
+  pDatalakeLibraryRepository:
     Type: String
   pMainRepository:
     Type: String
@@ -262,6 +268,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
               - Effect: Allow
@@ -287,6 +294,7 @@ Resources:
                   - codebuild:StartBuild
                   - codebuild:UpdateProject
                 Resource:
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildDeployDatalakeLibraryLayer}"
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
 
   rPipelineDatasetModulesPipeline:
@@ -297,6 +305,20 @@ Resources:
         -
           Name: Sources
           Actions:
+            -
+              Name: SourceDatalakeLibrary
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceDatalakeLibraryArtifact
+              Configuration:
+                RepositoryName: !Ref pDatalakeLibraryRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
             -
               Name: SourcePipeline
               ActionTypeId:
@@ -328,6 +350,23 @@ Resources:
         -
           Name: BuildPipelineDataset
           Actions:
+            -
+              Name: BuildDatalakeLibrary
+              InputArtifacts:
+              - Name: SourceDatalakeLibraryArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildDeployDatalakeLibraryLayer
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]
+              RunOrder: 1
             -
               Name: BuildPipeline
               InputArtifacts:
