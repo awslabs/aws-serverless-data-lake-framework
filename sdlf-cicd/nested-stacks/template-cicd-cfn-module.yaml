@@ -147,7 +147,7 @@ Resources:
   rBuildCloudformationModuleStage:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: sdlf-cicd-build-cfn-module-codebuild
+      Name: sdlf-cicd-build-cfn-module
       Artifacts:
         Type: CODEPIPELINE
       Description: Build a CloudFormation module from Serverless templates
