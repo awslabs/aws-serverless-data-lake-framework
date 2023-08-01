@@ -55,20 +55,6 @@ Parameters:
     Description: Name to give the Lambda Layer containing the Datalake Library.
     Type: String
     Default: datalake-lib-layer
-  pMinTestCoverage:
-    Description: "[OPTIONAL] The minimum code coverage percentage that is required for the pipeline to proceed to the next stage. Specify only if `pEnforceCodeCoverage` is set to 'true'."
-    Type: String
-    Default: 80
-  pRunCodeCoverage:
-    Description: "Creates code coverage reports from the unit tests included in `pDatalakeLibraryRepository`. Enforces the minimum threshold specified in `pMinTestCoverage`"
-    Type: String
-    AllowedValues: ["false", "true"]
-    Default: "false"
-
-Conditions:
-  RunUnitTestingStage: !Equals
-    - !Ref pRunCodeCoverage
-    - "true"
 
 Resources:
   ######## CODECOMMIT #########
@@ -1219,57 +1205,6 @@ Resources:
                   - ssm:GetParametersByPath
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/Domains/*
 
-  rTeamUnitTestCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Condition: RunUnitTestingStage
-    Properties:
-      Name: sdlf-cicd-unit-test-coverage
-      Artifacts:
-        Type: CODEPIPELINE
-      EncryptionKey: !Ref pKMSKey
-      Environment:
-        EnvironmentVariables:
-          - Name: COV_PERCENT
-            Type: PLAINTEXT
-            Value: !Ref pMinTestCoverage
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
-        Type: LINUX_CONTAINER
-      ServiceRole: !GetAtt rLambdaLayersCodeBuildServiceRole.Arn
-      TimeoutInMinutes: 20
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: |
-          version: 0.2
-          phases:
-            install:
-              runtime-versions:
-                  python: 3.9
-            build:
-              commands:
-                - DIR=$CODEBUILD_SRC_DIR/python/datalake_library
-                - min_coverage=$COV_PERCENT
-                - pip install -r $DIR/requirements.txt
-                - |-
-                    for filename in $(find "$DIR" -name 'test*.py');
-                      do
-                          [ -e "$filename" ] || continue;
-                          pname=$(dirname "$filename");
-                          fbname=$(basename "$filename");
-                          if [ -f $pname/requirements.txt ]; then
-                              echo "Installing package specific dependencies...";
-                              pip install -r $pname/requirements.txt;
-                          fi
-                          cov_output="$pname/coverage_report.txt";
-                          code=$(echo $fbname | cut -d _ -f 2-);
-                          package=$(find $DIR -name $code | xargs dirname);
-                          python3 -m pytest "$filename" --cov-report term --cov=$package --cov-fail-under $min_coverage -x
-                      done
-          artifacts:
-            files:
-              - "*"
-              - "**/*"
-
   rBuildDeployDatalakeLibraryLayer:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -1324,14 +1259,6 @@ Resources:
       Type: String
       Value: !Ref rBuildDeployDatalakeLibraryLayer
       Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
-  rTeamUnitTestCodeBuildProjectSsm:
-    Type: AWS::SSM::Parameter
-    Condition: RunUnitTestingStage
-    Properties:
-      Name: /SDLF/CodeBuild/TeamUnitTestCodeBuildProject
-      Type: String
-      Value: !Ref rTeamUnitTestCodeBuildProject
-      Description: Name of the CodeBuild job that Unit Tests
   rBuildCloudFormationPackageSsm:
     Type: AWS::SSM::Parameter
     Properties:
