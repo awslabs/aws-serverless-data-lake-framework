@@ -304,7 +304,9 @@ Resources:
 
   rCloudFormationModulesDevDeploymentPipelines:
     Type: AWS::CloudFormation::Stack
-    DependsOn: rCloudFormationModuleInfrastructure
+    DependsOn:
+      - rCloudFormationModuleInfrastructure
+      - rBuildDeployDatalakeLibraryLayerSsm
     UpdateReplacePolicy: Delete
     DeletionPolicy: Delete
     Properties:
@@ -312,6 +314,7 @@ Resources:
       Parameters:
         pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
         pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
@@ -323,7 +326,9 @@ Resources:
 
   rCloudFormationModulesTestDeploymentPipelines:
     Type: AWS::CloudFormation::Stack
-    DependsOn: rCloudFormationModuleInfrastructure
+    DependsOn:
+      - rCloudFormationModuleInfrastructure
+      - rBuildDeployDatalakeLibraryLayerSsm
     UpdateReplacePolicy: Delete
     DeletionPolicy: Delete
     Properties:
@@ -331,6 +336,7 @@ Resources:
       Parameters:
         pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
         pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
@@ -342,7 +348,9 @@ Resources:
 
   rCloudFormationModulesProdDeploymentPipelines:
     Type: AWS::CloudFormation::Stack
-    DependsOn: rCloudFormationModuleInfrastructure
+    DependsOn:
+      - rCloudFormationModuleInfrastructure
+      - rBuildDeployDatalakeLibraryLayerSsm
     UpdateReplacePolicy: Delete
     DeletionPolicy: Delete
     Properties:
@@ -350,6 +358,7 @@ Resources:
       Parameters:
         pFoundationsRepository: !GetAtt rFoundationsCodeCommit.Name
         pTeamRepository: !GetAtt rTeamCodeCommit.Name
+        pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
@@ -1193,10 +1202,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
-                Action: codecommit:GitPull
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*
-              - Effect: Allow
                 Action:
                   - kms:CreateGrant
                   - kms:Decrypt
@@ -1209,6 +1214,10 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-lambda-layers
+              - Effect: Allow
+                Action:
+                  - ssm:GetParametersByPath
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/Domains/*
 
   rTeamUnitTestCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -1266,7 +1275,7 @@ Resources:
     Properties:
       Artifacts:
         Type: CODEPIPELINE
-      Name: !Sub sdlf-${pDatalakeLibsLambdaLayerName}
+      Name: !Sub sdlf-cicd-${pDatalakeLibsLambdaLayerName}
       Description: Creates a Lambda Layer with the repository provided
       EncryptionKey: !Ref pKMSKey
       Environment:
@@ -1291,15 +1300,20 @@ Resources:
                 - ls && echo "-----> making artifactory directory"
                 - mkdir artifacts
                 - zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
-                - account_id=$(aws sts get-caller-identity | jq .Account)
+                - DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
+                - echo "Domain accounts found - $DOMAIN_ACCOUNTS"
                 - |-
-                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-lambda-layers" --role-session-name "codebuild-lambda-layer")
-                    export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                    export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                    export AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                - layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
-                - latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
-                - aws ssm put-parameter --name "/SDLF/Lambda/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
+                    for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
+                        temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-lambda-layers" --role-session-name "codebuild-lambda-layer")
+                        AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
+                        AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
+                        AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
+                        export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+
+                        layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.9" --zip-file fileb://./artifacts/datalake_library.zip)
+                        latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
+                        aws ssm put-parameter --name "/SDLF/Lambda/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
+                    done
         Type: CODEPIPELINE
       TimeoutInMinutes: 20
 
