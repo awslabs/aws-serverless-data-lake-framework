@@ -42,6 +42,11 @@ def create_domain_team_role_stack(
                     "ParameterValue": team,
                     "UsePreviousValue": False,
                 },
+                {
+                    "ParameterKey": "pEnableLambdaLayerBuilder",
+                    "ParameterValue": os.getenv("ENABLE_LAMBDA_LAYER_BUILDER"),
+                    "UsePreviousValue": False,
+                },
             ],
             Capabilities=[
                 "CAPABILITY_NAMED_IAM",
@@ -72,6 +77,11 @@ def create_domain_team_role_stack(
                     {
                         "ParameterKey": "pTeamName",
                         "ParameterValue": team,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pEnableLambdaLayerBuilder",
+                        "ParameterValue": os.getenv("ENABLE_LAMBDA_LAYER_BUILDER"),
                         "UsePreviousValue": False,
                     },
                 ],

@@ -58,9 +58,6 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !Ref pKMSKey
-              - Effect: Allow
-                Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-lambda-layers
 
   rBuildLambdaLayersPackage:
     Type: AWS::CodeBuild::Project
@@ -75,83 +72,105 @@ Resources:
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
             Value: !Ref pArtifactsBucket
+          - Name: KMS_KEY
+            Type: PLAINTEXT
+            Value: !Ref pKMSKey
+          - Name: AWS_PARTITION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Partition
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !GetAtt rLambdaLayersCodeBuildServiceRole.Arn
       Source:
-        BuildSpec: !Sub |
+        BuildSpec: |
           version: 0.2
+          env:
+            exported-variables:
+              - LAYERS_CDL
           phases:
             install:
               runtime-versions:
                   python: 3.9
               commands:
+                - |-
+                    aws --version # version 1 installed using pip by codebuild
+                    pip3 uninstall -y awscli
+                    aws --version # version 2
                 - pip3 install boto3
             build:
               commands:
                 - |-
-                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-lambda-layers" --role-session-name "codebuild-lambda-layer")
-                    AWS_ACCESS_KEY_ID=$(echo $temp_role | jq .Credentials.AccessKeyId | xargs)
-                    AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq .Credentials.SecretAccessKey | xargs)
-                    AWS_SESSION_TOKEN=$(echo $temp_role | jq .Credentials.SessionToken | xargs)
-                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-                - |-
-                    # download zip and wheels
-                    if [ -f "./external_layers.json" ] || [ -f "./external_wheels.json" ]; then
+                    if [ -d "./layers-$ENVIRONMENT/" ]; then
+                        cd "./layers-$ENVIRONMENT/" || exit
+                        LAYERS=()
+
+                        # download already-zipped layers
                         if [ -f "./external_layers.json" ]; then
                             echo "external_layers.json exists"
                             # the following assumes all declared layer names have a url associated to them
-                            LAYER_NAMES=$(jq -r '.[] | keys_unsorted' external_layers.json)
+                            LAYER_NAMES=$(jq -r '.[] | keys_unsorted | .[]' external_layers.json)
+                            echo "LAYER_NAMES - $LAYER_NAMES"
                             URLS=$(jq -r '.[] | .[].url' external_layers.json)
+                            echo "URLS - $URLS"
                             for i in "${!LAYER_NAMES[@]}"; do
                                 curl -s -L -o "${LAYER_NAMES[i]}.zip" "${URLS[i]}"
-                                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${LAYER_NAMES[i]}.zip" --body "${LAYER_NAMES[i]}.zip"
+                                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${LAYER_NAMES[i]}.zip" \
+                                                     --body "${LAYER_NAMES[i]}.zip"
+                                LAYERS+=("${LAYER_NAMES[i]}")
                             done
                         fi
 
+                        echo ">>>>> Beginning build of subdirectories >>>>>"
+                        for dir in ./*/
+                        do
+                            dir=${dir%*/}      # remove the trailing "/"
+                            LAYER_NAME="${dir##*/}"    # print everything after the final "/"
+                            echo "---- Looking to move to: "
+
+                            cd "$dir"
+                            echo "Moving into dir..."
+                            echo "Current directory contents:"
+                            ls
+                            if [ -f "./requirements.txt" ]; then
+                                echo "requirements.txt exists"
+                                echo "-----> making temporary directory"
+                                mkdir -p layer/python
+                                pip3 -q install -r ./requirements.txt -t layer/python
+                                cd layer/
+                                zip --quiet -r "$LAYER_NAME.zip" python/ -x \*__pycache__\*
+                                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/$LAYER_NAME.zip" \
+                                                     --body "$LAYER_NAME.zip"
+                                LAYERS+=("$LAYER_NAME")
+                                cd ../..
+                            fi
+                            echo "============= COMPLETED DIRECTORY BUILD ============="
+                        done
+
+                        # prepare the parameter that will be fed to the cloudformation template containing all lambda layers
+                        printf -v joined "%s," "${LAYERS[@]}"
+                        LAYERS_CDL="${joined%,}"
+                        echo "LAYERS_CDL - $LAYERS_CDL"
+
+                        # get wheels and push them to s3
                         if [ -f "./external_wheels.json" ]; then
                             echo "external_wheels.json exists"
                             # the following assumes all declared layer names have a url associated to them
-                            WHEEL_NAMES=$(jq -r '.[] | keys_unsorted' external_layers.json)
-                            URLS=$(jq -r '.[] | .[].url' external_layers.json)
+                            WHEEL_NAMES=$(jq -r '.[] | keys_unsorted | .[]' external_wheels.json)
+                            echo "WHEEL_NAMES - $WHEEL_NAMES"
+                            URLS=$(jq -r '.[] | .[].url' external_wheels.json)
+                            echo "URLS - $URLS"
                             for i in "${!WHEEL_NAMES[@]}"; do
                                 curl -s -L -o "${WHEEL_NAMES[i]}.whl" "${URLS[i]}"
-                                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${WHEEL_NAMES[i]}.zip" --body "${WHEEL_NAMES[i]}.zip"
+                                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${WHEEL_NAMES[i]}.zip" \
+                                                     --body "${WHEEL_NAMES[i]}.whl"
                             done
                         fi
-
-                        // todo for each element download url to element name.zip then add to commadelimitedlist
-                        artifacts_bucket=$(aws ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
-
-                        cd ../
-
                     fi
-
-                    echo ">>>>> Beginning build of subdirectories >>>>>"
-                    for dir in ./*/
-                    do
-                        dir=${dir%*/}      # remove the trailing "/"
-                        echo "${dir##*/}"    # print everything after the final "/"
-                        echo "---- Looking to move to: "
-
-                        cd "$dir"
-                        echo "Moving into dir..."
-                        echo "Current directory contents:"
-                        ls
-                        if [ -f "./requirements.txt" ]; then
-                            echo "requirements.txt exists"
-                            echo "-----> making temporary directory"
-                            mkdir -p layer/python
-                            pip3 -q install -r ./requirements.txt -t layer/python
-                            cd layer/
-                            zip -r layer.zip python/ -x \*__pycache__\*
-                            cd ../..
-                        fi
-                        echo "============= COMPLETED DIRECTORY BUILD ============="
-                    done
-                - aws cloudformation package echo ">>>>> Beginning build of default layer >>>>>"
         Type: CODEPIPELINE
       TimeoutInMinutes: 20
 
