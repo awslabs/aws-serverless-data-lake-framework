@@ -95,6 +95,7 @@ Resources:
                   - codecommit:CancelUploadArchive
                 Resource:
                   - !GetAtt rTeamMainCodeCommit.Arn
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -117,6 +118,7 @@ Resources:
                   - codebuild:BatchGetBuilds
                 Resource:
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudFormationPackage}"
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
             Version: 2012-10-17
@@ -171,9 +173,8 @@ Resources:
             Actions:
               - Name: Build
                 InputArtifacts:
-                  - Name: CicdTemplateSource
-                OutputArtifacts:
-                  - Name: LambdaLayersTemplatePackage
+                  - Name: TemplateSource
+                Namespace: LambdaLayersVariables
                 ActionTypeId:
                   Category: Build
                   Owner: AWS
@@ -200,14 +201,22 @@ Resources:
                   Version: '1'
                 InputArtifacts:
                   - Name: TemplateSource
-                  - Name: LambdaLayersTemplatePackage
+                  - Name: CicdTemplateSource
                 Configuration:
                   ActionMode: CREATE_UPDATE
                   RoleArn: !Ref pCrossAccountTeamRole
                   StackName: !Sub sdlf-${pTeamName}-lambdalayers-${pEnvironment}
-                  TemplatePath: "LambdaLayersTemplatePackage::packaged-template.yaml"
+                  TemplatePath: "CicdTemplateSource::template-lambda-layer.yaml"
                   TemplateConfiguration: "TemplateSource::tags.json"
                   Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                  ParameterOverrides: !Sub |+
+                    {
+                      "pArtifactsBucket": "${pArtifactsBucket}",
+                      "pDomain": "${pDomain}",
+                      "pEnvironment": "${pEnvironment}",
+                      "pTeamName": "${pTeamName}",
+                      "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}"
+                    }
                 RunOrder: 1
           - !Ref AWS::NoValue
         - Name: BuildPipelinesTemplate

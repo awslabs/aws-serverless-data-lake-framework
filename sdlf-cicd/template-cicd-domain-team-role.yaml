@@ -11,6 +11,12 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pEnableLambdaLayerBuilder:
+    Description: Add Lambda layer builder infrastructure and pipeline stages
+    Type: String
+
+Conditions:
+  EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
 
 Resources:
   rTeamCloudFormationRole:
@@ -320,5 +326,26 @@ Resources:
               - iam:GetPolicyVersion
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-team/sdlf-*
+      Roles:
+        - !Ref rTeamCloudFormationRole
+
+  rTeamLambdaLayersCloudFormationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnableLambdaLayerBuilder
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateChangeSet
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+          - Effect: Allow
+            Action:
+              - Lambda:PublishLayerVersion
+              - Lambda:DeleteLayerVersion
+            Resource:
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
       Roles:
         - !Ref rTeamCloudFormationRole
