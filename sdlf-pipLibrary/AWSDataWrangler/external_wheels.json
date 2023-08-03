@@ -1,7 +1,0 @@
-[
-    {
-        "awswrangler": {
-            "url": "https://github.com/aws/aws-sdk-pandas/releases/download/2.20.1/awswrangler-2.20.1-py3-none-any.whl"
-        }
-    }
-]
