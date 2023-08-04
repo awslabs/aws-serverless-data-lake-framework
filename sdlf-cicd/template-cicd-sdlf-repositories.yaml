@@ -917,7 +917,7 @@ Resources:
                   - codecommit:UploadArchive
                   - codecommit:AssociateApprovalRuleTemplateWithRepository
                   - codecommit:CreateApprovalRuleTemplate
-              - Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*-main
+              - Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-main-*
                 Effect: Allow
                 Action:
                   - codecommit:CreateRepository
