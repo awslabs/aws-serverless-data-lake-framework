@@ -310,6 +310,8 @@ Resources:
         pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pStageARepository: !GetAtt rStageACodeCommit.Name
+        pStageBRepository: !GetAtt rStageBCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
         pMainRepository: !GetAtt rMainCodeCommit.Name
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
@@ -332,6 +334,8 @@ Resources:
         pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pStageARepository: !GetAtt rStageACodeCommit.Name
+        pStageBRepository: !GetAtt rStageBCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
         pMainRepository: !GetAtt rMainCodeCommit.Name
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
@@ -354,6 +358,8 @@ Resources:
         pDatalakeLibraryRepository: !GetAtt rDatalakeLibraryCodeCommit.Name
         pPipelineRepository: !GetAtt rPipelineCodeCommit.Name
         pDatasetRepository: !GetAtt rDatasetCodeCommit.Name
+        pStageARepository: !GetAtt rStageACodeCommit.Name
+        pStageBRepository: !GetAtt rStageBCodeCommit.Name
         pCicdRepository: !GetAtt rCicdCodeCommit.Name
         pMainRepository: !GetAtt rMainCodeCommit.Name
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
