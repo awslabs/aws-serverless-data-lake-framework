@@ -34,9 +34,6 @@ Parameters:
   pDatalakeLibraryRepository:
     Type: String
     Default: sdlf-datalakeLibrary
-  pPipLibraryRepository:
-    Type: String
-    Default: sdlf-pipLibrary
   pUtilsRepository:
     Type: String
     Default: sdlf-utils
@@ -177,20 +174,6 @@ Resources:
       RepositoryDescription: sdlf-datalakeLibrary repository
       RepositoryName: !Ref pDatalakeLibraryRepository
 
-  rPipLibraryCodeCommit:
-    Type: AWS::CodeCommit::Repository
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-            - E3002
-    Properties:
-      Code:
-        BranchName: master
-        S3: ../sdlf-pipLibrary
-      RepositoryDescription: sdlf-pipLibrary repository
-      RepositoryName: !Ref pPipLibraryRepository
-
   rMainCodeCommit:
     Type: AWS::CodeCommit::Repository
     Properties:
@@ -263,14 +246,6 @@ Resources:
       Type: String
       Value: !GetAtt rDatalakeLibraryCodeCommit.Name
       Description: Name of the DatalakeLibrary repository
-
-  rPipLibraryCodeCommitSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/CodeCommit/PipLibraryCodeCommit
-      Type: String
-      Value: !GetAtt rPipLibraryCodeCommit.Name
-      Description: Name of the PipLibrary repository
 
   rUtilsCodeCommitSsm:
     Type: AWS::SSM::Parameter

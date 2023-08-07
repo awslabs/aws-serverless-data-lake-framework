@@ -176,7 +176,7 @@ devops_account () {
         --profile "$DEVOPS_AWS_PROFILE"
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
-    declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-pipLibrary" "sdlf-stageA" "sdlf-stageB")
+    declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB")
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
         latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name master --query 'branch.commitId' --output text)
