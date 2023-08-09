@@ -397,15 +397,15 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        # - PolicyName: root
-        #   PolicyDocument:
-        #     Version: 2012-10-17
-        #     Statement:
-        #       - Effect: Allow
-        #         Action:
-        #           - cloudformation:DescribeStacks
-        #         Resource:
-        #           - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cicd-stages-repositories/*
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
         - PolicyName: sdlf-cicd-stagesrepositories
           PolicyDocument:
             Version: 2012-10-17
