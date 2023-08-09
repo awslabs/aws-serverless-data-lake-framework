@@ -641,8 +641,6 @@ Resources:
                 - !Sub states.${AWS::Region}.amazonaws.com
             Action: sts:AssumeRole
             Condition:
-              ArnLike:
-                "aws:SourceArn": !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}-sm-a
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
