@@ -1,5 +1,3 @@
-import json
-
 from datalake_library import octagon
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import DynamoConfiguration
@@ -20,29 +18,28 @@ def lambda_handler(event, context):
     """
     try:
         logger.info("Fetching event data from previous step")
-        object_metadata = json.loads(event)
-        stage = object_metadata["pipeline_stage"]
+        stage = event["pipeline_stage"]
 
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
         octagon_client = (
-            octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(object_metadata["env"]).build()
+            octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(event["env"]).build()
         )
-        object_metadata["peh_id"] = octagon_client.start_pipeline_execution(
+        event["peh_id"] = octagon_client.start_pipeline_execution(
             pipeline_name="{}-{}-{}".format(
-                object_metadata["team"], object_metadata["pipeline"], stage
+                event["team"], event["pipeline"], stage
             ),
-            dataset_name="{}-{}".format(object_metadata["team"], object_metadata["dataset"]),
+            dataset_name="{}-{}".format(event["team"], event["dataset"]),
             comment=event,
         )
-        # Add business metadata (e.g. object_metadata['project'] = 'xyz')
+        # Add business metadata (e.g. event['project'] = 'xyz')
 
         logger.info("Initializing DynamoDB config and Interface")
         dynamo_config = DynamoConfiguration()
         dynamo_interface = DynamoInterface(dynamo_config)
 
         logger.info("Storing metadata to DynamoDB")
-        dynamo_interface.update_object_metadata_catalog(object_metadata)
+        dynamo_interface.update_object_metadata_catalog(event)
 
         logger.info("Passing arguments to the next function of the state machine")
         octagon_client.update_pipeline_execution(
@@ -54,4 +51,4 @@ def lambda_handler(event, context):
             component=component, issue_comment="{} {} Error: {}".format(stage, component, repr(e))
         )
         raise e
-    return {"statusCode": 200, "body": object_metadata}
+    return {"statusCode": 200, "body": event}
