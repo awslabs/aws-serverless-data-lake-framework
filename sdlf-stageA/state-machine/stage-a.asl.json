@@ -1,55 +1,120 @@
 {
-  "Comment": "Simple pseudo flow",
+  "Comment": "Simple Lambda-based transform",
   "StartAt": "Try",
   "States": {
     "Try": {
       "Type": "Parallel",
       "Branches": [
         {
-          "StartAt": "Pre-update Comprehensive Catalogue",
+          "StartAt": "Pre-update Catalog",
           "States": {
-            "Pre-update Comprehensive Catalogue": {
+            "Pre-update Catalog": {
               "Type": "Task",
-              "Resource": "${lStep1}",
-              "Comment": "Pre-update Comprehensive Catalogue",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep1}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
               "Next": "Execute Light Transformation"
             },
             "Execute Light Transformation": {
               "Type": "Task",
-              "Resource": "${lStep2}",
-              "Comment": "Execute Light Transformation",
-              "ResultPath": "$.body.processedKeys",
-              "Next": "Post-update comprehensive Catalogue"
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep2}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Post-update Catalog"
             },
-            "Post-update comprehensive Catalogue": {
+            "Post-update Catalog": {
               "Type": "Task",
-              "Resource": "${lStep3}",
-              "Comment": "Post-update comprehensive Catalogue",
-              "ResultPath": "$.statusCode",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep3}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
               "End": true
             }
           }
         }
       ],
+      "End": true,
       "Catch": [
         {
-          "ErrorEquals": [ "States.ALL" ],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "ResultPath": null,
           "Next": "Error"
         }
-      ],
-      "Next": "Done"
-    },
-    "Done": {
-      "Type": "Succeed"
+      ]
     },
     "Error": {
       "Type": "Task",
-      "Resource": "${lError}",
-      "Comment": "Send Original Payload to DLQ",
-      "Next": "Failed"
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${lError}:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Fail"
     },
-    "Failed": {
+    "Fail": {
       "Type": "Fail"
     }
   }

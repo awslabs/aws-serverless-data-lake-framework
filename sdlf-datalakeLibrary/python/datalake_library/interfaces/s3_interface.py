@@ -2,7 +2,7 @@ import json
 import os
 from io import StringIO
 from urllib.parse import unquote_plus
-
+import shutil
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
@@ -20,8 +20,13 @@ class S3Interface:
         self._s3_resource = s3_resource or boto3.resource("s3", config=self._session_config)
 
     def download_object(self, bucket, key):
+        dir_path = f"/tmp/{bucket}/"
+        if os.path.exists(dir_path):
+            # aws lambda does not always clean up /tmp between executions
+            shutil.rmtree(dir_path, ignore_errors=True)
+        os.makedirs(dir_path)
         self._logger.info("Downloading object: {}/{}".format(bucket, key))
-        object_path = "/tmp/" + key.split("/")[-1]
+        object_path = dir_path + key.split("/")[-1]
         key = unquote_plus(key)
         try:
             self._s3_resource.Bucket(bucket).download_file(key, object_path)
