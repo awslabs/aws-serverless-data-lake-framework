@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CICD pipeline to publish CloudFormation module on multiple AWS accounts
+Transform: AWS::LanguageExtensions
+Description: CICD pipelines to publish CloudFormation module for stages on multiple AWS accounts
 
 Parameters:
   pArtifactsBucket:
@@ -14,15 +15,17 @@ Parameters:
     Description: CodeBuild job that build a CloudFormation module from a SAM template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
-  pStageRepository:
-    Type: String
+  pStagesRepositoriesCount:
+    Description: List that will be used as CloudFormation resource names (workaround for Fn::ForEach)
+    Type: CommaDelimitedList
+  pStagesRepositories:
+    Description: List of CodeCommit repositories containing SDLF stages
+    Type: CommaDelimitedList
     AllowedPattern: "^sdlf-stage-[a-zA-Z0-9]*-[a-zA-Z0-9]*-[a-zA-Z0-9]*$"
-    Default: sdlf-stage-datalake-engineering-lambdatransform
   pEnvironment:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
-    Default: dev
 
 Mappings:
   pCodeCommitBranch:
@@ -34,154 +37,167 @@ Mappings:
       branch: master
 
 Resources:
-  rStageModuleCodePipelineRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - codepipeline.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: root
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GitPull
-                  - codecommit:GetRepository
-                  - codecommit:UploadArchive
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:CancelUploadArchive
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageRepository}
-              - Effect: Allow
-                Action:
-                  - s3:Get*
-                  - s3:ListBucket*
-                  - s3:Put*
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
-              - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:Describe*
-                  - kms:Encrypt
-                  - kms:GenerateDataKey*
-                  - kms:List*
-                  - kms:ReEncrypt*
-                Resource: !Ref pKMSKey
-              - Effect: Allow
-                Action:
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:StartBuild
-                  - codebuild:UpdateProject
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
-
-  rStageModulePipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      RoleArn: !GetAtt rStageModuleCodePipelineRole.Arn
-      Stages:
-        -
-          Name: Source
-          Actions:
-            -
-              Name: SourceStage
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
+  "Fn::ForEach::StagesRepositoriesResources":
+  - pStagesRepositoriesCurrentCount
+  - !Ref pStagesRepositoriesCount
+  - "r${pStagesRepositoriesCurrentCount}StageModuleCodePipelineRole":
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - codepipeline.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: root
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GitPull
+                    - codecommit:GetRepository
+                    - codecommit:UploadArchive
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:CancelUploadArchive
+                  Resource:
+                    - !Sub
+                        - arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageRepository}
+                        - pStageRepository: !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]
+                - Effect: Allow
+                  Action:
+                    - s3:Get*
+                    - s3:ListBucket*
+                    - s3:Put*
+                  Resource:
+                    - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+                - Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                    - kms:Describe*
+                    - kms:Encrypt
+                    - kms:GenerateDataKey*
+                    - kms:List*
+                    - kms:ReEncrypt*
+                  Resource: !Ref pKMSKey
+                - Effect: Allow
+                  Action:
+                    - codebuild:BatchGetBuilds
+                    - codebuild:CreateProject
+                    - codebuild:StartBuild
+                    - codebuild:UpdateProject
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
+    "r${pStagesRepositoriesCurrentCount}StageModulePipeline":
+      Type: AWS::CodePipeline::Pipeline
+      Properties:
+        RoleArn: !GetAtt
+                   - !Sub r${pStagesRepositoriesCount}StageModuleCodePipelineRole
+                   - Arn
+        Stages:
+          -
+            Name: Source
+            Actions:
+              -
+                Name: SourceStage
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeCommit
+                OutputArtifacts:
+                  - Name: SourceStageArtifact
+                Configuration:
+                  RepositoryName: !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+          -
+            Name: BuildStage
+            Actions:
+              -
+                Name: BuildStage
+                InputArtifacts:
                 - Name: SourceStageArtifact
-              Configuration:
-                RepositoryName: !Ref pStageRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-        -
-          Name: BuildStage
-          Actions:
-            -
-              Name: BuildStage
-              InputArtifacts:
-              - Name: SourceStageArtifact
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: "1"
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref pBuildCloudformationModuleStage
-                EnvironmentVariables:
-                  !Sub
-                    - >-
-                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
-                      {"name":"DOMAIN_NAME", "value":"${ModuleDomain}", "type":"PLAINTEXT"},
-                      {"name":"TEAM_NAME", "value":"${ModuleTeam}", "type":"PLAINTEXT"},
-                      {"name":"MODULE_NAME", "value":"${ModuleName}", "type":"PLAINTEXT"}]
-                    - ModuleDomain: !Select [2, !Split ["-" , !Ref pStageRepository]]
-                      ModuleTeam: !Select [3, !Split ["-" , !Ref pStageRepository]]
-                      ModuleName: !Select [4, !Split ["-" , !Ref pStageRepository]]
-              RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        EncryptionKey:
-          Id: !Ref pKMSKey
-          Type: KMS
-        Location: !Ref pArtifactsBucket
-
-  rStageRepositoryEventsTriggerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - events.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-cicd-events-trigger
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action: codepipeline:StartPipelineExecution
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageModulePipeline}
-
-  rStageModuleTriggerEventRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: "Run Stage module build on repository update"
-      EventPattern:
-        source:
-          - aws.codecommit
-        detail-type:
-          - CodeCommit Repository State Change
-        resources:
-          - !Ref pStageRepository
-        detail:
-          event:
-            - referenceCreated
-            - referenceUpdated
-          referenceType:
-            - branch
-          referenceName:
-            - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-      Targets:
-        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageModulePipeline}
-          Id: sdlf-trigger
-          RoleArn: !GetAtt rStageRepositoryEventsTriggerRole.Arn
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeBuild
+                Configuration:
+                  ProjectName: !Ref pBuildCloudformationModuleStage
+                  EnvironmentVariables:
+                    !Sub
+                      - >-
+                        [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                        {"name":"DOMAIN_NAME", "value":"${ModuleDomain}", "type":"PLAINTEXT"},
+                        {"name":"TEAM_NAME", "value":"${ModuleTeam}", "type":"PLAINTEXT"},
+                        {"name":"MODULE_NAME", "value":"${ModuleName}", "type":"PLAINTEXT"}]
+                      - ModuleDomain: !Select [2, !Split ["-" , !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]]]
+                        ModuleTeam: !Select [3, !Split ["-" , !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]]]
+                        ModuleName: !Select [4, !Split ["-" , !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]]]
+                RunOrder: 1
+        ArtifactStore:
+          Type: S3
+          EncryptionKey:
+            Id: !Ref pKMSKey
+            Type: KMS
+          Location: !Ref pArtifactsBucket
+    "r${pStagesRepositoriesCurrentCount}StageRepositoryEventsTriggerRole":
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - events.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: sdlf-cicd-events-trigger
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action: codepipeline:StartPipelineExecution
+                  Resource:
+                    - !Sub
+                        - arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageModulePipeline}
+                        - rStageModulePipeline: !Ref
+                                                "Fn::Sub": r${pStagesRepositoriesCount}StageModulePipeline
+    "r${pStagesRepositoriesCurrentCount}StageModuleTriggerEventRule":
+      Type: AWS::Events::Rule
+      Properties:
+        Description: "Run Stage module build on repository update"
+        EventPattern:
+          source:
+            - aws.codecommit
+          detail-type:
+            - CodeCommit Repository State Change
+          resources:
+            - !Select [!Ref pStagesRepositoriesCurrentCount, !Ref pStagesRepositories]
+          detail:
+            event:
+              - referenceCreated
+              - referenceUpdated
+            referenceType:
+              - branch
+            referenceName:
+              - !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+        Targets:
+          - Arn:
+              !Sub
+                - arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageModulePipeline}
+                - rStageModulePipeline: !Ref
+                                        "Fn::Sub": r${pStagesRepositoriesCount}StageModulePipeline
+            Id: sdlf-trigger
+            RoleArn: !GetAtt
+                       - !Sub r${pStagesRepositoriesCount}StageRepositoryEventsTriggerRole
+                       - Arn
