@@ -118,7 +118,10 @@ Resources:
                   - codebuild:BatchGetBuilds
                 Resource:
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudFormationPackage}"
-                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                  - !If
+                    - EnableLambdaLayerBuilder
+                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                    - !Ref AWS::NoValue
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
             Version: 2012-10-17
