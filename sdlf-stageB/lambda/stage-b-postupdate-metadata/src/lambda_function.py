@@ -21,13 +21,13 @@ def lambda_handler(event, context):
     try:
         logger.info("Fetching event data from previous step")
         bucket = event["body"]["bucket"]
-        processed_keys_path = event["body"]["job"]["processedKeysPath"]
-        processed_keys = S3Interface().list_objects(bucket, processed_keys_path)
         team = event["body"]["team"]
         pipeline = event["body"]["pipeline"]
         stage = event["body"]["pipeline_stage"]
         dataset = event["body"]["dataset"]
-        peh_id = event["body"]["job"]["peh_id"]
+        peh_id = event["body"]["peh_id"]
+        processed_keys_path = f"post-stage/{team}/{dataset}"
+        processed_keys = S3Interface().list_objects(bucket, processed_keys_path)
 
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()

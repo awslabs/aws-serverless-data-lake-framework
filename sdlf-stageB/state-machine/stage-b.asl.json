@@ -1,85 +1,118 @@
 {
-  "Comment": "Simple pseudo flow",
+  "Comment": "Simple Glue-based transform",
   "StartAt": "Try",
   "States": {
     "Try": {
       "Type": "Parallel",
       "Branches": [
         {
-          "StartAt": "Process Data",
-          "States":{
+          "StartAt": "Pre-update Catalog",
+          "States": {
+            "Pre-update Catalog": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep1}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Process Data"
+            },
             "Process Data": {
               "Type": "Task",
-              "Resource": "${lStep1}",
-              "Comment": "Process Data",
-              "ResultPath": "$.body.job",
-              "Next": "Wait"
-            },
-            "Wait": {
-                "Type": "Wait",
-                "Seconds": 15,
-                "Next": "Get Job status"
-            },
-            "Get Job status": {
-                "Type": "Task",
-                "Resource": "${lCheckJob}",
-                "ResultPath": "$.body.job",
-                "Next": "Did Job finish?"
-            },
-            "Did Job finish?": {
-                "Type": "Choice",
-                "Choices": [{
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "SUCCEEDED",
-                    "Next": "Run Glue Crawler"
-                },{
-                    "Variable": "$.body.job.jobDetails.jobStatus",
-                    "StringEquals": "FAILED",
-                    "Next": "Job Failed"
-                }],
-                "Default": "Wait"
-            },
-              "Job Failed": {
-              "Type": "Fail",
-              "Error": "Job Failed",
-              "Cause": "Job failed, please check the logs"
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "ResultPath": "$.body.glue.run_output",
+              "Parameters": {
+                "JobName.$": "$.body.glue.job_name",
+                "WorkerType.$": "$.body.glue.WorkerType",
+                "NumberOfWorkers.$": "$.body.glue.NumberOfWorkers",
+                "Arguments.$": "$.body.glue.arguments"
+              },
+              "Next": "Run Glue Crawler"
             },
             "Run Glue Crawler": {
               "Type": "Task",
-              "Resource": "${lStep2}",
-              "Comment": "Run Glue Crawler",
-              "ResultPath": "$.statusCode",
-              "Next": "Post-update Comprehensive Catalogue"
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "Parameters": {
+                "Name.$": "$.body.glue.crawler_name"
+              },
+              "Next": "Post-update Catalog"
             },
-            "Post-update Comprehensive Catalogue": {
+            "Post-update Catalog": {
               "Type": "Task",
-              "Resource": "${lStep3}",
-              "Comment": "Post-update Comprehensive Catalogue",
-              "ResultPath": "$.statusCode",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep3}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
               "End": true
             }
           }
         }
       ],
+      "End": true,
       "Catch": [
         {
-          "ErrorEquals": [ "States.ALL" ],
+          "ErrorEquals": [
+            "States.ALL"
+          ],
           "ResultPath": null,
           "Next": "Error"
         }
-      ],
-      "Next": "Done"
-    },
-    "Done": {
-      "Type": "Succeed"
+      ]
     },
     "Error": {
       "Type": "Task",
-      "Resource": "${lError}",
-      "Comment": "Send Original Payload to DLQ",
-      "Next": "Failed"
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${lError}:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Fail"
     },
-    "Failed": {
+    "Fail": {
       "Type": "Fail"
     }
   }
