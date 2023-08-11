@@ -639,6 +639,14 @@ Resources:
           Id: sdlf-trigger
           RoleArn: !GetAtt rStagesRepositoryEventsTriggerRole.Arn
 
+  rStagesModulesPipelineSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/CodePipeline/StagesModules${pEnvironment}Pipeline
+      Type: String
+      Value: !Ref rStagesModulesPipeline
+      Description: !Sub CodePipeline that triggers on sdlf-stageA/sdlf-stageB ${pEnvironment} changes
+
   rMainRepositoryCodePipelineRole:
     Type: AWS::IAM::Role
     Properties:

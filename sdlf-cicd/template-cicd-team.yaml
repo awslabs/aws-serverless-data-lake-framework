@@ -338,3 +338,24 @@ Resources:
         - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
           RoleArn: !GetAtt rTeamMainCodeCommitTriggerRole.Arn
           Id: sdlf-cicd-team
+
+  # trigger Team Repository CodePipeline when sdlf-stageA/sdlf-stageB have been updated
+  # this rule means all teams will get the new versions of these modules
+  rStagesModulesCodePipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        resources:
+          - !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodePipeline/StagesModules${pEnvironment}Pipeline}}"
+        detail:
+          state:
+            - SUCCEEDED
+      Targets:
+        - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rTeamCodePipeline}
+          RoleArn: !GetAtt rTeamMainCodeCommitTriggerRole.Arn
+          Id: sdlf-cicd-team
