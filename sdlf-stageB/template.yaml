@@ -221,58 +221,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-b
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/stage/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/post-stage/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/analytics/${pTeamName}/*
-              - Effect: Allow
-                Action:
-                  - glue:GetJobRun
-                  - glue:StartJobRun
-                Resource:
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
-
-  # Step2 Role
-  rRoleLambdaExecutionStep2:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /sdlf-team/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
-      ManagedPolicyArns:
-        - !Ref rLambdaCommonPolicy
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-crawl-b
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - glue:StartCrawler
-                Resource:
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
 
   # Step3 Role
   rRoleLambdaExecutionStep3:
@@ -395,11 +343,11 @@ Resources:
           - id: W58
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
-      CodeUri: ./lambda/stage-b-process-data/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-process-b
-      Description: Processing pipeline
-      MemorySize: 1536
-      Timeout: 900
+      CodeUri: ./lambda/stage-b-fetch-metadata/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-fetch-metadata-b
+      Description: Fetches transform metadata from DynamoDB
+      MemorySize: 128
+      Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionStep1.Arn
 
   rLambdaJobCheckStep:
@@ -416,21 +364,6 @@ Resources:
       MemorySize: 256
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionStep1.Arn
-
-  rLambdaStep2:
-    Type: AWS::Serverless::Function
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
-    Properties:
-      CodeUri: ./lambda/stage-b-crawl-data/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-crawl-b
-      Description: Glue crawler
-      MemorySize: 512
-      Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionStep2.Arn
 
   rLambdaStep3:
     Type: AWS::Serverless::Function
@@ -553,24 +486,6 @@ Resources:
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  rLambdaStep2LogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterStep2:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaStep2LogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
   rLambdaStep3LogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
@@ -645,8 +560,6 @@ Resources:
                 - !Sub states.${AWS::Region}.amazonaws.com
             Action: sts:AssumeRole
             Condition:
-              ArnLike:
-                "aws:SourceArn": !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-${pPipeline}-sm-b
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
@@ -658,6 +571,19 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipeline}-*
+              - Effect: Allow
+                Action:
+                  - glue:StartJobRun
+                  - glue:GetJobRun
+                  - glue:GetJobRuns
+                  - glue:BatchStopJobRun
+                Resource:
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - glue:StartCrawler
+                Resource:
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - xray:PutTraceSegments # W11 exception
@@ -673,7 +599,6 @@ Resources:
       DefinitionUri: ./state-machine/stage-b.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
-        lStep2: !GetAtt rLambdaStep2.Arn
         lStep3: !GetAtt rLambdaStep3.Arn
         lCheckJob: !GetAtt rLambdaJobCheckStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn

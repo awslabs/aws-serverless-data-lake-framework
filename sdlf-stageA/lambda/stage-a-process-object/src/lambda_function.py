@@ -1,6 +1,8 @@
 import os
 import json
 
+from pathlib import PurePath
+
 from datalake_library import octagon
 from datalake_library.commons import init_logger
 from datalake_library.octagon import peh
@@ -45,13 +47,13 @@ def transform_object(bucket, key, team, dataset):
     json_data = json.loads(data)
 
     # Saving file locally to /tmp after parsing
-    output_path = "{}_parsed.json".format(local_path.split(".")[0])
+    output_path = f"{PurePath(local_path).with_suffix('')}_parsed.json"
     with open(output_path, "w", encoding="utf-8") as write_file:
         json.dump(parse(json_data), write_file, ensure_ascii=False, indent=4)
 
     # Uploading file to Stage bucket at appropriate path
     # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
-    s3_path = "pre-stage/{}/{}/{}".format(team, dataset, output_path.split("/")[2])
+    s3_path = f"pre-stage/{team}/{dataset}/{PurePath(output_path).name}"
     # IMPORTANT: Notice "stage_bucket" not "bucket"
     kms_key = KMSConfiguration(team).get_kms_arn
     s3_interface.upload_object(output_path, stage_bucket, s3_path, kms_key=kms_key)
