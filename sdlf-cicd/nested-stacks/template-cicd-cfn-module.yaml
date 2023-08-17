@@ -158,7 +158,7 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref pArtifactsBucket
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         Type: LINUX_CONTAINER
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref rBuildCloudformationModuleRole
@@ -168,7 +168,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.9
+                python: 3.11
               commands:
                 - |-
                     pip3 uninstall -y aws-sam-cli
