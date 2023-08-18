@@ -110,7 +110,7 @@ Resources:
       Role: !GetAtt rPullRequestLambdaRole.Arn
       TracingConfig:
         Mode: Active
-      Runtime: "python3.9"
+      Runtime: python3.11
       Timeout: 10
       Code:
         ZipFile: |
@@ -361,7 +361,7 @@ Resources:
       Role: !GetAtt rCodeBuildResultFunctionLambdaRole.Arn
       TracingConfig:
         Mode: Active
-      Runtime: "python3.9"
+      Runtime: python3.11
       Timeout: 10
       Code:
         ZipFile: |

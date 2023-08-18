@@ -191,7 +191,7 @@ Resources:
       Handler: index.handler
       Role:
         Fn::GetAtt: [rExecutionRole, Arn]
-      Runtime: python3.9
+      Runtime: python3.11
 
   rLambdaFunctionInitDMS:
     Type: AWS::Lambda::Function
@@ -310,7 +310,7 @@ Resources:
       Handler: index.handler
       Role:
         Fn::GetAtt: [rExecutionRole, Arn]
-      Runtime: python3.9
+      Runtime: python3.11
 
   ######## SSM #########
   rReplicationInstanceSsm:
