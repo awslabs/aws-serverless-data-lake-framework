@@ -550,7 +550,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 192
       Role: !GetAtt rDatasetsDynamodbLambdaRole.Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 300
       Environment:
         Variables:
@@ -728,7 +728,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 192
       Role: !GetAtt rPipelinesDynamodbLambdaRole.Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 300
       Environment:
         Variables:
