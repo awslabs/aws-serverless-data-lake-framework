@@ -146,7 +146,7 @@ Resources:
   rSNSTopicSubscriptionLambda:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: python3.9
+      Runtime: python3.11
       Handler: lambda_function.lambda_handler
       KmsKeyArn: !Ref KMSKeyId
       CodeUri: ./lambda/topic/src
