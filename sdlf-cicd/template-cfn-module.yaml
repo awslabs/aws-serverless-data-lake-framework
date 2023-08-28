@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploy a CloudFormation module
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: String
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+  pDomain:
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Type: String
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
+    Type: String
+  pModuleName:
+    Description: Name of the module
+    Type: String
+  pModuleGitRef:
+    Description: Git reference (commit id) with the sources of this module version
+    Type: String
+
+Resources:
+  rCloudFormationModule:
+      Type: AWS::CloudFormation::ModuleVersion
+      Properties:
+        ModuleName: !Sub "${pDomain}::${pTeamName}::${pModuleName}::MODULE"
+        ModulePackage: !Sub "s3://${pArtifactsBucket}/modules/${pDomain}/${pEnvironment}/${pTeamName}/${pModuleName}.zip"
+
+  rCloudFormationModuleDefaultVersion:
+    Type: AWS::CloudFormation::ModuleDefaultVersion
+    Properties:
+      Arn: !Ref rCloudFormationModule
+
+  rCloudFormationModuleSsm:
+    Type: AWS::SSM::Parameter
+    DependsOn: rCloudFormationModuleDefaultVersion
+    Properties:
+      Name: !Sub /SDLF/CFN/${pDomain}-${pTeamName}-${pModuleName}-MODULE
+      Type: String
+      Value: !Ref pModuleGitRef
+      Description: Git reference (commit id) with the sources of this module version
