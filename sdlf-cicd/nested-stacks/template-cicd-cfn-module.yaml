@@ -50,14 +50,6 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
                 Action:
-                  - lambda:List*
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - lambda:GetLayer*
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
-              - Effect: Allow
-                Action:
                   - kms:CreateGrant
                   - kms:Decrypt
                   - kms:DescribeKey
@@ -66,76 +58,6 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !Ref pKMSKey
-              - Effect: Allow
-                Action:
-                  - iam:ListPolicies
-                Resource:
-                  - "*"
-              - Effect: Allow
-                Action:
-                  - iam:GetRole
-                  - iam:CreateRole
-                  - iam:GetRolePolicy
-                  - iam:PutRolePolicy
-                  - iam:DeleteRolePolicy
-                  - iam:DeleteRole
-                  - iam:PassRole
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/CloudFormationManagedUplo-LogAndMetricsDeliveryRol-*"
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateStack
-                  - cloudformation:UpdateStack
-                  - cloudformation:DescribeStacks
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CloudFormationManagedUploadInfrastructure/*"
-              - Effect: Allow
-                Action:
-                  - cloudformation:RegisterType
-                  - cloudformation:SetTypeDefaultVersion
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/awslabs::sdlf::*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/awslabs-sdlf-*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/MODULE/*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/*"
-              - Effect: Allow
-                Action:
-                  - s3:CreateBucket # necessary for CfnUploadInfra stack
-                  - s3:PutLifecycleConfiguration # necessary for CfnUploadInfra stack
-                  - s3:DeleteBucket
-                  - s3:DeleteBucketPolicy
-                  - s3:GetEncryptionConfiguration
-                  - s3:GetObject
-                  - s3:ListBucket
-                  - s3:ListBuckets
-                  - s3:ListObjectsV2
-                  - s3:PutBucketAcl
-                  - s3:PutBucketLogging
-                  - s3:PutBucketPolicy
-                  - s3:PutBucketVersioning
-                  - s3:PutEncryptionConfiguration
-                  - s3:PutBucketPublicAccessBlock
-                  - s3:DeleteBucketPublicAccessBlock
-                  - s3:PutObject # necessary for cfn submit
-                  - s3:SetBucketEncryption
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfra-accesslogsbucket-*
-                  - !Sub arn:${AWS::Partition}:s3:::cloudformationmanageduploadinfrast-artifactbucket-*
-              - Effect: Allow
-                Action:
-                  - kms:CreateKey
-                  - kms:PutKeyPolicy
-                  - kms:TagResource
-                  - kms:EnableKeyRotation
-                  - kms:GenerateDataKey*
-                  - kms:Decrypt
-                Resource:
-                  - "*" # TODO
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeTypeRegistration
-                Resource:
-                  - "*"
               - Effect: Allow
                 Action:
                   - ssm:GetParametersByPath
@@ -182,15 +104,22 @@ Resources:
               commands:
                 - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
                 - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
-                - DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
-                - echo "Domain accounts found - $DOMAIN_ACCOUNTS"
+                - |-
+                    DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
+                    echo "Domain accounts found - $DOMAIN_ACCOUNTS"
                 - # aws cloudformation validate-template --template-body file://./translated-template.json
                 - |-
                     mkdir module
                     cd module || exit
                     cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
                     cp -i -a ../translated-template.json fragments/
+                    cfn generate
+                    zip --quiet -r "../$MODULE_NAME.zip" .rpdk-config fragments/ schema.json
 
+                    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                          --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME.zip" \
+                                          --body "../$MODULE_NAME.zip"
+                - |-
                     for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
                         temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
                         AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
@@ -209,27 +138,23 @@ Resources:
                           fi
                         fi
 
-                        cfn submit --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" > cfn.log 2>&1
-                        if grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*CREATE_IN_PROGRESS" cfn.log; then
-                          aws cloudformation wait stack-create-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                          cfn submit > cfn.log 2>&1
-                        elif grep "ValidationError.*CloudFormationManagedUploadInfrastructure.*UPDATE.*_IN_PROGRESS" cfn.log; then
-                          aws cloudformation wait stack-update-complete --stack-name "CloudFormationManagedUploadInfrastructure"
-                          cfn submit > cfn.log 2>&1
-                        fi
-                        echo "----- CFN CLI LOGS -----"
-                        cat cfn.log
-                        echo "----- END CFN CLI LOGS -----"
-                        TYPE_VERSION_ARN=$(grep "ProgressStatus.*status COMPLETED" cfn.log | tr "'" '"' | jq -r '.TypeVersionArn')
-                        echo "registering new cloudformation module version as default: $TYPE_VERSION_ARN"
-                        aws cloudformation set-type-default-version --type MODULE --arn "$TYPE_VERSION_ARN" || exit 1
-                        aws ssm put-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --type "String" --value "$NEW_MODULE" --overwrite
+                        STACK_NAME="sdlf-cfn-module-$TEAM_NAME-$MODULE_NAME"
+                        aws cloudformation deploy \
+                            --stack-name "$STACK_NAME" \
+                            --template-file "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-cfn-module.yaml \
+                            --parameter-overrides \
+                                pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                                pEnvironment="$ENVIRONMENT" \
+                                pDomain="$DOMAIN_NAME" \
+                                pTeamName="$TEAM_NAME" \
+                                pModuleName="$MODULE_NAME" \
+                                pModuleGitRef="$NEW_MODULE" \
+                            --tags Framework=sdlf \
+                            --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                            --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" || exit 1
                         echo "done for $DOMAIN_ACCOUNT_ID"
-                        rm cfn.log
                     done
-
-                    cd ..
-                    rm -Rf module
+                - cd .. && rm -Rf module
           artifacts:
             files:
               - "*"
