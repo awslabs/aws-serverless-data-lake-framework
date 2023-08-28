@@ -92,6 +92,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
               - Effect: Allow
@@ -128,11 +129,25 @@ Resources:
           Name: Sources
           Actions:
             -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: "1"
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
               Name: SourceFoundations
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceFoundationsArtifact
@@ -146,7 +161,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceTeamArtifact
@@ -161,13 +176,15 @@ Resources:
             -
               Name: BuildFoundations
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceFoundationsArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceFoundationsArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
@@ -178,17 +195,19 @@ Resources:
             -
               Name: BuildTeam
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceTeamArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceTeamArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
-                  {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
                    {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
                    {"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]
               RunOrder: 1
@@ -272,6 +291,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
@@ -310,11 +330,25 @@ Resources:
           Name: Sources
           Actions:
             -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: "1"
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
               Name: SourceDatalakeLibrary
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceDatalakeLibraryArtifact
@@ -328,7 +362,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourcePipelineArtifact
@@ -342,7 +376,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceDatasetArtifact
@@ -361,7 +395,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref pBuildDeployDatalakeLibraryLayer
@@ -374,13 +408,15 @@ Resources:
             -
               Name: BuildPipeline
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourcePipelineArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourcePipelineArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
@@ -391,13 +427,15 @@ Resources:
             -
               Name: BuildDataset
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceDatasetArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceDatasetArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
@@ -486,6 +524,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageARepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageBRepository}
               - Effect: Allow
@@ -522,6 +561,20 @@ Resources:
           Name: Sources
           Actions:
             -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: "1"
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
               Name: SourceStageA
               ActionTypeId:
                 Category: Source
@@ -555,6 +608,7 @@ Resources:
             -
               Name: BuildStageA
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceStageAArtifact
               ActionTypeId:
                 Category: Build
@@ -562,6 +616,7 @@ Resources:
                 Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceStageAArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
@@ -572,6 +627,7 @@ Resources:
             -
               Name: BuildStageB
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceStageBArtifact
               ActionTypeId:
                 Category: Build
@@ -579,6 +635,7 @@ Resources:
                 Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceStageBArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
@@ -717,7 +774,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceMainArtifact
@@ -731,7 +788,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeCommit
               OutputArtifacts:
                 - Name: SourceCicdArtifact
@@ -748,7 +805,7 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
@@ -764,7 +821,7 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
@@ -780,7 +837,7 @@ Resources:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
