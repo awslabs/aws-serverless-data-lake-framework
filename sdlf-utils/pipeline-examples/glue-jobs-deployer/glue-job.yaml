@@ -90,7 +90,7 @@ Resources:
         MaxConcurrentRuns: 10
       MaxRetries: 0
       AllocatedCapacity: !Sub ${pAllocatedCapacity}
-      GlueVersion: '2.0'
+      GlueVersion: "4.0"
       Connections:
         Connections:
         - !Sub 'sdlf-${pTeam}-glue-conn'
