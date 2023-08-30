@@ -422,7 +422,7 @@ Resources:
         "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
       ExecutionProperty:
         MaxConcurrentRuns: 10
-      GlueVersion: "2.0"
+      GlueVersion: "3.0"
       Timeout: 65
       Name: sdlf-data-quality-controller
       Role: !Ref pDataLakeAdminRoleArn
@@ -452,7 +452,7 @@ Resources:
         "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
       ExecutionProperty:
         MaxConcurrentRuns: 10
-      GlueVersion: "2.0"
+      GlueVersion: "4.0"
       MaxCapacity: 3
       MaxRetries: 0
       Timeout: 60
@@ -486,7 +486,7 @@ Resources:
         MaxConcurrentRuns: 10
       MaxRetries: 0
       Timeout: 60
-      GlueVersion: "2.0"
+      GlueVersion: "4.0"
       MaxCapacity: 3
       Name: sdlf-data-quality-analysis-verification-runner
       Role: !Ref pDataLakeAdminRoleArn
@@ -516,7 +516,7 @@ Resources:
         MaxConcurrentRuns: 10
       MaxRetries: 0
       Timeout: 60
-      GlueVersion: "2.0"
+      GlueVersion: "4.0"
       MaxCapacity: 3
       Name: sdlf-data-quality-profile-runner
       Role: !Ref pDataLakeAdminRoleArn
