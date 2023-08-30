@@ -185,8 +185,8 @@ Resources:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 20
-      AllocatedCapacity: 3
-      GlueVersion: "2.0"
+      MaxCapacity: 3
+      GlueVersion: "4.0"
       Command:
         Name: glueetl
         PythonVersion: "3"
@@ -204,8 +204,8 @@ Resources:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 20
-      AllocatedCapacity: 3
-      GlueVersion: "2.0"
+      MaxCapacity: 3
+      GlueVersion: "4.0"
       Command:
         Name: glueetl
         PythonVersion: "3"
@@ -222,7 +222,7 @@ Resources:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/DMSExecutionRoleArn:1}}"
       ExecutionProperty:
         MaxConcurrentRuns: 1
-      GlueVersion: "2.0"
+      GlueVersion: "3.0"
       Command:
         Name: "pythonshell"
         PythonVersion: "3.9"
