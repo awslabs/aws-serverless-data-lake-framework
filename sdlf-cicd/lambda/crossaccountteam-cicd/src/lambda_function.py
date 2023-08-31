@@ -265,7 +265,7 @@ def lambda_handler(event, context):
                     StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
                 )
             crossaccount_team_role = (
-                f"arn:{partition}:iam::{child_account}:role/sdlf/sdlf-cicd-team-{team}"
+                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
             )
             # unfortunately kms grants cannot be defined using cloudformation
             grant_id = kms.create_grant(

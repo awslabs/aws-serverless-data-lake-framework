@@ -175,6 +175,7 @@ devops_account () {
         --region "$REGION" \
         --profile "$DEVOPS_AWS_PROFILE"
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
+    rm -Rf "$DIRNAME"/output
 
     declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB")
     for REPOSITORY in "${REPOSITORIES[@]}"

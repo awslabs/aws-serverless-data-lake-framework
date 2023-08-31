@@ -14,6 +14,11 @@ Parameters:
 Resources:
   rBuildCloudformationModuleRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -31,7 +36,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - cloudformation:ValidateTemplate
+                  - cloudformation:ValidateTemplate # W11 exception
                 Resource: "*"
               - Effect: Allow
                 Action:
@@ -105,9 +110,14 @@ Resources:
                 - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
                 - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
                 - |-
+                    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                      --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/translated-template.json" \
+                      --body translated-template.json
+                    TEMPLATE_URL=$(aws s3 presign "s3://$ARTIFACTS_BUCKET/modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/translated-template.json" --expires-in 300)
+                    aws cloudformation validate-template --template-url "$TEMPLATE_URL"
+                - |-
                     DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
                     echo "Domain accounts found - $DOMAIN_ACCOUNTS"
-                - # aws cloudformation validate-template --template-body file://./translated-template.json
                 - |-
                     mkdir module
                     cd module || exit

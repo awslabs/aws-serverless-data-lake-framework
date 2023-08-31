@@ -55,7 +55,7 @@
             "Post-update Catalog": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
-              "OutputPath": "$.Payload",
+              "ResultPath": null,
               "Parameters": {
                 "Payload.$": "$",
                 "FunctionName": "${lStep3}:$LATEST"
