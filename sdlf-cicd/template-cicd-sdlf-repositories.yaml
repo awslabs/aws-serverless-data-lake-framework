@@ -348,6 +348,11 @@ Resources:
 
   rStagesRepositoriesLambdaRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -376,12 +381,12 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - codepipeline:PutJobSuccessResult
-                  - codepipeline:PutJobFailureResult
+                  - codepipeline:PutJobSuccessResult # W11 exception
+                  - codepipeline:PutJobFailureResult # W11 exception
                 Resource: "*"
               - Effect: Allow
                 Action:
-                  - codecommit:ListRepositories
+                  - codecommit:ListRepositories # W11 exception
                 Resource: "*"
 
   rStagesRepositoriesCloudFormationRole:
@@ -433,10 +438,11 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-*
               - Effect: Allow
                 Action:
-                  - codepipeline:GetPipeline
                   - codepipeline:GetPipelineState
+                  - codepipeline:GetPipeline
                   - codepipeline:CreatePipeline
                   - codepipeline:DeletePipeline
+                  - codepipeline:UpdatePipeline
                   - codepipeline:TagResource
                   - codepipeline:UntagResource
                 Resource:
@@ -732,6 +738,11 @@ Resources:
   ######## LAMBDA #########
   rMainRepositoryLambdaRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       AssumeRolePolicyDocument:
         Statement:
@@ -755,8 +766,8 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-cicd-*
               - Effect: Allow
                 Action:
-                  - codepipeline:PutJobSuccessResult
-                  - codepipeline:PutJobFailureResult
+                  - codepipeline:PutJobSuccessResult # W11 exception
+                  - codepipeline:PutJobFailureResult # W11 exception
                 Resource: "*"
               - Action:
                   - codecommit:BatchGetCommits
@@ -776,7 +787,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                 Sid: CodeCommitRead
               - Action:
-                  - codecommit:CreateApprovalRuleTemplate
+                  - codecommit:CreateApprovalRuleTemplate # W11 exception
                 Effect: Allow
                 Resource:
                   - "*"
@@ -814,12 +825,15 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cicd-*
               - Effect: Allow
                 Action:
-                  - cloudformation:ListStacks
+                  - cloudformation:ListStacks # W11 exception
                 Resource: "*"
               - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource: !GetAtt rMainRepositoryCloudFormationRole.Arn
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService": cloudformation.amazonaws.com
               - Effect: Allow
                 Action:
                   - sts:AssumeRole
@@ -833,6 +847,11 @@ Resources:
 
   rMainRepositoryCloudFormationRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -846,61 +865,42 @@ Resources:
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              - Resource: "*"
-                Effect: Allow
+              - Effect: Allow
                 Action:
-                  - codecommit:CancelUploadArchive
-                  - codecommit:CreateRepository
-                  - codecommit:Get*
-                  - codecommit:Git*
-                  - codecommit:ListRepositories
-                  - codecommit:PutRepositoryTriggers
-                  - codecommit:UpdateRepositoryDescription
-                  - codecommit:UploadArchive
-                  - codecommit:AssociateApprovalRuleTemplateWithRepository
-                  - codecommit:CreateApprovalRuleTemplate
-              - Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-main-*
-                Effect: Allow
+                  - codecommit:ListRepositories # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
+                  - codecommit:GetRepository
                   - codecommit:CreateRepository
-                  - codecommit:TagResource
                   - codecommit:DeleteRepository
-              - Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-repo-notifications-*
-                Effect: Allow
-                Action:
-                  - SNS:GetTopicAttributes
-                  - SNS:CreateTopic
-                  - SNS:Subscribe
-                  - SNS:SetTopicAttributes
-                  - SNS:ListSubscriptionsByTopic
-              - Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-pr-created-*
-                Effect: Allow
-                Action:
-                  - events:DescribeRule
-                  - events:DeleteRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-              - Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-cr-sns-topic-endpoints-subscription
-                Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:DescribeLogGroups
-                  - logs:DescribeLogStreams
-                  - logs:PutLogEvents
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
-                Effect: Allow
-                Action:
-                  - iam:ListRoles
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-foundations-eventbus-*
-                Effect: Allow
+                  - codecommit:TagResource
+                  - codecommit:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-main-*
+              - Effect: Allow
                 Action:
                   - iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-crossaccount-pipeline
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: codepipeline.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-teams-*
+                Condition:
+                  StringEquals:
+                    iam:PassedToService:
+                      - codepipeline.amazonaws.com
+                      - events.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-*
               - Effect: Allow
                 Action:
                   - iam:AttachRolePolicy
@@ -937,38 +937,26 @@ Resources:
                   - ssm:AddTagsToResource
                   - ssm:DeleteParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/DevOpsArtifactsBucket
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/CICDKeyId
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodePipeline/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/LambdaLayerBuilder/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/CicdCodeCommit
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/MainCodeCommit
               - Effect: Allow
                 Action:
-                  - codepipeline:CreatePipeline
-                  - codepipeline:DeletePipeline
                   - codepipeline:GetPipelineState
                   - codepipeline:GetPipeline
+                  - codepipeline:CreatePipeline
+                  - codepipeline:DeletePipeline
                   - codepipeline:UpdatePipeline
+                  - codepipeline:TagResource
+                  - codepipeline:UntagResource
                 Resource:
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-domain-*
                   - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-teams-*
-              - Effect: Allow
-                Action:
-                  - codebuild:BatchGetProjects
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:DeleteProject
-                  - codebuild:UpdateProject
-                Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
-              - Effect: Allow
-                Action: iam:PassRole
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-*
-                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf/sdlf-cicd-team-*
-                Condition:
-                  StringEqualsIfExists:
-                    iam:PassedToService:
-                      - cloudformation.amazonaws.com
-                      - codebuild.amazonaws.com
-                      - codepipeline.amazonaws.com
-                      - lambda.amazonaws.com
-                      - events.amazonaws.com
 
   rMainRepositoryDomainLambda:
     Type: AWS::Lambda::Function

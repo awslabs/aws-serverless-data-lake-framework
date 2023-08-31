@@ -304,7 +304,6 @@ Resources:
               Service:
                 - events.amazonaws.com
             Action: sts:AssumeRole
-      Path: /
       Policies:
         - PolicyName: sdlf-cicd-trigger-rule
           PolicyDocument:

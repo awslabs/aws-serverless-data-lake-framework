@@ -17,6 +17,11 @@ Parameters:
 Resources:
   rBuildModuleActionCodePipelineRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
     Properties:
       RoleName: sdlf-cicd-domain-crossaccount-cfn-modules
       AssumeRolePolicyDocument:
@@ -79,6 +84,13 @@ Resources:
 
   rBuildModuleCloudFormationRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: |-
+              KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
+              The other actions with "*" are all ones that only support the all resources wildcard
     Properties:
       RoleName: sdlf-cicd-cfn-modules
       AssumeRolePolicyDocument:
@@ -129,7 +141,7 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/module/*"
               - Effect: Allow
                 Action:
-                  - cloudformation:DescribeTypeRegistration
+                  - cloudformation:DescribeTypeRegistration # W11 exception
                 Resource:
                   - "*"
               - Effect: Allow
@@ -145,6 +157,11 @@ Resources:
 
   rDomainCodePipelineRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
     Properties:
       RoleName: sdlf-cicd-domain-crossaccount-pipeline
       AssumeRolePolicyDocument:
@@ -203,9 +220,8 @@ Resources:
                 Action: iam:PassRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
                 Condition:
-                  StringEqualsIfExists:
-                    iam:PassedToService:
-                      - cloudformation.amazonaws.com
+                  StringEquals:
+                    "iam:PassedToService": cloudformation.amazonaws.com
 
   rDomainCloudFormationRole:
     Type: AWS::IAM::Role
@@ -249,10 +265,7 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/*
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
                   - cloudformation:CreateStack
@@ -263,15 +276,16 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack
-              - Resource: "*"
-                Effect: Allow
-                Action:
                   - cloudformation:GetTemplate
                   - cloudformation:GetTemplateSummary
-                  - cloudformation:ListStacks
-                  - cloudformation:ValidateTemplate
-              - Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
-                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
+              - Effect: Allow
+                Action:
+                  - cloudformation:ListStacks # W11 exception
+                  - cloudformation:ValidateTemplate # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - dynamodb:CreateTable
                   - dynamodb:DeleteTable
@@ -284,8 +298,8 @@ Resources:
                   - dynamodb:UpdateTimeToLive
                   - dynamodb:DescribeContinuousBackups
                   - dynamodb:UpdateContinuousBackups
-              - Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
-                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - Effect: Allow
                 Action:
                   - events:DeleteRule
                   - events:DescribeRule
@@ -294,54 +308,40 @@ Resources:
                   - events:PutRule
                   - events:PutTargets
                   - events:RemoveTargets
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
-                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
+              - Effect: Allow
                 Action: iam:PassRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-domain-*
                 Condition:
-                  StringEqualsIfExists:
-                    iam:PassedToService:
-                      - cloudformation.amazonaws.com
-                      - codebuild.amazonaws.com
-                      - codepipeline.amazonaws.com
+                  StringEquals:
+                    "iam:PassedToService":
                       - lambda.amazonaws.com
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-foundations-*-rLakeFormationDataAccess-*
-                Effect: Allow
-                Action: iam:PassRole
-              - Resource: "*"
-                Effect: Allow
+                      - lakeformation.amazonaws.com
+              - Effect: Allow
                 Action:
-                  - iam:GetRole
-                  - iam:GetRolePolicy
-                  - iam:ListPolicies
-                  - iam:ListPolicyVersions
-                  - iam:ListRoles
-                  - iam:ListRolePolicies
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
-                Effect: Allow
-                Action:
-                  - iam:UpdateAssumeRolePolicy
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/*
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/state-machine/sdlf-*
-                Effect: Allow
-                Action:
-                  - iam:AttachRolePolicy
-                  - iam:CreateRole
-                  - iam:CreateServiceLinkedRole
                   - iam:DeleteRole
                   - iam:DeleteRolePolicy
-                  - iam:DetachRolePolicy
-                  - iam:PassRole
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:AttachRolePolicy
                   - iam:PutRolePolicy
-                  - iam:TagRole
+                  - iam:DetachRolePolicy
                   - iam:UntagRole
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
-              - Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf/sdlf-domain-*
-                Effect: Allow
+                  - iam:TagRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:CreateRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-domain-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-*/sdlf-domain-*
+              - Effect: Allow
+                Action:
+                  - iam:ListPolicies # W11 exception
+                  - iam:ListRoles # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - iam:CreatePolicy
                   - iam:CreatePolicyVersion
@@ -349,66 +349,64 @@ Resources:
                   - iam:DeletePolicyVersion
                   - iam:GetPolicy
                   - iam:GetPolicyVersion
-              - Resource: "*"
-                Effect: "Allow"
-                Action: lambda:ListFunctions
-              - Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-*
-                Effect: Allow
+                  - iam:ListPolicyVersions
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf/*/sdlf-domain-* # permissions boundary in sdlf-team
+              - Effect: "Allow"
+                Action: lambda:ListFunctions # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - lambda:AddPermission
                   - lambda:CreateAlias
                   - lambda:CreateFunction
                   - lambda:DeleteFunction
                   - lambda:DeleteFunctionConcurrency
-                  - lambda:DeleteLayerVersion
                   - lambda:GetFunction
                   - lambda:GetFunctionConfiguration
-                  - lambda:GetLayerVersion
                   - lambda:InvokeFunction
-                  - lambda:ListFunctions
-                  - lambda:ListLayers
-                  - lambda:ListLayerVersions
                   - lambda:ListTags
                   - lambda:PublishVersion
                   - lambda:PutFunctionConcurrency
                   - lambda:RemovePermission
-                  - lambda:RevokePermission
                   - lambda:TagResource
                   - lambda:UntagResource
                   - lambda:UpdateAlias
                   - lambda:UpdateFunctionCode
                   - lambda:UpdateFunctionConfiguration
-              - Resource: "*"
-                Effect: "Allow"
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-*
+              - Effect: Allow
                 Action:
-                  - lambda:CreateEventSourceMapping
-                  - lambda:GetEventSourceMapping
-                  - lambda:UpdateEventSourceMapping
-                  - lambda:DeleteEventSourceMapping
-              - Resource: "*"
-                Effect: "Allow"
+                  - lambda:GetEventSourceMapping # W11 exception
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:CreateEventSourceMapping # can only be controlled through lambda:FunctionArn condition key
+                  - lambda:DeleteEventSourceMapping # can only be controlled through lambda:FunctionArn condition key
+                  - lambda:UpdateEventSourceMapping # can only be controlled through lambda:FunctionArn condition key
+                Resource: "*"
+                Condition:
+                  ArnLike:
+                    "lambda:FunctionArn": !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-*
+              - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:DescribeLogGroups
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*:log-stream:*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*:log-stream:*
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*:log-stream:*
-                Effect: Allow
-                Action:
-                  - logs:PutRetentionPolicy
                   - logs:CreateLogStream
-                  - logs:DeleteLogGroup
                   - logs:DeleteLogStream
+                  - logs:DeleteLogGroup
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
                   - logs:TagLogGroup
-                  - logs:UntagLogGroup
-              - Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:*
-                Effect: Allow
-                Action: sns:ListTopics
-              - Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
-                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+              - Effect: Allow
+                Action: sns:ListTopics # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - sns:CreateTopic
                   - sns:DeleteTopic
@@ -418,36 +416,59 @@ Resources:
                   - sns:Subscribe
                   - sns:Unsubscribe
                   - sns:TagResource
-              - Resource: "*"
-                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
+              - Effect: Allow
                 Action:
                   - s3:CreateBucket
+                  - s3:GetBucketTagging
+                  - s3:PutBucketTagging
+                  - s3:GetEncryptionConfiguration
+                  - s3:PutEncryptionConfiguration
+                  - s3:GetBucketVersioning
+                  - s3:PutBucketVersioning
+                  - s3:GetLifecycleConfiguration
+                  - s3:PutLifecycleConfiguration
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketLogging
+                  - s3:PutBucketLogging
+                  - s3:PutBucketNotification
+                  - s3:GetBucketNotification
+                Resource: "*"
+              - Effect: Allow
+                Action:
                   - s3:DeleteBucket
+                  - s3:GetBucketPolicy
+                  - s3:PutBucketPolicy
                   - s3:DeleteBucketPolicy
-                  - s3:Get*
-                  - s3:List*
-                  - s3:Put*
-                  - s3:SetBucketEncryption
-              - Resource: !Sub arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/sdlf-*
-                Effect: Allow
+                Resource: "*"
+              - Effect: Allow
                 Action:
-                  - codebuild:BatchGetProjects
-                  - codebuild:BatchGetBuilds
-                  - codebuild:CreateProject
-                  - codebuild:DeleteProject
-                  - codebuild:UpdateProject
-              - Resource: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-*
-                Effect: Allow
-                Action:
-                  - codepipeline:CreatePipeline
-                  - codepipeline:DeletePipeline
-                  - codepipeline:GetPipelineState
-                  - codepipeline:GetPipeline
-                  - codepipeline:UpdatePipeline
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/sdlf-*
-                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/sdlf-*
-                Effect: Allow
+                  - kms:DescribeKey
+                  - kms:CreateKey
+                  - kms:GetKeyPolicy
+                  - kms:PutKeyPolicy
+                  - kms:TagResource
+                  - kms:UntagResource
+                  - kms:CreateAlias
+                  - kms:UpdateAlias
+                  - kms:DeleteAlias
+                  - kms:UpdateKeyDescription
+                  - kms:EnableKeyRotation
+                  - kms:Decrypt
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                  - kms:CreateGrant
+                  - kms:RetireGrant
+                  - kms:RevokeGrant
+                  - kms:DisableKey
+                  - kms:DisableKeyRotation
+                  - kms:EnableKey
+                  - kms:EnableKeyRotation
+                  - kms:ScheduleKeyDeletion
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - scheduler:GetScheduleGroup
                   - scheduler:CreateScheduleGroup
@@ -456,16 +477,17 @@ Resources:
                   - scheduler:UntagResource
                   - scheduler:TagResource
                   - scheduler:DeleteSchedule
-              - Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:*
-                Effect: Allow
-                Action: sqs:ListQueues
-              - Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
-                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/sdlf-*
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/sdlf-*
+              - Effect: Allow
+                Action: sqs:ListQueues # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
                   - sqs:AddPermission
                   - sqs:CreateQueue
                   - sqs:ChangeMessageVisibility
-                  - sqs:ChangeMessageVisibilityBatch
                   - sqs:DeleteQueue
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
@@ -477,8 +499,8 @@ Resources:
                   - sqs:SetQueueAttributes
                   - sqs:TagQueue
                   - sqs:UntagQueue
-              - Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-*
+              - Effect: Allow
                 Action:
                   - ssm:AddTagsToResource
                   - ssm:DeleteParameter
@@ -492,84 +514,44 @@ Resources:
                   - ssm:ListTagsForResource
                   - ssm:PutParameter
                   - ssm:RemoveTagsFromResource
-              - Resource: "*"
-                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+              - Effect: Allow
                 Action:
-                  - lakeformation:DeregisterResource
-                  - lakeformation:GetDataAccess
-                  - lakeformation:GrantPermissions
-                  - lakeformation:GetDataLakeSettings
-                  - lakeformation:PutDataLakeSettings
-                  - lakeformation:RegisterResource
-                  - lakeformation:RevokePermissions
-                  - lakeformation:UpdateResource
-              - Resource: "*"
-                Effect: Allow
+                  - lakeformation:DeregisterResource # W11 exception
+                  - lakeformation:GetDataAccess # W11 exception
+                  - lakeformation:GrantPermissions # W11 exception
+                  - lakeformation:GetDataLakeSettings # W11 exception
+                  - lakeformation:PutDataLakeSettings # W11 exception
+                  - lakeformation:RegisterResource # W11 exception
+                  - lakeformation:RevokePermissions # W11 exception
+                  - lakeformation:UpdateResource # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
-                  - kms:CreateAlias
-                  - kms:CreateKey
-                  - kms:DeleteAlias
-                  - kms:ListAliases
-                  - kms:ListGrants
-                  - kms:ListKeyPolicies
-                  - kms:ListKeys
-                  - kms:ListResourceTags
-                  - kms:UpdateAlias
-              - Resource:
-                  - !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
-                Effect: Allow
+                  - elasticmapreduce:CreateSecurityConfiguration # W11 exception
+                  - elasticmapreduce:DeleteSecurityConfiguration # W11 exception
+                  - elasticmapreduce:DescribeSecurityConfiguration # W11 exception
+                  - elasticmapreduce:ListSecurityConfigurations # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
-                  - kms:CreateGrant
-                  - kms:Decrypt
-                  - kms:DescribeKey
-                  - kms:DisableKey
-                  - kms:DisableKeyRotation
-                  - kms:EnableKey
-                  - kms:EnableKeyRotation
-                  - kms:Encrypt
-                  - kms:GenerateDataKey
-                  - kms:GetKeyPolicy
-                  - kms:PutKeyPolicy
-                  - kms:ReEncryptFrom
-                  - kms:ReEncryptTo
-                  - kms:RetireGrant
-                  - kms:RevokeGrant
-                  - kms:ScheduleKeyDeletion
-                  - kms:TagResource
-                  - kms:UntagResource
-                  - kms:UpdateKeyDescription
-              - Resource: "*"
-                Effect: Allow
+                  - glue:CreateSecurityConfiguration # W11 exception
+                  - glue:DeleteSecurityConfiguration # W11 exception
+                  - glue:GetSecurityConfiguration # W11 exception
+                Resource: "*"
+              - Effect: Allow
                 Action:
-                  - elasticmapreduce:AddTags
-                  - elasticmapreduce:CreateSecurityConfiguration
-                  - elasticmapreduce:DeleteSecurityConfiguration
-                  - elasticmapreduce:DescribeSecurityConfiguration
-                  - elasticmapreduce:ListSecurityConfigurations
-                  - elasticmapreduce:RemoveTags
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - glue:CreateCrawler
-                  - glue:CreateDatabase
-                  - glue:CreateJob
-                  - glue:CreateSecurityConfiguration
-                  - glue:DeleteCrawler
-                  - glue:DeleteDatabase
-                  - glue:DeleteJob
-                  - glue:DeleteSecurityConfiguration
-                  - glue:Get*
                   - glue:PutDataCatalogEncryptionSettings
-                  - glue:SearchTables
-                  - glue:StopCrawler
-                  - glue:TagResource
-                  - glue:UntagResource
-                  - glue:UpdateCrawler
-                  - glue:UpdateDatabase
-                  - glue:UpdateJob
+                Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+
 
   rTeamCodePipelineRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
     Properties:
       RoleName: sdlf-cicd-team-crossaccount-pipeline
       AssumeRolePolicyDocument:
@@ -631,14 +613,18 @@ Resources:
                 Action: iam:PassRole
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf/sdlf-cicd-team-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-*
                 Condition:
-                  StringEqualsIfExists:
-                    iam:PassedToService:
-                      - cloudformation.amazonaws.com
+                  StringEquals:
+                    "iam:PassedToService": cloudformation.amazonaws.com
 
   rTeamCloudFormationRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
     Properties:
       RoleName: sdlf-cicd-team
       Description: Role assumed by a Lambda stage in CodePipeline to deploy the Team Role CloudFormation stack
@@ -681,6 +667,14 @@ Resources:
             Statement:
             - Effect: Allow
               Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource:
+                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
+            - Effect: Allow
+              Action:
+                - iam:GetRole
                 - iam:CreateRole
                 - iam:UpdateRole
                 - iam:DeleteRole
@@ -693,12 +687,6 @@ Resources:
                 - iam:TagRole
                 - iam:UntagRole
               Resource:
-                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf/sdlf-cicd-team-*
-            - Effect: Allow
-              Action:
-                - iam:GetRole
-              Resource:
-                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf/sdlf-cicd-team-*
                 - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-*
             - Effect: Allow
               Action:
