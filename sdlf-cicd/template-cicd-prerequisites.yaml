@@ -287,7 +287,7 @@ Resources:
                 "aws:PrincipalArn": !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf/sdlf-cicd-team-*"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-*"
                   - inner: !Join
                     - ":role/sdlf-cicd-team-*,arn:${AWS::Partition}:iam::"
                     - Ref: "pDomainAccounts"

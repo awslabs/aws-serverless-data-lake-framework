@@ -29,10 +29,10 @@ Parameters:
     Description: The artifactory bucket used by CodeBuild and CodePipeline
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
-  pSNSNotificationsEmail:
-    Description: Email address for SNS notifications
-    Type: String
-    Default: nobody@amazon.com
+#  pSNSNotificationsEmail:
+#    Description: Email address for SNS notifications
+#    Type: String
+#    Default: nobody@amazon.com
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
@@ -231,7 +231,7 @@ Resources:
           - id: F5
             reason: Condition Applied
     Properties:
-      Path: /sdlf/
+      Path: !Sub /sdlf/${pTeamName}/ # keep this path for the team's permissions boundary policy only
       Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
       PolicyDocument:
         Version: "2012-10-17"
@@ -380,7 +380,7 @@ Resources:
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
     Properties:
-      Path: /sdlf-team/
+      Path: !Sub /sdlf-${pTeamName}/
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:

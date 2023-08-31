@@ -284,7 +284,7 @@ def lambda_handler(event, context):
             for legacy_team in legacy_teams:
                 grants = kms.list_grants(KeyId=devops_kms_key)["Grants"]
                 for grant in grants:
-                    if grant["GranteePrincipal"].endswith(f":role/sdlf/sdlf-cicd-team-{team}"):
+                    if grant["GranteePrincipal"].endswith(f":role/sdlf-cicd-team-{team}"):
                         grant_id = grant["GrantId"]
                         break
                 kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant_id)
@@ -294,7 +294,7 @@ def lambda_handler(event, context):
                 stack_details = delete_team_cicd_stack(domain, environment, legacy_team, cloudformation_role)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
                 crossaccount_team_role = (
-                    f"arn:{partition}:iam::{child_account}:role/sdlf/sdlf-cicd-team-{legacy_team}"
+                    f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{legacy_team}"
                 )
 
             cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
@@ -308,7 +308,7 @@ def lambda_handler(event, context):
             }
             for team in teams:
                 crossaccount_team_role = (
-                    f"arn:{partition}:iam::{child_account}:role/sdlf/sdlf-cicd-team-{team}"
+                    f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
                 )
                 stack_details = create_team_cicd_stack(
                     domain,
