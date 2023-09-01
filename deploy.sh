@@ -208,6 +208,16 @@ do
 done
 
 # crossaccount-cicd-roles, devops-account
+# check aws-cli version is recent enough
+if (echo aws-cli/2.13.0; aws --version | cut -d' ' -f1) | sort -V | tail -1 | grep -Fv "aws-cli/2.13.0"
+then
+  echo "aws-cli >= 2.13.0, deployment can start"
+else
+  echo "SDLF requires aws-cli >= 2.13.0"
+  echo "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+  exit 1
+fi
+
 if [ "${1#-}" = "$1" ]
 then
     subcommand=$1
