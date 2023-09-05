@@ -21,16 +21,18 @@ def get_glue_transform_details(bucket, key, team, dataset, pipeline, stage):
         "--OUTPUT_LOCATION": f"s3://{bucket}/post-stage/{team}/{dataset}",
         "--job-bookmark-option": "job-bookmark-enable",
     }
-    stage_entry = f"stage_{stage}"
-    logger.info(f"Stage is {stage_entry}")
-    if stage_entry in transform_info.get(pipeline, {}):
-        logger.info(f"Details from DynamoDB: {transform_info[pipeline]}")
-        glue_capacity = transform_info[pipeline][stage_entry].get(
-            "glue_capacity", glue_capacity
-        )
-        glue_extra_arguments = glue_arguments | transform_info[pipeline][
-            stage_entry
-        ].get("glue_extra_arguments", {})
+    logger.info(f"Pipeline is {pipeline}, stage is {stage}")
+    if pipeline in transform_info.get("pipeline", {}):
+        if stage in transform_info["pipeline"][pipeline]:
+            logger.info(
+                f"Details from DynamoDB: {transform_info['pipeline'][pipeline][stage]}"
+            )
+            glue_capacity = transform_info["pipeline"][pipeline][stage].get(
+                "glue_capacity", glue_capacity
+            )
+            glue_arguments |= transform_info["pipeline"][
+                pipeline
+            ][stage].get("glue_extra_arguments", {})
     #######################################################
     # We assume a Glue Job has already been created based on
     # customer needs. This function makes an API call to start it
