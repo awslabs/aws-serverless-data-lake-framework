@@ -126,8 +126,9 @@ Resources:
                     cfn generate
                     zip --quiet -r "../$MODULE_NAME.zip" .rpdk-config fragments/ schema.json
 
+                    NEW_MODULE="$CODEBUILD_RESOLVED_SOURCE_VERSION"
                     aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                          --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME.zip" \
+                                          --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME-$NEW_MODULE.zip" \
                                           --body "../$MODULE_NAME.zip"
                 - |-
                     for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
@@ -138,7 +139,6 @@ Resources:
                         export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
                         # compare hashes to avoid creating a new module version when there is no change
-                        NEW_MODULE="$CODEBUILD_RESOLVED_SOURCE_VERSION"
                         if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
                           echo "Current module version commit id: $CURRENT_MODULE"
                           echo "New module version commit id: $NEW_MODULE"

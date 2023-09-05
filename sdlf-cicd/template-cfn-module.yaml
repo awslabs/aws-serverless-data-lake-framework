@@ -27,7 +27,7 @@ Resources:
       Type: AWS::CloudFormation::ModuleVersion
       Properties:
         ModuleName: !Sub "${pDomain}::${pTeamName}::${pModuleName}::MODULE"
-        ModulePackage: !Sub "s3://${pArtifactsBucket}/modules/${pDomain}/${pEnvironment}/${pTeamName}/${pModuleName}.zip"
+        ModulePackage: !Sub "s3://${pArtifactsBucket}/modules/${pDomain}/${pEnvironment}/${pTeamName}/${pModuleName}-${pModuleGitRef}.zip"
 
   rCloudFormationModuleDefaultVersion:
     Type: AWS::CloudFormation::ModuleDefaultVersion
