@@ -885,15 +885,16 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-crossaccount-pipeline
                 Condition:
                   StringEquals:
-                    iam:PassedToService: codepipeline.amazonaws.com
+                    "iam:PassedToService": codepipeline.amazonaws.com
               - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-teams-*
                 Condition:
                   StringEquals:
-                    iam:PassedToService:
+                    "iam:PassedToService":
                       - codepipeline.amazonaws.com
                       - events.amazonaws.com
               - Effect: Allow
