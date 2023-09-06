@@ -902,6 +902,7 @@ Resources:
                   - iam:PassRole
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-*
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain
               - Effect: Allow
                 Action:
                   - iam:AttachRolePolicy
