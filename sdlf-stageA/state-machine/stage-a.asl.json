@@ -37,7 +37,7 @@
               "OutputPath": "$.Payload",
               "Parameters": {
                 "Payload.$": "$",
-                "FunctionName": "${lStep2}:$LATEST"
+                "FunctionName.$": "$.body.lambda.lambda_arn"
               },
               "Retry": [
                 {
