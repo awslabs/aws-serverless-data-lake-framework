@@ -427,6 +427,9 @@ Resources:
       CodeUri: ./lambda/stage-a-preupdate-metadata/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
       Description: Pre-Update the metadata in the DynamoDB Catalog table
+      Environment:
+        Variables:
+          STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaStep2.Arn
       MemorySize: 128
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionStep1.Arn
@@ -667,7 +670,6 @@ Resources:
       DefinitionUri: ./state-machine/stage-a.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
-        lStep2: !GetAtt rLambdaStep2.Arn
         lStep3: !GetAtt rLambdaStep3.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
