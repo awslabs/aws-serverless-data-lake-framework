@@ -9,10 +9,12 @@ from datalake_library.interfaces.dynamo_interface import DynamoInterface
 logger = init_logger(__name__)
 
 
-def get_glue_transform_details(bucket, key, team, dataset, pipeline, stage):
+def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     dynamo_config = DynamoConfiguration()
     dynamo_interface = DynamoInterface(dynamo_config)
     transform_info = dynamo_interface.get_transform_table_item(f"{team}-{dataset}")
+    # we assume a Glue Job has already been created based on customer needs
+    job_name = f"sdlf-{team}-{dataset}-glue-job" # Name of the Glue Job
     glue_capacity = {"WorkerType": "G.1X", "NumberOfWorkers": 10}
     glue_arguments = {
         # Specify any arguments needed based on bucket and keys (e.g. input/output S3 locations)
@@ -27,17 +29,15 @@ def get_glue_transform_details(bucket, key, team, dataset, pipeline, stage):
             logger.info(
                 f"Details from DynamoDB: {transform_info['pipeline'][pipeline][stage]}"
             )
+            job_name = transform_info["pipeline"][pipeline][stage].get(
+                "job_name", job_name
+            )
             glue_capacity = transform_info["pipeline"][pipeline][stage].get(
                 "glue_capacity", glue_capacity
             )
             glue_arguments |= transform_info["pipeline"][
                 pipeline
             ][stage].get("glue_extra_arguments", {})
-    #######################################################
-    # We assume a Glue Job has already been created based on
-    # customer needs. This function makes an API call to start it
-    #######################################################
-    job_name = "sdlf-{}-{}-glue-job".format(team, dataset)  # Name of the Glue Job
 
     return {"job_name": job_name, "arguments": glue_arguments, **glue_capacity}
 
@@ -78,7 +78,7 @@ def lambda_handler(event, context):
         # Call custom transform created by user and process the file
         logger.info("Calling user custom processing code")
         event["body"]["glue"] = get_glue_transform_details(
-            bucket, keys_to_process, team, dataset, pipeline, stage
+            bucket, team, dataset, pipeline, stage
         )  # custom user code called
         event["body"]["glue"]["crawler_name"] = "-".join(
             ["sdlf", team, dataset, "post-stage-crawler"]
