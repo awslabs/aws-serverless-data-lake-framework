@@ -22,4 +22,4 @@ https://sdlf.workshop.aws/
 - [**Constructs**](https://sdlf.readthedocs.io/en/latest/constructs.html)
 - [**Architecture**](https://sdlf.readthedocs.io/en/latest/architecture.html)
 
-## [Ingestion/Processing Library](https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/sdlf-utils/README.md)
+## [Ingestion/Processing Library](https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/sdlf-utils/README.md)

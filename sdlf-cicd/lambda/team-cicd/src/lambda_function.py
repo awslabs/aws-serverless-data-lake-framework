@@ -139,7 +139,7 @@ def create_codecommit_approval_rule(team_name, repository):
     try:
         codecommit.create_approval_rule_template(
             approvalRuleTemplateName=f"{team_name}-approval-to-production",
-            approvalRuleTemplateContent='{"Version": "2018-11-08","DestinationReferences": ["refs/heads/master"],"Statements": [{"Type": "Approvers","NumberOfApprovalsNeeded": 1}]}',
+            approvalRuleTemplateContent='{"Version": "2018-11-08","DestinationReferences": ["refs/heads/main"],"Statements": [{"Type": "Approvers","NumberOfApprovalsNeeded": 1}]}',
         )
         codecommit.associate_approval_rule_template_with_repository(
             approvalRuleTemplateName=f"{team_name}-approval-to-production", repositoryName=repository
@@ -153,7 +153,7 @@ def lambda_handler(event, context):
         branch = event["CodePipeline.job"]["data"]["actionConfiguration"][
             "configuration"
         ]["UserParameters"]
-        codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "master": "prod"}
+        codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "main": "prod"}
         environment = codecommit_branch_env_mapping[branch]
         logger.info("ENVIRONMENT: %s", environment)
         partition = os.getenv("AWS_PARTITION")

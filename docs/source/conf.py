@@ -77,10 +77,10 @@ html_theme_options = {
         ("Constructs", "constructs"),
         ("Architecture", "architecture"),
         ("Workshop", "https://sdlf.workshop.aws/", True),
-        ("License", "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/LICENSE", True),
+        ("License", "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/LICENSE", True),
         (
             "Contributing",
-            "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/CONTRIBUTING.md",
+            "https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/CONTRIBUTING.md",
             True,
         ),
         ("GitHub", "https://github.com/awslabs/aws-serverless-data-lake-framework", True),

@@ -50,7 +50,7 @@ Mappings:
     test:
       branch: test
     prod:
-      branch: master
+      branch: main
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]

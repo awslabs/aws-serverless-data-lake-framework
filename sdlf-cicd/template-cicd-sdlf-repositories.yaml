@@ -60,7 +60,7 @@ Mappings:
     test:
       branch: test
     prod:
-      branch: master
+      branch: main
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
@@ -76,7 +76,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-cicd
       RepositoryDescription: sdlf-cicd repository
       RepositoryName: !Ref pCicdRepository
@@ -90,7 +90,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-foundations
       RepositoryDescription: sdlf-foundations repository
       RepositoryName: !Ref pFoundationsRepository
@@ -104,7 +104,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-team
       RepositoryDescription: sdlf-team repository
       RepositoryName: !Ref pTeamRepository
@@ -118,7 +118,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-pipeline
       RepositoryDescription: sdlf-pipeline repository
       RepositoryName: !Ref pPipelineRepository
@@ -132,7 +132,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-dataset
       RepositoryDescription: sdlf-dataset repository
       RepositoryName: !Ref pDatasetRepository
@@ -146,7 +146,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-stageA
       RepositoryDescription: sdlf-stageA repository
       RepositoryName: !Ref pStageARepository
@@ -160,7 +160,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-stageB
       RepositoryDescription: sdlf-stageB repository
       RepositoryName: !Ref pStageBRepository
@@ -174,7 +174,7 @@ Resources:
             - E3002
     Properties:
       Code:
-        BranchName: master
+        BranchName: main
         S3: ../sdlf-datalakeLibrary
       RepositoryDescription: sdlf-datalakeLibrary repository
       RepositoryName: !Ref pDatalakeLibraryRepository
@@ -183,7 +183,7 @@ Resources:
     Type: AWS::CodeCommit::Repository
     Properties:
       # Code:
-      #   BranchName: master
+      #   BranchName: main
       #   S3: ../sdlf-main
       RepositoryDescription: sdlf-main repository
       RepositoryName: !Ref pMainRepository
@@ -730,7 +730,7 @@ Resources:
           referenceName:
             - dev
             - test
-            - master
+            - main
       Targets:
         - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStagesRepositoriesPipeline}
           Id: sdlf-trigger
@@ -1143,7 +1143,7 @@ Resources:
                   - !Ref pKMSKey
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-lambda-layers
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
               - Effect: Allow
                 Action:
                   - ssm:GetParametersByPath
@@ -1190,15 +1190,11 @@ Resources:
                 - echo "Domain accounts found - $DOMAIN_ACCOUNTS"
                 - |-
                     for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
-                        temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-lambda-layers" --role-session-name "codebuild-lambda-layer")
+                        temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-lambda-layer")
                         AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
                         AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
                         AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
                         export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-
-                        layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.11" --zip-file fileb://./artifacts/datalake_library.zip)
-                        latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
-                        aws ssm put-parameter --name "/SDLF/Lambda/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
 
                         STACK_NAME="sdlf-lambdalayers-$LAYER_NAME"
                         aws cloudformation deploy \

@@ -180,7 +180,7 @@ devops_account () {
     declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB")
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
-        latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name master --query 'branch.commitId' --output text)
+        latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query 'branch.commitId' --output text)
         aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit"
         aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit"
     done
