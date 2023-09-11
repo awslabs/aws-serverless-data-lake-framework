@@ -151,7 +151,7 @@ devops_account () {
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
-        --profile "$DEVOPS_AWS_PROFILE"
+        --profile "$DEVOPS_AWS_PROFILE" || exit 1
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
     ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
@@ -173,7 +173,7 @@ devops_account () {
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
-        --profile "$DEVOPS_AWS_PROFILE"
+        --profile "$DEVOPS_AWS_PROFILE" || exit 1
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
     rm -Rf "$DIRNAME"/output
 

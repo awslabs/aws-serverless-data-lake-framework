@@ -46,7 +46,8 @@ Parameters:
   pDatalakeLibsLambdaLayerName:
     Description: Name to give the Lambda Layer containing the Datalake Library.
     Type: String
-    Default: datalake-lib-layer
+    Default: DatalakeLibrary
+    AllowedPattern: "^[a-zA-Z0-9]*$"
   pEnableLambdaLayerBuilder:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
@@ -901,6 +902,14 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-pipeline
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService": codepipeline.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
                   - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-*
                   - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain
               - Effect: Allow
@@ -1150,6 +1159,9 @@ Resources:
       EncryptionKey: !Ref pKMSKey
       Environment:
         EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref pArtifactsBucket
           - Name: LAYER_NAME
             Type: PLAINTEXT
             Value: !Ref pDatalakeLibsLambdaLayerName
@@ -1168,8 +1180,12 @@ Resources:
             build:
               commands:
                 - ls && echo "-----> making artifactory directory"
-                - mkdir artifacts
-                - zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
+                - |-
+                    mkdir artifacts
+                    zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
+                    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                     --key "layers/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$LAYER_NAME-$CODEBUILD_RESOLVED_SOURCE_VERSION.zip" \
+                     --body artifacts/datalake_library.zip
                 - DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
                 - echo "Domain accounts found - $DOMAIN_ACCOUNTS"
                 - |-
@@ -1183,6 +1199,22 @@ Resources:
                         layer=$(aws lambda publish-layer-version --layer-name sdlf-$LAYER_NAME --description "Contains the latest version of datalake_library" --compatible-runtimes "python3.11" --zip-file fileb://./artifacts/datalake_library.zip)
                         latest_layer_version=$(echo $layer | jq -r .LayerVersionArn)
                         aws ssm put-parameter --name "/SDLF/Lambda/LatestDatalakeLibraryLayer" --value $latest_layer_version --type String --overwrite
+
+                        STACK_NAME="sdlf-lambdalayers-$LAYER_NAME"
+                        aws cloudformation deploy \
+                            --stack-name "$STACK_NAME" \
+                            --template-file "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-lambda-layer.yaml \
+                            --parameter-overrides \
+                                pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                                pEnvironment="$ENVIRONMENT" \
+                                pDomain="$DOMAIN_NAME" \
+                                pTeamName="$TEAM_NAME" \
+                                pLayers="$LAYER_NAME" \
+                                pGitRef="$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+                            --tags Framework=sdlf \
+                            --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                            --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" || exit 1
+                        echo "done for $DOMAIN_ACCOUNT_ID"
                     done
         Type: CODEPIPELINE
       TimeoutInMinutes: 20
