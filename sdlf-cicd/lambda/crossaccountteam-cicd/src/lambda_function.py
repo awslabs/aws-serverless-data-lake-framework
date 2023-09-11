@@ -110,7 +110,7 @@ def lambda_handler(event, context):
         branch = event["CodePipeline.job"]["data"]["actionConfiguration"][
             "configuration"
         ]["UserParameters"]
-        codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "master": "prod"}
+        codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "main": "prod"}
         environment = codecommit_branch_env_mapping[branch]
         logger.info("ENVIRONMENT: %s", environment)
         partition = os.getenv("AWS_PARTITION")

@@ -75,6 +75,7 @@ Resources:
                   - cloudformation:GetTemplateSummary
                 Resource:
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cfn-module-*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*"
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-cfn-modules
@@ -572,7 +573,6 @@ Resources:
                   - glue:PutDataCatalogEncryptionSettings
                 Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
 
-
   rTeamCodePipelineRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -735,54 +735,3 @@ Resources:
                 StringEquals:
                   "iam:PassedToService":
                     - cloudformation.amazonaws.com
-
-  rCodeBuildPublishLayerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: sdlf-cicd-domain-crossaccount-lambda-layers
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:${AWS::Partition}:iam::${pDevOpsAccountId}:root
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-cicd-publish-layer
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: lambda:PublishLayerVersion
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-*
-              - Effect: Allow
-                Action:
-                  - ssm:AddTagsToResource
-                  - ssm:DescribeParameters
-                  - ssm:GetOpsSummary
-                  - ssm:GetParameter
-                  - ssm:GetParameterHistory
-                  - ssm:GetParameters
-                  - ssm:GetParametersByPath
-                  - ssm:ListTagsForResource
-                  - ssm:RemoveTagsFromResource
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-              - Effect: Allow
-                Action:
-                  - ssm:PutParameter
-                  - ssm:DeleteParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/*
-              - Effect: Allow
-                Action:
-                  - s3:GetBucketAcl
-                  - s3:GetBucketLocation
-                  - s3:GetBucketVersioning
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:ListBucket
-                  - s3:PutObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}/*
