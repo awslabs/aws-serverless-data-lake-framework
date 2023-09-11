@@ -10,5 +10,5 @@ Read The Docs
    constructs
    architecture
    Workshop <https://sdlf.workshop.aws/>
-   License <https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/LICENSE.txt>
-   Contributing <https://github.com/awslabs/aws-serverless-data-lake-framework/blob/master/CONTRIBUTING.md>
+   License <https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/LICENSE.txt>
+   Contributing <https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/CONTRIBUTING.md>

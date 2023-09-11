@@ -62,7 +62,7 @@ Mappings:
     test:
       branch: test
     prod:
-      branch: master
+      branch: main
 
 Resources:
   rFoundationsTeamModulesCodePipelineRole:

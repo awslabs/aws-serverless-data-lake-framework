@@ -38,7 +38,7 @@ Mappings:
     test:
       branch: test
     prod:
-      branch: master
+      branch: main
 
 Resources:
   rStageStateMachinePipeline:
@@ -112,7 +112,7 @@ Resources:
           referenceName:
             - dev
             - test
-            - master
+            - main
       Targets:
         - Arn: !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${rStageStateMachinePipeline}
           Id: !Sub sdlf-${pStageRepository}-trigger

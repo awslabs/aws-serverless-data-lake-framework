@@ -22,7 +22,7 @@ Please ensure that you follow this file structure, with a folder named `python` 
                     └── transform_handler.py
  
 ## Adding Transformations 
-When adding custom transformations to the Lambda Layer, simply add your code to this repository (see example of `light_transform_blueprint.py` in file structure above) in the relevant location (e.g. stage_a_transforms for light transformations in StageA). Any changes to this repository should stay in branches while in development, and once tested/stable, these changes can then be merged into the relevant environment branch (`dev, test or master`). The pipeline will trigger upon commits made to this branch, and release these changes automatically.
+When adding custom transformations to the Lambda Layer, simply add your code to this repository (see example of `light_transform_blueprint.py` in file structure above) in the relevant location (e.g. stage_a_transforms for light transformations in StageA). Any changes to this repository should stay in branches while in development, and once tested/stable, these changes can then be merged into the relevant environment branch (`dev, test or main`). The pipeline will trigger upon commits made to this branch, and release these changes automatically.
 
 ## Pipeline
 The CICD pipeline for this repository is defined in the `sdlf-team` repository for each team (`nested-stacks/template-cicd.yaml`). A CodeBuild job is used to package the code in this repository into a `.zip` file, while leaving out any `__pycache__` files, which is then published as a Lambda Layer. Due to limitations on the size of packages, the code in this repository must not exceed 50MB when zipped, and no more than 250Mb unzipped.
