@@ -389,8 +389,9 @@ Resources:
           Name: BuildPipelineDataset
           Actions:
             -
-              Name: BuildDatalakeLibrary
+              Name: DeployDatalakeLibrary
               InputArtifacts:
+              - Name: SourceCicdArtifact
               - Name: SourceDatalakeLibraryArtifact
               ActionTypeId:
                 Category: Build
@@ -398,12 +399,12 @@ Resources:
                 Version: "1"
                 Provider: CodeBuild
               Configuration:
+                PrimarySource: SourceDatalakeLibraryArtifact
                 ProjectName: !Ref pBuildDeployDatalakeLibraryLayer
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                    {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
-                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
-                   {"name":"MODULE_NAME", "value":"pipeline", "type":"PLAINTEXT"}]
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"}]
               RunOrder: 1
             -
               Name: BuildPipeline
@@ -439,7 +440,7 @@ Resources:
                 ProjectName: !Ref pBuildCloudformationModuleStage
                 EnvironmentVariables: !Sub >-
                   [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
-                  {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
                    {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
                    {"name":"MODULE_NAME", "value":"dataset", "type":"PLAINTEXT"}]
               RunOrder: 1

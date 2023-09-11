@@ -153,7 +153,35 @@ Resources:
                   - ssm:ListTagsForResource
                   - ssm:RemoveTagsFromResource
                   - ssm:DeleteParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+        - PolicyName: sdlf-lambdalayers-codepipeline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+              - Effect: Allow
+                Action:
+                  - lambda:PublishLayerVersion
+                  - lambda:DeleteLayerVersion
+                Resource:
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-DatalakeLibrary
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-DatalakeLibrary:*
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:PutParameter
+                  - ssm:AddTagsToResource
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:DeleteParameter
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/LatestDatalakeLibraryLayer
 
   rDomainCodePipelineRole:
     Type: AWS::IAM::Role

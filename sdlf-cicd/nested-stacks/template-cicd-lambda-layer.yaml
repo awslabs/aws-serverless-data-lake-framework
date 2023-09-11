@@ -89,6 +89,7 @@ Resources:
           env:
             exported-variables:
               - LAYERS_CDL
+              - CODEBUILD_RESOLVED_SOURCE_VERSION
           phases:
             install:
               runtime-versions:
@@ -117,7 +118,7 @@ Resources:
                             for i in "${!LAYER_NAMES[@]}"; do
                                 curl -s -L -o "${LAYER_NAMES[i]}.zip" "${URLS[i]}"
                                 aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${LAYER_NAMES[i]}.zip" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${LAYER_NAMES[i]}-$CODEBUILD_RESOLVED_SOURCE_VERSION.zip" \
                                                      --body "${LAYER_NAMES[i]}.zip"
                                 LAYERS+=("${LAYER_NAMES[i]}")
                             done
@@ -142,7 +143,7 @@ Resources:
                                 cd layer/
                                 zip --quiet -r "$LAYER_NAME.zip" python/ -x \*__pycache__\*
                                 aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/$LAYER_NAME.zip" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/$LAYER_NAME-$CODEBUILD_RESOLVED_SOURCE_VERSION.zip" \
                                                      --body "$LAYER_NAME.zip"
                                 LAYERS+=("$LAYER_NAME")
                                 cd ../..
@@ -166,7 +167,7 @@ Resources:
                             for i in "${!WHEEL_NAMES[@]}"; do
                                 curl -s -L -o "${WHEEL_NAMES[i]}.whl" "${URLS[i]}"
                                 aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${WHEEL_NAMES[i]}.zip" \
+                                                     --key "layers/$DOMAIN/$ENVIRONMENT/$TEAM/${WHEEL_NAMES[i]}-$CODEBUILD_RESOLVED_SOURCE_VERSION.zip" \
                                                      --body "${WHEEL_NAMES[i]}.whl"
                             done
                         fi
