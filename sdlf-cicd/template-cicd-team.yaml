@@ -218,7 +218,8 @@ Resources:
                       "pDomain": "${pDomain}",
                       "pEnvironment": "${pEnvironment}",
                       "pTeamName": "${pTeamName}",
-                      "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}"
+                      "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}",
+                      "pGitRef": "#{LambdaLayersVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
                     }
                 RunOrder: 1
           - !Ref AWS::NoValue
