@@ -14,18 +14,13 @@ Parameters:
   pEnableLambdaLayerBuilder:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: String
-  pOrganization:
-    Description: Name of the organization
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pOrg
   pDomain:
     Description: Data domain name
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pDomain
+    Type: String
   pEnvironment:
     Description: Environment name
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pEnv
+    Type: String
+    AllowedValues: [dev, test, prod]
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
@@ -262,9 +257,9 @@ Resources:
               - glue:UntagResource
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganization}_${pDomain}_${pEnvironment}_${pTeamName}_* # forecourt_datalake_dev_engineering_legislators_db/*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrganization}_${pDomain}_${pEnvironment}_${pTeamName}_*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:userDefinedFunction/${pOrganization}_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/*_${pDomain}_${pEnvironment}_${pTeamName}_* # forecourt_datalake_dev_engineering_legislators_db/*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/*_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:userDefinedFunction/*_${pDomain}_${pEnvironment}_${pTeamName}_*
           - Effect: Allow
             Action:
               - lambda:ListFunctions # W13 exception
