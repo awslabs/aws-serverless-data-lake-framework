@@ -10,6 +10,10 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pStagesRepositoriesPrefix:
+    Description: Prefix of the repositories containing SDLF stages
+    Type: String
+    Default: sdlf-stage-
 
 Resources:
   rBuildCloudformationModuleRole:
@@ -64,12 +68,27 @@ Resources:
                 Resource:
                   - !Ref pKMSKey
               - Effect: Allow
-                Action:
-                  - ssm:GetParametersByPath
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/Domains/*
-              - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
+        - PolicyName: sdlf-cicd-build-stages-cfn-modules
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codecommit:ListRepositories # W11 exception
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GitPull
+                  - codecommit:GetRepository
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStagesRepositoriesPrefix}*
 
   rBuildCloudformationModuleStage:
     Type: AWS::CodeBuild::Project
@@ -116,9 +135,6 @@ Resources:
                     TEMPLATE_URL=$(aws s3 presign "s3://$ARTIFACTS_BUCKET/modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/translated-template.json" --expires-in 300)
                     aws cloudformation validate-template --template-url "$TEMPLATE_URL"
                 - |-
-                    DOMAIN_ACCOUNTS=$(aws ssm get-parameters-by-path --path "/SDLF/Misc/Domains/" --recursive --query "Parameters[?contains(Name, '/$ENVIRONMENT/AccountId')].Value" --output text)
-                    echo "Domain accounts found - $DOMAIN_ACCOUNTS"
-                - |-
                     mkdir module
                     cd module || exit
                     cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
@@ -131,39 +147,37 @@ Resources:
                                           --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME-$NEW_MODULE.zip" \
                                           --body "../$MODULE_NAME.zip"
                 - |-
-                    for DOMAIN_ACCOUNT_ID in $DOMAIN_ACCOUNTS; do
-                        temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
-                        AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
-                        AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
-                        AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
-                        export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                    AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
+                    AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
+                    AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
+                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
-                        # compare hashes to avoid creating a new module version when there is no change
-                        if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
-                          echo "Current module version commit id: $CURRENT_MODULE"
-                          echo "New module version commit id: $NEW_MODULE"
-                          if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
-                            echo "No change since last build, exiting module creation."
-                            exit 0
-                          fi
-                        fi
+                    # compare hashes to avoid creating a new module version when there is no change
+                    if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
+                      echo "Current module version commit id: $CURRENT_MODULE"
+                      echo "New module version commit id: $NEW_MODULE"
+                      if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
+                        echo "No change since last build, exiting module creation."
+                        exit 0
+                      fi
+                    fi
 
-                        STACK_NAME="sdlf-cfn-module-$TEAM_NAME-$MODULE_NAME"
-                        aws cloudformation deploy \
-                            --stack-name "$STACK_NAME" \
-                            --template-file "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-cfn-module.yaml \
-                            --parameter-overrides \
-                                pArtifactsBucket="$ARTIFACTS_BUCKET" \
-                                pEnvironment="$ENVIRONMENT" \
-                                pDomain="$DOMAIN_NAME" \
-                                pTeamName="$TEAM_NAME" \
-                                pModuleName="$MODULE_NAME" \
-                                pModuleGitRef="$NEW_MODULE" \
-                            --tags Framework=sdlf \
-                            --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-                            --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" || exit 1
-                        echo "done for $DOMAIN_ACCOUNT_ID"
-                    done
+                    STACK_NAME="sdlf-cfn-module-$TEAM_NAME-$MODULE_NAME"
+                    aws cloudformation deploy \
+                        --stack-name "$STACK_NAME" \
+                        --template-file "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-cfn-module.yaml \
+                        --parameter-overrides \
+                            pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                            pEnvironment="$ENVIRONMENT" \
+                            pDomain="$DOMAIN_NAME" \
+                            pTeamName="$TEAM_NAME" \
+                            pModuleName="$MODULE_NAME" \
+                            pModuleGitRef="$NEW_MODULE" \
+                        --tags Framework=sdlf \
+                        --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                        --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" || exit 1
+                    echo "done for $DOMAIN_ACCOUNT_ID"
                 - cd .. && rm -Rf module
           artifacts:
             files:
@@ -171,6 +185,124 @@ Resources:
               - "**/*"
         Type: CODEPIPELINE
       TimeoutInMinutes: 5
+
+  rBuildCloudformationStagesModules:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: sdlf-cicd-build-stages-cfn-modules
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Build CloudFormation modules from Serverless templates for SDLF stages
+      EncryptionKey: !Ref pKMSKey
+      Environment:
+        EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref pArtifactsBucket
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref rBuildCloudformationModuleRole
+      Source:
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.11
+              commands:
+                - |-
+                    pip3 uninstall -y aws-sam-cli
+                    aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip aws-sam-cli-linux-x86_64.zip \
+                    && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
+                    ./sam-installation/install \
+                    && sam --version
+                - pip3 install cloudformation-cli
+                - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
+            build:
+              commands:
+                - |-
+                    # clone all this team's stages repositories
+                    STAGES_REPOSITORIES=$(aws codecommit list-repositories --query "repositories[?starts_with(repositoryName, 'sdlf-stage-$DOMAIN_NAME-$TEAM_NAME-')].repositoryName" --output text)
+                    echo "STAGES_REPOSITORIES FOUND: $STAGES_REPOSITORIES"
+                    git config --global credential.helper '!aws codecommit credential-helper $@'
+                    git config --global credential.UseHttpPath true
+                    for STAGE_REPOSITORY in $STAGES_REPOSITORIES; do
+                      git clone --single-branch --branch "$BRANCH_NAME" "https://git-codecommit.$AWS_REGION.amazonaws.com/v1/repos/$STAGE_REPOSITORY.git"
+                      pushd "$STAGE_REPOSITORY" || exit
+                      MODULE_NAME=${!STAGE_REPOSITORY##*-}
+                      sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+                      python3 ../sam-translate.py --template-file=template.yaml --output-template=translated-template.json
+
+                      aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                        --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME/translated-template.json" \
+                        --body translated-template.json
+                      TEMPLATE_URL=$(aws s3 presign "s3://$ARTIFACTS_BUCKET/modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME/translated-template.json" --expires-in 300)
+                      aws cloudformation validate-template --template-url "$TEMPLATE_URL" || exit 1
+                      popd || exit
+                    done
+                - |-
+                    for STAGE_REPOSITORY in $STAGES_REPOSITORIES; do
+                      pushd "$STAGE_REPOSITORY" || exit
+                      MODULE_NAME=${!STAGE_REPOSITORY##*-}
+                      echo "Processing $MODULE_NAME"
+                      mkdir module
+                      pushd module || exit
+                      cfn init --artifact-type MODULE --type-name "$DOMAIN_NAME::$TEAM_NAME::$MODULE_NAME::MODULE" && rm fragments/sample.json
+                      cp -i -a ../translated-template.json fragments/
+                      cfn generate
+                      zip --quiet -r "../$MODULE_NAME.zip" .rpdk-config fragments/ schema.json
+
+                      NEW_MODULE=$(git rev-parse --verify --end-of-options HEAD)
+                      aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                            --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME-$NEW_MODULE.zip" \
+                                            --body "../$MODULE_NAME.zip"
+                      popd || exit
+                      rm -Rf module
+                      popd || exit
+                    done
+                - |-
+                    temp_role=$(aws sts assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                    AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
+                    AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
+                    AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
+                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+
+                    for STAGE_REPOSITORY in $STAGES_REPOSITORIES; do
+                      MODULE_NAME=${!STAGE_REPOSITORY##*-}
+                      # compare hashes to avoid creating a new module version when there is no change
+                      if CURRENT_MODULE=$(aws ssm get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
+                        echo "Current module version commit id: $CURRENT_MODULE"
+                        echo "New module version commit id: $NEW_MODULE"
+                        if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
+                          echo "No change since last build, exiting module creation."
+                          exit 0
+                        fi
+                      fi
+
+                      STACK_NAME="sdlf-cfn-module-$TEAM_NAME-$MODULE_NAME"
+                      aws cloudformation deploy \
+                          --stack-name "$STACK_NAME" \
+                          --template-file ./template-cfn-module.yaml \
+                          --parameter-overrides \
+                              pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                              pEnvironment="$ENVIRONMENT" \
+                              pDomain="$DOMAIN_NAME" \
+                              pTeamName="$TEAM_NAME" \
+                              pModuleName="$MODULE_NAME" \
+                              pModuleGitRef="$NEW_MODULE" \
+                          --tags Framework=sdlf \
+                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                          --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-cfn-modules" || exit 1
+                      echo "Done for $MODULE_NAME"
+                    done
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 30
 
   ######## SSM OUTPUTS #########
   rBuildCloudformationModuleStageSsm:
@@ -180,6 +312,14 @@ Resources:
       Type: String
       Value: !Ref rBuildCloudformationModuleStage
       Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
+
+  rBuildCloudformationStagesModulesSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeBuild/BuildCloudformationStagesModules
+      Type: String
+      Value: !Ref rBuildCloudformationStagesModules
+      Description: Name of the CodeBuild job that build CloudFormation modules from a SAM template for SDLF stages
 
 Outputs:
   oBuildCloudformationModuleStageArn:

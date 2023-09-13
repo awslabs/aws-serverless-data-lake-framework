@@ -26,10 +26,31 @@ Parameters:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
+  pBuildCloudformationModuleStage:
+    Description: CodeBuild job that build a CloudFormation module from a SAM template
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
   pBuildCloudFormationPackage:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudFormationPackage
+  pCicdRepository:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/CicdCodeCommit
+  pFoundationsRepository:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/FoundationsCodeCommit
+  pTeamRepository:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/TeamCodeCommit
+  pSdlfModuleDomain:
+    Type: String
+    Default: awslabs
+    Description: "A placeholder domain used for default SDLF components"
+  pSdlfModuleTeam:
+    Type: String
+    Default: sdlf
+    Description: "A placeholder team used for default SDLF components"
 
 Mappings:
   pCodeCommitBranch:
@@ -69,6 +90,9 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
               - Effect: Allow
                 Action:
@@ -92,6 +116,7 @@ Resources:
                   - codebuild:BatchGetBuilds
                 Resource:
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudFormationPackage}"
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
             Version: 2012-10-17
@@ -108,7 +133,7 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: cicd-main
+            - Name: sdlf-main
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -123,9 +148,91 @@ Resources:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
+            -
+              Name: SourceCicd
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceCicdArtifact
+              Configuration:
+                RepositoryName: !Ref pCicdRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceFoundations
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceFoundationsArtifact
+              Configuration:
+                RepositoryName: !Ref pFoundationsRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
+            -
+              Name: SourceTeam
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceTeamArtifact
+              Configuration:
+                RepositoryName: !Ref pTeamRepository
+                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                PollForSourceChanges: false
+              RunOrder: 1
         - Name: BuildTemplate
           Actions:
-            - Name: Build
+            -
+              Name: BuildFoundations
+              InputArtifacts:
+              - Name: SourceCicdArtifact
+              - Name: SourceFoundationsArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                PrimarySource: SourceFoundationsArtifact
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"foundations", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            -
+              Name: BuildTeam
+              InputArtifacts:
+              - Name: SourceCicdArtifact
+              - Name: SourceTeamArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                PrimarySource: SourceTeamArtifact
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            - Name: BuildDomainTemplate
               InputArtifacts:
                 - Name: TemplateSource
               OutputArtifacts:
@@ -148,7 +255,7 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: TemplateSource
                 - Name: TemplatePackage
