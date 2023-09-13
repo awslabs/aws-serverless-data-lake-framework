@@ -17,7 +17,7 @@ codepipeline = boto3.client("codepipeline")
 kms = boto3.client("kms")
 
 def create_domain_team_role_stack(
-    cloudformation, team, artifacts_bucket, kms_key, template_body_url, cloudformation_role
+    cloudformation, team, artifacts_bucket, kms_key, environment, domain, template_body_url, cloudformation_role
 ):
     response = {}
     cloudformation_waiter_type = None
@@ -38,8 +38,18 @@ def create_domain_team_role_stack(
                     "UsePreviousValue": False,
                 },
                 {
+                    "ParameterKey": "pDomain",
+                    "ParameterValue": domain,
+                    "UsePreviousValue": False,
+                },
+                {
                     "ParameterKey": "pTeamName",
                     "ParameterValue": team,
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pEnvironment",
+                    "ParameterValue": environment,
                     "UsePreviousValue": False,
                 },
                 {
@@ -75,8 +85,18 @@ def create_domain_team_role_stack(
                         "UsePreviousValue": False,
                     },
                     {
+                        "ParameterKey": "pDomain",
+                        "ParameterValue": domain,
+                        "UsePreviousValue": False,
+                    },
+                    {
                         "ParameterKey": "pTeamName",
                         "ParameterValue": team,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pEnvironment",
+                        "ParameterValue": environment,
                         "UsePreviousValue": False,
                     },
                     {
@@ -245,6 +265,8 @@ def lambda_handler(event, context):
                     team,
                     artifacts_bucket,
                     devops_kms_key,
+                    environment,
+                    domain,
                     template_cicd_domain_team_role_url,
                     crossaccount_cloudformation_role,
                 )
