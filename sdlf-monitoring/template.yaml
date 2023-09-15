@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboards, ELK, Budgets
 
 Parameters:
+  pPipelineReference:
+    Type: String
+    Default: none
   pOrganizationName:
     Description: Name of the organization owning the datalake
     Type: String
@@ -214,3 +217,8 @@ Resources:
       Type: String
       Value: !If [InternalBucket, !Ref rTrailBucket, !Ref pExternalTrailBucket]
       Description: Name of the CloudTrail S3 bucket
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference

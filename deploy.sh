@@ -86,7 +86,7 @@ crossaccount_cicd_roles () {
     # Increase SSM Parameter Store throughput to 1,000 requests/second
     DOMAIN_ACCOUNT_ID=$(aws --profile "$DOMAIN_AWS_PROFILE" sts get-caller-identity --query 'Account' --output text)
     AWS_PARTITION=$(aws --profile "$DOMAIN_AWS_PROFILE" sts get-caller-identity --query 'Arn' --output text | cut -d':' -f2)
-    aws --region "$REGION" --profile "$DOMAIN_AWS_PROFILE" ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$DOMAIN_ACCOUNT_ID":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true
+    aws --region "$REGION" --profile "$DOMAIN_AWS_PROFILE" ssm update-service-setting --setting-id "arn:$AWS_PARTITION:ssm:$REGION:$DOMAIN_ACCOUNT_ID:servicesetting/ssm/parameter-store/high-throughput-enabled" --setting-value true
     DEVOPS_ARTIFACTS_BUCKET="sdlf-$REGION-$DEVOPS_ACCOUNT-cicd-cfn-artifacts"
     DEVOPS_KMS_KEY_ALIAS="alias/sdlf-cicd-kms-key"
     STACK_NAME=sdlf-cicd-domain-roles
@@ -183,6 +183,7 @@ devops_account () {
     rm -Rf "$DIRNAME"/output
 
     declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB")
+    [ "$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/Monitoring/Enabled --query "Parameter.Value" --output text)" == "true" ] && REPOSITORIES+=("sdlf-monitoring")
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
         latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query 'branch.commitId' --output text)

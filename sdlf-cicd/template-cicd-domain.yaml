@@ -38,9 +38,6 @@ Parameters:
     Description: Add monitoring module infrastructure
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/Monitoring/Enabled
-  pMonitoringRepository:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/MonitoringCodeCommit
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/CicdCodeCommit
@@ -104,6 +101,10 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                  - !If
+                    - EnableMonitoring
+                    - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                    - !Ref AWS::NoValue
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -211,7 +212,7 @@ Resources:
                 OutputArtifacts:
                   - Name: SourceMonitoringArtifact
                 Configuration:
-                  RepositoryName: !Ref pMonitoringRepository
+                  RepositoryName: "{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
                   BranchName:
                     !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   PollForSourceChanges: false
@@ -280,6 +281,7 @@ Resources:
                      {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
                      {"name":"MODULE_NAME", "value":"monitoring", "type":"PLAINTEXT"}]
                 RunOrder: 1
+              - !Ref AWS::NoValue
             - Name: BuildDomainTemplate
               InputArtifacts:
                 - Name: TemplateSource

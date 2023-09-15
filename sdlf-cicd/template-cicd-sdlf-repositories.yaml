@@ -37,6 +37,9 @@ Parameters:
   pUtilsRepository:
     Type: String
     Default: sdlf-utils
+  pMonitoringRepository:
+    Type: String
+    Default: sdlf-monitoring
   pMainRepository:
     Type: String
     Default: sdlf-main
@@ -59,7 +62,7 @@ Parameters:
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
-  EnableMonitoring: !Equals [!Ref pEnableMonitoring, false]
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
   ######## CODECOMMIT #########
@@ -677,6 +680,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodePipeline/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/LambdaLayerBuilder/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
               - Effect: Allow
                 Action:
@@ -969,6 +973,7 @@ Resources:
 
   rMonitoringCodeCommitSsm:
     Type: AWS::SSM::Parameter
+    Condition: EnableMonitoring
     Properties:
       Name: /SDLF/CodeCommit/MonitoringCodeCommit
       Type: String
