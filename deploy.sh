@@ -83,7 +83,7 @@ crossaccount_cicd_roles () {
 
     echo "Deploying SDLF DevOps/Tooling roles in data domain accounts" >&2
 
-    # Increase SSM Parameter Store throughput to 1,000 requests/second TODO
+    # Increase SSM Parameter Store throughput to 1,000 requests/second
     DOMAIN_ACCOUNT_ID=$(aws --profile "$DOMAIN_AWS_PROFILE" sts get-caller-identity --query 'Account' --output text)
     AWS_PARTITION=$(aws --profile "$DOMAIN_AWS_PROFILE" sts get-caller-identity --query 'Arn' --output text | cut -d':' -f2)
     aws --region "$REGION" --profile "$DOMAIN_AWS_PROFILE" ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$DOMAIN_ACCOUNT_ID":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true
@@ -141,6 +141,11 @@ devops_account () {
     fi
 
     echo "Deploying SDLF DevOps/Tooling (components repositories, CICD pipelines)" >&2
+
+    # Increase SSM Parameter Store throughput to 1,000 requests/second
+    DEVOPS_ACCOUNT_ID=$(aws --profile "$DEVOPS_AWS_PROFILE" sts get-caller-identity --query 'Account' --output text)
+    AWS_PARTITION=$(aws --profile "$DEVOPS_AWS_PROFILE" sts get-caller-identity --query 'Arn' --output text | cut -d':' -f2)
+    aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$DEVOPS_ACCOUNT_ID":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true
 
     STACK_NAME=sdlf-cicd-prerequisites
     aws cloudformation deploy \
