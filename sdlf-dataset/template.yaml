@@ -29,14 +29,19 @@ Parameters:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
-  pPipelineDetails: # TODO make it more generic, like pPipelineMetadata
+  pPipelineDetails:
     Type: String
     Default: >-
       {
         "main": {
-          "transforms": {
-            "stage_A_transform": "light_transform_blueprint",
-            "stage_B_transform": "heavy_transform_blueprint"
+          "B": {
+            "glue_capacity": {
+              "NumberOfWorkers": 10,
+              "WorkerType": "G.1X"
+            },
+            "glue_extra_arguments": {
+              "--enable-auto-scaling": "true"
+            }
           }
         }
       }
