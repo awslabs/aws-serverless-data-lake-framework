@@ -21,6 +21,10 @@ Parameters:
     Description: The central bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
+  pAthenaBucket:
+    Description: S3 Athena bucket
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/AthenaBucket
   pEnvironment:
     Description: Environment name
     Type: String
@@ -915,6 +919,32 @@ Resources:
               !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/",
               !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/analytics/${pTeamName}/",
             ]
+
+  rAthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Description: !Sub Athena workgroup for team ${pTeamName}
+      Name: !Sub sdlf-${pTeamName}
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        EngineVersion:
+          SelectedEngineVersion: Athena engine version 3
+          EffectiveEngineVersion: Athena engine version 3
+        PublishCloudWatchMetricsEnabled: true
+        ResultConfiguration:
+          EncryptionConfiguration:
+            EncryptionOption: SSE_KMS
+            KmsKey: !GetAtt rKMSDataKey.Arn
+          OutputLocation: !Sub s3://${pAthenaBucket}/${pTeamName}
+
+  rAthenaWorkgroupSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Athena/${pTeamName}/WorkgroupName
+      Type: String
+      Value: !Ref rAthenaWorkgroup
+      Description: The name of the Athena workgroup
 
 Outputs:
   oPipelineReference:
