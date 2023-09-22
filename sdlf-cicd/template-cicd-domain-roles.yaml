@@ -572,6 +572,15 @@ Resources:
                 Action:
                   - glue:PutDataCatalogEncryptionSettings
                 Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - Effect: Allow
+                Action:
+                  - athena:GetWorkGroup
+                  - athena:CreateWorkGroup
+                  - athena:UpdateWorkGroup
+                  - athena:DeleteWorkGroup
+                  - athena:TagResource
+                  - athena:UntagResource
+                Resource: !Sub arn:${AWS::Partition}:athena:${AWS::Region}:${AWS::AccountId}:workgroup/sdlf-*
 
   rTeamCodePipelineRole:
     Type: AWS::IAM::Role

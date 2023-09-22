@@ -170,7 +170,7 @@ Resources:
       Name: !Sub /SDLF/ATHENA/${pTeamName}/${pPipelineName}/WorkgroupName
       Type: String
       Value: !Ref rAthenaWorkgroup
-      Description: The ARN of the Crawler role
+      Description: The name of the Athena workgroup
   rDDBDependenciesSsm:
     Type: AWS::SSM::Parameter
     Properties:
