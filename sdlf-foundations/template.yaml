@@ -414,7 +414,7 @@ Resources:
       Roles:
         - !Ref rLakeFormationDataAccessRole
 
-  rPipelineBucket:
+  rArtifactsBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
@@ -443,10 +443,10 @@ Resources:
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
 
-  rPipelineBucketPolicy:
+  rArtifactsBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref rPipelineBucket
+      Bucket: !Ref rArtifactsBucket
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -454,8 +454,8 @@ Resources:
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${rPipelineBucket}/*
-              - !Sub arn:${AWS::Partition}:s3:::${rPipelineBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
@@ -977,7 +977,7 @@ Resources:
     Properties:
       Name: /SDLF/S3/ArtifactsBucket
       Type: String
-      Value: !Ref rPipelineBucket
+      Value: !Ref rArtifactsBucket
       Description: Name of the Artifacts S3 bucket
   rS3CentralBucketSsm:
     Type: AWS::SSM::Parameter
