@@ -23,8 +23,8 @@ Parameters:
     Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
   pAthenaBucket:
     Description: S3 Athena bucket
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/AthenaBucket
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/AthenaBucket}}"
   pEnvironment:
     Description: Environment name
     Type: String
@@ -224,6 +224,14 @@ Resources:
       Type: String
       Value: !Ref rScheduleGroup
       Description: !Sub Name of the ${pTeamName} schedule group
+
+  rGlueSecurityConfigurationSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Glue/${pTeamName}/SecurityConfigurationId
+      Type: String
+      Value: !Sub sdlf-${pTeamName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      Description: !Sub Name of the ${pTeamName} Glue security configuration
   #### END KMS STACK
 
   ######## IAM #########
@@ -936,7 +944,7 @@ Resources:
           EncryptionConfiguration:
             EncryptionOption: SSE_KMS
             KmsKey: !GetAtt rKMSDataKey.Arn
-          OutputLocation: !Sub s3://${pAthenaBucket}/${pTeamName}
+          OutputLocation: !Sub s3://${pAthenaBucket}/${pTeamName}/
 
   rAthenaWorkgroupSsm:
     Type: AWS::SSM::Parameter

@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD pipelines to automate SDLF workflows
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/DevOpsArtifactsBucket
+  pKMSKey:
+    Description: The KMS key used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/CICDKeyId
+
+Resources:
+  rGlueJobCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-codebuild
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref pKMSKey
+
+  rGlueJobPackage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Name: sdlf-cicd-build-glue-jobs
+      Description: Prepares Glue jobs for deployment
+      EncryptionKey: !Ref pKMSKey
+      Environment:
+        EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref pArtifactsBucket
+          - Name: KMS_KEY
+            Type: PLAINTEXT
+            Value: !Ref pKMSKey
+          - Name: AWS_PARTITION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Partition
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !GetAtt rGlueJobCodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: |
+          version: 0.2
+          env:
+            exported-variables:
+              - TRANSFORMS_CDL
+              - CODEBUILD_RESOLVED_SOURCE_VERSION
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.11
+              commands:
+                - |-
+                    aws --version # version 1 installed using pip by codebuild
+                    pip3 uninstall -y awscli
+                    aws --version # version 2
+                - pip3 install boto3
+            build:
+              commands:
+                - |-
+                    if [ -d "./transforms-$ENVIRONMENT/" ]; then
+                        cd "./transforms-$ENVIRONMENT/" || exit
+                        TRANSFORMS=()
+
+                        echo ">>>>> Beginning build of subdirectories >>>>>"
+                        for dir in ./*/
+                        do
+                            dir=${dir%*/}      # remove the trailing "/"
+                            TRANSFORM_NAME="${dir##*/}"    # print everything after the final "/"
+                            echo "---- Looking to move to: "
+
+                            pushd "$dir" || exit
+                            echo "Moving into dir..."
+                            echo "Current directory contents:"
+                            ls
+                            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                                  --key "transforms/$DOMAIN/$ENVIRONMENT/$TEAM/$TRANSFORM_NAME-$CODEBUILD_RESOLVED_SOURCE_VERSION.py" \
+                                                  --body "$TRANSFORM_NAME.py" || exit 1
+                            TRANSFORMS+=("$TRANSFORM_NAME")
+                            popd || exit
+                            echo "============= COMPLETED DIRECTORY BUILD ============="
+                        done
+
+                        # prepare the parameter that will be fed to the cloudformation template containing all glue jobs
+                        printf -v joined "%s," "${TRANSFORMS[@]}"
+                        TRANSFORMS_CDL="${joined%,}"
+                        echo "TRANSFORMS_CDL - $TRANSFORMS_CDL"
+                    fi
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 20
+
+  ######## SSM OUTPUTS #########
+  rGlueJobPackageSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeBuild/PrepareGlueJobPackage
+      Type: String
+      Value: !Ref rGlueJobPackage
+      Description: Name of the CodeBuild job that prepares Glue jobs
