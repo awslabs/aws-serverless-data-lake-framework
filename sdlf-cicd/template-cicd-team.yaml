@@ -50,6 +50,10 @@ Parameters:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/LambdaLayerBuilder/Enabled
+  pEnableGlueJobDeployer:
+    Description: Add Glue job deployer infrastructure and pipeline stages
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/GlueJobDeployer/Enabled
   pCicdRepository:
     Description: Name of the Cicd repository
     Type: AWS::SSM::Parameter::Value<String>
@@ -89,6 +93,8 @@ Mappings:
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
+  EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
+  EnableOptionalFeatures: !Or [!Condition EnableLambdaLayerBuilder, !Condition EnableGlueJobDeployer]
 
 Resources:
   rTeamMainCodeCommit:
@@ -164,6 +170,10 @@ Resources:
                   - !If
                     - EnableLambdaLayerBuilder
                     - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                    - !Ref AWS::NoValue
+                  - !If
+                    - EnableGlueJobDeployer
+                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
                     - !Ref AWS::NoValue
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
@@ -280,75 +290,112 @@ Resources:
                 BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
-            - !If
-              - EnableLambdaLayerBuilder
-              - Name: CicdSource
-                ActionTypeId:
-                  Category: Source
-                  Owner: AWS
-                  Provider: CodeCommit
-                  Version: "1"
-                OutputArtifacts:
-                  - Name: CicdTemplateSource
-                Configuration:
-                  RepositoryName: !Ref pCicdRepository
-                  BranchName:
-                    !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                  PollForSourceChanges: false
-                RunOrder: 1
-              - !Ref AWS::NoValue
         - !If
-          - EnableLambdaLayerBuilder
-          - Name: BuildLambdaLayers
+          - EnableOptionalFeatures
+          - Name: BuildOptionalFeatures
             Actions:
-              - Name: Build
-                InputArtifacts:
-                  - Name: TemplateSource
-                Namespace: LambdaLayersVariables
-                ActionTypeId:
-                  Category: Build
-                  Owner: AWS
-                  Version: "1"
-                  Provider: CodeBuild
-                Configuration:
-                  ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
-                  EnvironmentVariables: !Sub >-
-                    [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
-                    {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
-                    {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
-                RunOrder: 1
+              - !If
+                - EnableLambdaLayerBuilder
+                - Name: BuildLambdaLayers
+                  InputArtifacts:
+                    - Name: TemplateSource
+                  Namespace: LambdaLayersVariables
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Version: "1"
+                    Provider: CodeBuild
+                  Configuration:
+                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                    EnvironmentVariables: !Sub >-
+                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
+                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
+                  RunOrder: 1
+                - !Ref AWS::NoValue
+              - !If
+                - EnableGlueJobDeployer
+                - Name: BuildGlueJobs
+                  InputArtifacts:
+                    - Name: TemplateSource
+                  Namespace: GlueJobVariables
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Version: "1"
+                    Provider: CodeBuild
+                  Configuration:
+                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
+                    EnvironmentVariables: !Sub >-
+                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
+                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
+                  RunOrder: 1
+                - !Ref AWS::NoValue
           - !Ref AWS::NoValue
         - !If
-          - EnableLambdaLayerBuilder
-          - Name: DeployLambdaLayers
+          - EnableOptionalFeatures
+          - Name: DeployOptionalFeatures
             Actions:
-              - Name: CreateStack
-                RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
-                ActionTypeId:
-                  Category: Deploy
-                  Owner: AWS
-                  Provider: CloudFormation
-                  Version: '1'
-                InputArtifacts:
-                  - Name: TemplateSource
-                  - Name: CicdTemplateSource
-                Configuration:
-                  ActionMode: CREATE_UPDATE
-                  RoleArn: !Ref pCrossAccountTeamRole
-                  StackName: !Sub sdlf-${pTeamName}-lambdalayers-${pEnvironment}
-                  TemplatePath: "CicdTemplateSource::template-lambda-layer.yaml"
-                  TemplateConfiguration: "TemplateSource::tags.json"
-                  Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                  ParameterOverrides: !Sub |+
-                    {
-                      "pArtifactsBucket": "${pArtifactsBucket}",
-                      "pDomain": "${pDomain}",
-                      "pEnvironment": "${pEnvironment}",
-                      "pTeamName": "${pTeamName}",
-                      "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}",
-                      "pGitRef": "#{LambdaLayersVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
-                    }
-                RunOrder: 1
+              - !If
+                - EnableLambdaLayerBuilder
+                - Name: CreateLambdaLayersStack
+                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                  ActionTypeId:
+                    Category: Deploy
+                    Owner: AWS
+                    Provider: CloudFormation
+                    Version: "1"
+                  InputArtifacts:
+                    - Name: TemplateSource
+                    - Name: SourceCicdArtifact
+                  Configuration:
+                    ActionMode: CREATE_UPDATE
+                    RoleArn: !Ref pCrossAccountTeamRole
+                    StackName: !Sub sdlf-${pTeamName}-lambdalayers-${pEnvironment}
+                    TemplatePath: "SourceCicdArtifact::template-lambda-layer.yaml"
+                    TemplateConfiguration: "TemplateSource::tags.json"
+                    Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                    ParameterOverrides: !Sub |+
+                      {
+                        "pArtifactsBucket": "${pArtifactsBucket}",
+                        "pDomain": "${pDomain}",
+                        "pEnvironment": "${pEnvironment}",
+                        "pTeamName": "${pTeamName}",
+                        "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}",
+                        "pGitRef": "#{LambdaLayersVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
+                      }
+                  RunOrder: 1
+                - !Ref AWS::NoValue
+              - !If
+                - EnableGlueJobDeployer
+                - Name: CreateGlueJobsStack
+                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                  ActionTypeId:
+                    Category: Deploy
+                    Owner: AWS
+                    Provider: CloudFormation
+                    Version: "1"
+                  InputArtifacts:
+                    - Name: TemplateSource
+                    - Name: SourceCicdArtifact
+                  Configuration:
+                    ActionMode: CREATE_UPDATE
+                    RoleArn: !Ref pCrossAccountTeamRole
+                    StackName: !Sub sdlf-${pTeamName}-gluejobs-${pEnvironment}
+                    TemplatePath: "SourceCicdArtifact::template-glue-job.yaml"
+                    TemplateConfiguration: "TemplateSource::tags.json"
+                    Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                    ParameterOverrides: !Sub |+
+                      {
+                        "pArtifactsBucket": "${pArtifactsBucket}",
+                        "pEnvironment": "${pEnvironment}",
+                        "pTeamName": "${pTeamName}",
+                        "pGlueJobs": "#{GlueJobVariables.TRANSFORMS_CDL}",
+                        "pGitRef": "#{GlueJobVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
+                      }
+                  RunOrder: 1
+                - !Ref AWS::NoValue
           - !Ref AWS::NoValue
         -
           Name: BuildPipelineDataset

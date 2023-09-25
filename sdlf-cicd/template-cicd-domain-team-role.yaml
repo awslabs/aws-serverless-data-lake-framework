@@ -14,6 +14,9 @@ Parameters:
   pEnableLambdaLayerBuilder:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: String
+  pEnableGlueJobDeployer:
+    Description: Add Glue job deployer infrastructure and pipeline stages
+    Type: String
   pDomain:
     Description: Data domain name
     Type: String
@@ -24,6 +27,7 @@ Parameters:
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
+  EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
 
 Resources:
   rTeamCloudFormationRole:
@@ -408,5 +412,55 @@ Resources:
               - lambda:DeleteLayerVersion
             Resource:
               - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
+      Roles:
+        - !Ref rTeamCloudFormationRole
+
+  rTeamGlueJobsCloudFormationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnableGlueJobDeployer
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateChangeSet
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+            Resource:
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/KeyArn
+          - Effect: Allow
+            Action:
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
+            Condition:
+              ArnEquals:
+                "iam:PolicyARN":
+                  - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
+                  - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonS3FullAccess
+                  - !Sub arn:${AWS::Partition}:iam::aws:policy/CloudWatchLogsFullAccess
+          - Effect: Allow
+            Action:
+              - glue:CreateJob
+              - glue:DeleteJob
+              - glue:TagResource
+              - glue:UntagResource
+            Resource:
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
+            Condition:
+              StringEquals:
+                "iam:PassedToService": glue.amazonaws.com
       Roles:
         - !Ref rTeamCloudFormationRole
