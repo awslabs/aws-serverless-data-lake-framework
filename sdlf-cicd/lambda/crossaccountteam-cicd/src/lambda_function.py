@@ -57,6 +57,11 @@ def create_domain_team_role_stack(
                     "ParameterValue": os.getenv("ENABLE_LAMBDA_LAYER_BUILDER"),
                     "UsePreviousValue": False,
                 },
+                {
+                    "ParameterKey": "pEnableGlueJobDeployer",
+                    "ParameterValue": os.getenv("ENABLE_GLUE_JOB_DEPLOYER"),
+                    "UsePreviousValue": False,
+                },
             ],
             Capabilities=[
                 "CAPABILITY_NAMED_IAM",
@@ -102,6 +107,11 @@ def create_domain_team_role_stack(
                     {
                         "ParameterKey": "pEnableLambdaLayerBuilder",
                         "ParameterValue": os.getenv("ENABLE_LAMBDA_LAYER_BUILDER"),
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pEnableGlueJobDeployer",
+                        "ParameterValue": os.getenv("ENABLE_GLUE_JOB_DEPLOYER"),
                         "UsePreviousValue": False,
                     },
                 ],

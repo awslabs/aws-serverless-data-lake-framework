@@ -52,9 +52,14 @@ Parameters:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/LambdaLayerBuilder/Enabled
+  pEnableGlueJobDeployer:
+    Description: Add Glue job deployer infrastructure and pipeline stages
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/GlueJobDeployer/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
+  EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
 
 Resources:
   ######## CODECOMMIT #########
@@ -672,6 +677,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodePipeline/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/LambdaLayerBuilder/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GlueJobDeployer/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
               - Effect: Allow
                 Action:
@@ -714,6 +720,7 @@ Resources:
           AWS_PARTITION: !Ref AWS::Partition
           DEVOPS_KMS_KEY: !Ref pKMSKey
           ENABLE_LAMBDA_LAYER_BUILDER: !Ref pEnableLambdaLayerBuilder
+          ENABLE_GLUE_JOB_DEPLOYER: !Ref pEnableGlueJobDeployer
       Code: ./lambda/crossaccountteam-cicd/src
 
   rMainRepositoryTeamLambda:
@@ -946,3 +953,11 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-lambda-layer.yaml
+
+  rGlueJobDeployerInfrastructure:
+    Type: AWS::CloudFormation::Stack
+    Condition: EnableGlueJobDeployer
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: ./nested-stacks/template-cicd-glue-job.yaml

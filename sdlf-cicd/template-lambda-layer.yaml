@@ -9,16 +9,17 @@ Parameters:
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
     Type: String
-  pTeamName:
-    Description: Name of the team (all lowercase, no symbols or spaces)
-    Type: String
   pEnvironment:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
+    Type: String
   pLayers:
     Description: List of folder names from layers/ directory
     Type: CommaDelimitedList
+    AllowedPattern: "^[a-zA-Z0-9]*$"
   pGitRef:
     Description: Git reference (commit id) with the sources of these layers
     Type: String

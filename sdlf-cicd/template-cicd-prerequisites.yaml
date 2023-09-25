@@ -22,6 +22,14 @@ Resources:
       Value: false
       Description: Add Lambda layer builder infrastructure and pipeline stages
 
+  rGlueJobDeployerFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GlueJobDeployer/Enabled
+      Type: String
+      Value: false
+      Description: Add Glue job deployer infrastructure and pipeline stages
+
   ######## KMS #########
   rKMSKey:
     Type: AWS::KMS::Key
