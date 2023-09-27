@@ -9,9 +9,8 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-sqs = boto3.resource("sqs")
-dynamodb = boto3.resource("dynamodb")
-catalog_table = dynamodb.Table(f"octagon-ObjectMetadata-{os.environ['ENV']}")
+dynamodb = boto3.client("dynamodb")
+catalog_table = f"octagon-ObjectMetadata-{os.environ['ENV']}"
 
 
 def parse_s3_event(s3_event):
@@ -26,7 +25,8 @@ def parse_s3_event(s3_event):
 
 def put_item(table, item, key):
     try:
-        response = table.put_item(
+        response = dynamodb.put_item(
+            TableName=table,
             Item=item,
             ConditionExpression=f"attribute_not_exists({key})",
         )
@@ -41,7 +41,10 @@ def put_item(table, item, key):
 
 def delete_item(table, key):
     try:
-        response = table.delete_item(Key=key)
+        response = dynamodb.delete_item(
+            TableName=table,
+            Key=key
+        )
     except ClientError as e:
         logger.error("Fatal error", exc_info=True)
         raise e

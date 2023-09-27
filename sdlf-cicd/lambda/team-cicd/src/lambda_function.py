@@ -13,10 +13,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
-codecommit = boto3.client("codecommit")
-codepipeline = boto3.client("codepipeline")
-cloudformation = boto3.client("cloudformation")
-kms = boto3.client("kms")
+codecommit_endpoint_url = "https://codecommit." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codecommit = boto3.client("codecommit", endpoint_url=codecommit_endpoint_url)
+codepipeline_endpoint_url = "https://codepipeline." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codepipeline = boto3.client("codepipeline", endpoint_url=codepipeline_endpoint_url)
+cloudformation_endpoint_url = "https://cloudformation." + os.getenv("AWS_REGION") + ".amazonaws.com"
+cloudformation = boto3.client("cloudformation", endpoint_url=cloudformation_endpoint_url)
+kms_endpoint_url = "https://kms." + os.getenv("AWS_REGION") + ".amazonaws.com"
+kms = boto3.client("kms", endpoint_url=kms_endpoint_url)
 
 
 def delete_domain_team_role_stack(team, cloudformation_role):

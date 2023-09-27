@@ -7,7 +7,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 dlq_name = os.environ["DLQ"]
 queue_name = os.environ["QUEUE"]
-sqs = boto3.resource("sqs")
+sqs_endpoint_url = "https://sqs." + os.getenv("AWS_REGION") + ".amazonaws.com"
+sqs = boto3.resource("sqs", endpoint_url=sqs_endpoint_url)
 
 
 def lambda_handler(event, context):

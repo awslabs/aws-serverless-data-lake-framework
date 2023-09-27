@@ -55,17 +55,41 @@ Parameters:
         1827,
         3653,
       ]
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
+  # pVpcSecurityGroupIds and pVpcSubnetIds are passed explicitly (unlike in sdlf-cicd/template-cicd-sdlf-repositories.yaml for example)
+  # due to Fn::ImportValue not being accepted in CloudFormation modules template fragments
+  pVpcSecurityGroupIds:
+    Description: VPC Security Groups Ids
+    Type: String
+    Default: ""
+  pVpcSubnetIds:
+    Description: VPC Subnet Ids
+    Type: String
+    Default: ""
 
 Conditions:
   CreateMultipleBuckets: !Equals [!Ref pNumBuckets, "3"]
   CreateSingleBucket: !Equals [!Ref pNumBuckets, "1"]
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
   Function:
     Runtime: python3.11
     Handler: lambda_function.lambda_handler
     KmsKeyArn: !GetAtt rKMSKey.Arn
+    VpcConfig: !If
+      - RunInVpc
+      - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
+        SubnetIds: !Split [",", !Ref pVpcSubnetIds]
+      - !Ref "AWS::NoValue"
 
 Resources:
   # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
@@ -86,6 +110,10 @@ Resources:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonS3FullAccess
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSLakeFormationDataAdmin
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       Policies:
         - PolicyName: sdlf-lakeformation-admin
           PolicyDocument:
@@ -885,6 +913,11 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       Policies:
         - PolicyName: sdlf-catalog
           PolicyDocument:

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import awswrangler as wr  # Ensure Lambda has an AWS Wrangler Layer configured
 import boto3
+import os
 
 from ..commons import init_logger
 
@@ -22,7 +23,8 @@ class GlueSchemaValidator(ABC):
         """
         self.boto3_session = boto3_session
         # Reuse session or create a default one
-        self.glue_client = boto3_session.client("glue") if boto3_session else boto3.client("glue")
+        glue_endpoint_url = "https://glue." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self.glue_client = boto3_session.client("glue", endpoint_url=glue_endpoint_url) if boto3_session else boto3.client("glue", endpoint_url=glue_endpoint_url)
 
     def _get_table_parameters(self, database_name, table_name):
         """

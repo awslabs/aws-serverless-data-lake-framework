@@ -12,7 +12,8 @@ class SQSInterface:
     def __init__(self, queue_name, log_level=None, sqs_resource=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._sqs_resource = sqs_resource or boto3.resource("sqs")
+        sqs_endpoint_url = "https://sqs." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._sqs_resource = sqs_resource or boto3.resource("sqs", endpoint_url=sqs_endpoint_url)
 
         self._message_queue = self._sqs_resource.get_queue_by_name(QueueName=queue_name)
 

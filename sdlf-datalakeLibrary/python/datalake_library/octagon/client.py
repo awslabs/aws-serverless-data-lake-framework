@@ -148,10 +148,12 @@ class OctagonClient:
         else:
             boto3.setup_default_session(profile_name=self.profile, region_name=self.region)
 
-        self.account_id = boto3.client("sts").get_caller_identity().get("Account")
+        sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self.account_id = boto3.client("sts", endpoint_url=sts_endpoint_url).get_caller_identity().get("Account")
 
         self.dynamodb = boto3.resource("dynamodb")
-        self.sns = boto3.client("sns")
+        sns_endpoint_url = "https://sns." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self.sns = boto3.client("sns", endpoint_url=sns_endpoint_url)
         self.config = ConfigParser(self.configuration_file, self.configuration_instance)
         self.meta = OctagonMetadata(self.metadata_file)
         self.initialized = True

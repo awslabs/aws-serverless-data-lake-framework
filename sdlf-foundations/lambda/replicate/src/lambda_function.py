@@ -8,11 +8,14 @@ import boto3
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-glue_client = boto3.client("glue")
-dynamodb = boto3.resource("dynamodb")
-ssm = boto3.client("ssm")
-lf = boto3.client("lakeformation")
-schemas_table = dynamodb.Table("octagon-DataSchemas-{}".format(os.environ["ENV"]))
+glue_endpoint_url = "https://glue." + os.getenv("AWS_REGION") + ".amazonaws.com"
+glue = boto3.client("glue", endpoint_url=glue_endpoint_url)
+dynamodb = boto3.client("dynamodb")
+ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+ssm = boto3.client("ssm", endpoint_url=ssm_endpoint_url)
+lf_endpoint_url = "https://lakeformation." + os.getenv("AWS_REGION") + ".amazonaws.com"
+lf = boto3.client("lakeformation", endpoint_url=lf_endpoint_url)
+schemas_table = "octagon-DataSchemas-{}".format(os.getenv("ENV"))
 
 
 def get_current_time():
@@ -60,17 +63,24 @@ def build_table_item(team, dataset, table):
 
 
 def get_table_item(table_id):
-    response = schemas_table.get_item(Key={"name": table_id})
+    response = dynamodb.get_item(
+        TableName=schemas_table,
+        Key={"name": table_id}
+    )
     return response["Item"]
 
 
 def put_table_item(table_item):
-    response = schemas_table.put_item(Item=table_item)
+    response = dynamodb.put_item(
+        TableName=schemas_table,
+        Item=table_item
+    )
     return response
 
 
 def update_table_item(table_id, schema):
-    schemas_table.update_item(
+    dynamodb.update_item(
+        TableName=schemas_table,
         Key={"name": table_id},
         UpdateExpression="set #s=:s, updated_at=:t, schema_version=schema_version+:val",
         ExpressionAttributeValues={":s": schema, ":t": get_current_time(), ":val": 1},
@@ -81,7 +91,10 @@ def update_table_item(table_id, schema):
 
 
 def delete_table_item(table_id):
-    response = schemas_table.delete_item(Key={"name": table_id})
+    response = dynamodb.delete_item(
+        TableName=schemas_table,
+        Key={"name": table_id}
+    )
     return response
 
 
@@ -108,7 +121,7 @@ def lambda_handler(event, context):
             for table_name in changed_tables:
                 logger.info("Processing table: {}".format(table_name))
                 try:
-                    table = glue_client.get_table(DatabaseName=database_name, Name=table_name)["Table"]
+                    table = glue.get_table(DatabaseName=database_name, Name=table_name)["Table"]
                     table_item = build_table_item(team, dataset, table)
                     put_table_item(table_item)
                     iam_arn = ssm.get_parameter(Name="/SDLF/IAM/DataLakeAdminRoleArn")["Parameter"]["Value"]
@@ -129,7 +142,7 @@ def lambda_handler(event, context):
             table_name = event["detail"]["tableName"]
             logger.info("Processing table: {}".format(table_name))
             table_id = "{}-{}-{}".format(team, dataset, table_name)
-            table = glue_client.get_table(DatabaseName=database_name, Name=table_name)["Table"]
+            table = glue.get_table(DatabaseName=database_name, Name=table_name)["Table"]
             new_schema = sorted(table["StorageDescriptor"]["Columns"], key=lambda i: i["Name"])
             current_item = get_table_item(table_id)
             if current_item["schema"] != new_schema:

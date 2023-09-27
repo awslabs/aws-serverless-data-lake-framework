@@ -24,10 +24,15 @@ Parameters:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/VPC/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
   rTeamCloudFormationRole:
@@ -274,9 +279,19 @@ Resources:
             Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-* # there are sdlf-wide layers (datalake-lib-layer)
           - Effect: Allow
             Action:
+              - lambda:CreateFunction
+              - lambda:UpdateFunctionConfiguration
+            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+            Condition: !If
+              - RunInVpc
+              - StringEquals:
+                  "lambda:VpcIds":
+                    - "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+              - !Ref "AWS::NoValue"
+          - Effect: Allow
+            Action:
               - lambda:AddPermission
               - lambda:CreateAlias
-              - lambda:CreateFunction
               - lambda:DeleteFunction
               - lambda:DeleteFunctionConcurrency
               - lambda:GetFunction
@@ -290,8 +305,6 @@ Resources:
               - lambda:UntagResource
               - lambda:UpdateAlias
               - lambda:UpdateFunctionCode
-              - lambda:UpdateFunctionConfiguration
-              - lambda:UpdateFunctionConfiguration
               - lambda:AddPermission
               - lambda:RemovePermission
             Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
@@ -316,6 +329,16 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:activity:sdlf-${pTeamName}-*
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:DescribeSecurityGroups # W11 exception
+                - ec2:DescribeSubnets # W11 exception
+                - ec2:DescribeVpcs # W11 exception
+              Resource:
+                - "*"
+            - !Ref "AWS::NoValue"
       Roles:
         - !Ref rTeamCloudFormationRole
 
@@ -373,9 +396,13 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
             Condition:
-              ArnEquals:
+              ArnLike:
                 "iam:PolicyARN":
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf-${pTeamName}/sdlf-${pTeamName}-*
+                  - !If
+                    - RunInVpc
+                    - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+                    - !Ref "AWS::NoValue"
           - Effect: Allow
             Action:
               - iam:DeleteRole
@@ -434,6 +461,7 @@ Resources:
               - ssm:GetParametersByPath
             Resource:
               - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/KeyArn
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/*
           - Effect: Allow
             Action:
               - iam:AttachRolePolicy
@@ -454,10 +482,21 @@ Resources:
               - glue:UntagResource
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - glue:CreateConnection
+                - glue:DeleteConnection
+              Resource:
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pTeamName}-glue-conn
+            - !Ref "AWS::NoValue"
           - Effect: Allow
             Action:
               - iam:PassRole
             Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-* # cfn bug?
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
             Condition:
               StringEquals:

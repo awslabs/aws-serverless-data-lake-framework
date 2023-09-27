@@ -14,7 +14,8 @@ class EventConfig:
         :param event: event JSON object
         """
         self._event = event
-        self._ssm_interface = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm_interface = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
 
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
