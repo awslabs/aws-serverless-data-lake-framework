@@ -10,6 +10,13 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/VPC/Enabled
+
+Conditions:
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
   rLambdaLayersCodeBuildServiceRole:
@@ -58,6 +65,38 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !Ref pKMSKey
+              - !If
+                - RunInVpc
+                - Effect: Allow
+                  Action:
+                    - ec2:DescribeSecurityGroups # W11 exception
+                    - ec2:DescribeSubnets # W11 exception
+                    - ec2:DescribeVpcs # W11 exception
+                    - ec2:DescribeNetworkInterfaces # W11 exception
+                    - ec2:DescribeDhcpOptions # W11 exception
+                    - ec2:CreateNetworkInterface # W11 condition applied
+                    - ec2:DeleteNetworkInterface # W11 condition applied
+                  Resource:
+                    - "*"
+                  Condition:
+                    ArnEqualsIfExists:
+                      "ec2:Vpc":
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                - !Ref "AWS::NoValue"
+              - !If
+                - RunInVpc
+                - Effect: Allow
+                  Action:
+                    - ec2:CreateNetworkInterfacePermission
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+                  Condition:
+                    StringEquals:
+                      "ec2:AuthorizedService": codebuild.amazonaws.com
+                    ArnEquals:
+                      "ec2:Vpc":
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                - !Ref "AWS::NoValue"
 
   rBuildLambdaLayersPackage:
     Type: AWS::CodeBuild::Project
@@ -67,6 +106,12 @@ Resources:
       Name: sdlf-cicd-build-lambda-layers
       Description: Creates a Lambda Layer containing the libraries and version numbers listed in the requirements.txt file in the repository provided
       EncryptionKey: !Ref pKMSKey
+      VpcConfig: !If
+        - RunInVpc
+        - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
+          Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
+          VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - !Ref "AWS::NoValue"
       Environment:
         EnvironmentVariables:
           - Name: ARTIFACTS_BUCKET

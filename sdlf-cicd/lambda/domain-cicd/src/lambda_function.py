@@ -13,9 +13,12 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
-ssm = boto3.client("ssm")
-codepipeline = boto3.client("codepipeline")
-cloudformation = boto3.client("cloudformation")
+ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+ssm = boto3.client("ssm", endpoint_url=ssm_endpoint_url)
+codepipeline_endpoint_url = "https://codepipeline." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codepipeline = boto3.client("codepipeline", endpoint_url=codepipeline_endpoint_url)
+cloudformation_endpoint_url = "https://cloudformation." + os.getenv("AWS_REGION") + ".amazonaws.com"
+cloudformation = boto3.client("cloudformation", endpoint_url=cloudformation_endpoint_url)
 
 
 def delete_domain_cicd_stack(domain, environment, cloudformation_role):

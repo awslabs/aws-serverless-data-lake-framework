@@ -9,11 +9,27 @@ Parameters:
   pDomainAccounts:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: CommaDelimitedList
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
 
 Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
+  ######## OPTIONAL SDLF FEATURES #########
+  # when enabling VPC support, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
+  # both for the devops account and child accounts.
+  rVpcFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/VPC/Enabled
+      Type: String
+      Value: !Ref pEnableVpc
+      Description: Deploy SDLF resources in a VPC
+
   rBuildLambdaLayersFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -307,3 +323,23 @@ Resources:
       Type: String
       Value: !Ref rArtifactsBucket
       Description: S3 DevOps Artifacts Bucket
+
+Outputs:
+  # workaround {{resolve:ssm:}} not returning an array that can be used directly in VpcConfig blocks
+  oVpcFeatureSecurityGroupIds:
+    Description: List of security group ids that will be attached to Lambda functions and CodeBuild projects
+    Value: !If
+      - RunInVpc
+      - "{{resolve:ssm:/SDLF/VPC/SecurityGroupIds}}"
+      - "-"
+    Export:
+      Name: !Join ["-", [!Ref "AWS::StackName", "vpc-security-groups"]]
+
+  oVpcFeatureSubnetIds:
+    Description: List of subnet ids that will be attached to Lambda functions and CodeBuild projects
+    Value: !If
+      - RunInVpc
+      - "{{resolve:ssm:/SDLF/VPC/SubnetIds}}"
+      - "-"
+    Export:
+      Name: !Join ["-", [!Ref "AWS::StackName", "vpc-subnets"]]

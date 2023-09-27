@@ -6,8 +6,10 @@ import boto3
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-codecommit = boto3.client("codecommit")
-codepipeline = boto3.client("codepipeline")
+codecommit_endpoint_url = "https://codecommit." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codecommit = boto3.client("codecommit", endpoint_url=codecommit_endpoint_url)
+codepipeline_endpoint_url = "https://codepipeline." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codepipeline = boto3.client("codepipeline", endpoint_url=codepipeline_endpoint_url)
 
 
 def lambda_handler(event, context):

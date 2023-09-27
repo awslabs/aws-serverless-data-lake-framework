@@ -15,7 +15,8 @@ class S3Configuration(BaseConfig):
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._ssm = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
         super().__init__(self.log_level, self._ssm)
 
         self._fetch_from_environment()
@@ -94,7 +95,8 @@ class DynamoConfiguration(BaseConfig):
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._ssm = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
         super().__init__(self.log_level, self._ssm)
 
         self._fetch_from_ssm()
@@ -132,7 +134,8 @@ class SQSConfiguration(BaseConfig):
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._ssm = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
         self._team = team
         self._prefix = prefix
         self._stage = stage
@@ -170,7 +173,8 @@ class StateMachineConfiguration(BaseConfig):
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._ssm = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
         self._team = team
         self._pipeline = pipeline
         self._stage = stage
@@ -199,7 +203,8 @@ class KMSConfiguration(BaseConfig):
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._ssm = ssm_interface or boto3.client("ssm")
+        ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
         self._team = team
         super().__init__(self.log_level, self._ssm)
 
