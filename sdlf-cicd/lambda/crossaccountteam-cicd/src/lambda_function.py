@@ -13,8 +13,10 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
-codepipeline = boto3.client("codepipeline")
-kms = boto3.client("kms")
+codepipeline_endpoint_url = "https://codepipeline." + os.getenv("AWS_REGION") + ".amazonaws.com"
+codepipeline = boto3.client("codepipeline", endpoint_url=codepipeline_endpoint_url)
+kms_endpoint_url = "https://kms." + os.getenv("AWS_REGION") + ".amazonaws.com"
+kms = boto3.client("kms", endpoint_url=kms_endpoint_url)
 
 def create_domain_team_role_stack(
     cloudformation, team, artifacts_bucket, kms_key, environment, domain, template_body_url, cloudformation_role
@@ -250,15 +252,18 @@ def lambda_handler(event, context):
             crossaccount_pipeline_role = (
                 f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-crossaccount-pipeline"
             )
-            sts = boto3.client("sts")
+            sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
+            sts = boto3.client("sts", endpoint_url=sts_endpoint_url)
             crossaccount_role_session = sts.assume_role(
                 RoleArn=crossaccount_pipeline_role,
                 RoleSessionName="CrossAccountTeamLambda"
             )
+            cloudformation_endpoint_url = "https://cloudformation." + os.getenv("AWS_REGION") + ".amazonaws.com"
             cloudformation = boto3.client("cloudformation",
                                           aws_access_key_id=crossaccount_role_session["Credentials"]["AccessKeyId"],
                                           aws_secret_access_key=crossaccount_role_session["Credentials"]["SecretAccessKey"],
-                                          aws_session_token=crossaccount_role_session["Credentials"]["SessionToken"])
+                                          aws_session_token=crossaccount_role_session["Credentials"]["SessionToken"],
+                                          endpoint_url=cloudformation_endpoint_url)
 
             # from this assumed role, deploy a cloudformation stack
             # this stack creates a role in the data domain that will be used to deploy a team's pipelines and datasets

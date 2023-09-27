@@ -90,10 +90,29 @@ Parameters:
   pEnableTracing:
     Description: Flag for whether XRay tracing is enabled
     Type: String
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
+  # pVpcSecurityGroupIds and pVpcSubnetIds are passed explicitly (unlike in sdlf-cicd/template-cicd-sdlf-repositories.yaml for example)
+  # due to Fn::ImportValue not being accepted in CloudFormation modules template fragments
+  pVpcSecurityGroupIds:
+    Description: VPC Security Groups Ids
+    Type: String
+    Default: ""
+  pVpcSubnetIds:
+    Description: VPC Subnet Ids
+    Type: String
+    Default: ""
 
 Conditions:
   DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
   Function:
@@ -102,6 +121,11 @@ Globals:
     Layers:
       - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+    VpcConfig: !If
+      - RunInVpc
+      - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
+        SubnetIds: !Split [",", !Ref pVpcSubnetIds]
+      - !Ref "AWS::NoValue"
 
 Resources:
   rPipelineInterface:
@@ -174,6 +198,10 @@ Resources:
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -214,6 +242,10 @@ Resources:
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -230,6 +262,10 @@ Resources:
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -265,6 +301,10 @@ Resources:
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:

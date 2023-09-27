@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
 Description: Resources to be created to manage a team
 
 Parameters:
@@ -48,10 +49,39 @@ Parameters:
   pLakeFormationDataAccessRole:
     Type: String
     Default: "{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn}}"
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
+  # pVpcSecurityGroupIds and pVpcSubnetIds are passed explicitly (unlike in sdlf-cicd/template-cicd-sdlf-repositories.yaml for example)
+  # due to Fn::ImportValue not being accepted in CloudFormation modules template fragments
+  pVpcSecurityGroupIds:
+    Description: VPC Security Groups Ids
+    Type: String
+    Default: ""
+  pVpcSubnetIds:
+    Description: VPC Subnet Ids
+    Type: String
+    Default: ""
 
 Conditions:
-  CreateMultipleBuckets:
-    !Not [!Equals [!Ref pCentralBucket, !Ref pAnalyticsBucket]]
+  CreateMultipleBuckets: !Not [!Equals [!Ref pCentralBucket, !Ref pAnalyticsBucket]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Handler: lambda_function.lambda_handler
+    KmsKeyArn: !GetAtt rKMSInfraKey.Arn
+    VpcConfig: !If
+      - RunInVpc
+      - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
+        SubnetIds: !Split [",", !Ref pVpcSubnetIds]
+      - !Ref "AWS::NoValue"
 
 Resources:
   ######## KMS #########
@@ -240,8 +270,10 @@ Resources:
     Metadata:
       cfn_nag:
         rules_to_suppress:
-          - id: F5
-            reason: Condition Applied
+          - id: W13
+            reason: |-
+              Condition applied to restrict access, and the KMS keys do not exist at this stage
+              The other actions with "*" are all ones that only support the all resources wildcard
     Properties:
       Path: !Sub /sdlf/${pTeamName}/ # keep this path for the team's permissions boundary policy only
       Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
@@ -290,7 +322,29 @@ Resources:
           - Sid: AllowFullCodeCommitOnTeamRepositories
             Effect: Allow
             Action:
-              - codecommit:*
+              - codecommit:AssociateApprovalRuleTemplateWithRepository
+              - codecommit:BatchAssociateApprovalRuleTemplateWithRepositories
+              - codecommit:BatchDisassociateApprovalRuleTemplateFromRepositories
+              - codecommit:BatchGet*
+              - codecommit:BatchDescribe*
+              - codecommit:Create*
+              - codecommit:DeleteBranch
+              - codecommit:DeleteFile
+              - codecommit:Describe*
+              - codecommit:DisassociateApprovalRuleTemplateFromRepository
+              - codecommit:EvaluatePullRequestApprovalRules
+              - codecommit:Get*
+              - codecommit:List*
+              - codecommit:Merge*
+              - codecommit:OverridePullRequestApprovalRules
+              - codecommit:Put*
+              - codecommit:Post*
+              - codecommit:TagResource
+              - codecommit:Test*
+              - codecommit:UntagResource
+              - codecommit:Update*
+              - codecommit:GitPull
+              - codecommit:GitPush
             Resource:
               - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
           - Sid: AllowTeamKMSDataKeyUsage
@@ -388,6 +442,22 @@ Resources:
               - lambda:InvokeFunction
             Resource:
               - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface # W13 condition applied
+                - ec2:DescribeNetworkInterfaces # W13 exception
+                - ec2:DeleteNetworkInterface # W13 condition applied
+                - ec2:AssignPrivateIpAddresses # W13 condition applied
+                - ec2:UnassignPrivateIpAddresses # W13 condition applied
+              Resource:
+                - "*"
+              Condition:
+                ArnEqualsIfExists:
+                  "ec2:Vpc":
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+            - !Ref "AWS::NoValue"
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
@@ -511,6 +581,11 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
+      ManagedPolicyArns:
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-dynamodb-lambda
           PolicyDocument:
@@ -555,97 +630,18 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}
 
   rDatasetsDynamodbLambda:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: !Sub Creates/updates DynamoDB entries for ${pTeamName} datasets
       FunctionName: !Sub sdlf-${pTeamName}-datasets-dynamodb
-      Handler: index.lambda_handler
       MemorySize: 192
       Role: !GetAtt rDatasetsDynamodbLambdaRole.Arn
-      Runtime: python3.11
       Timeout: 300
       Environment:
         Variables:
           TEAM_NAME: !Ref pTeamName
           ENVIRONMENT: !Ref pEnvironment
-      Code:
-        ZipFile: |
-          import logging
-          import os
-
-          import boto3
-          import json
-
-          from boto3.dynamodb.types import TypeSerializer
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          dynamodb = boto3.client("dynamodb")
-          ssm = boto3.client("ssm")
-          codepipeline = boto3.client("codepipeline")
-
-          def delete_dynamodb_dataset_entry(table_name, team_name, dataset_name):
-              response = dynamodb.delete_item(
-                  TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{dataset_name}"}},
-              )
-              return response
-
-          def create_dynamodb_dataset_entry(table_name, team_name, dataset_name, pipeline_details):
-              pipeline_details_dynamodb_json = TypeSerializer().serialize(pipeline_details)
-              logger.info("PIPELINE DETAILS DYNAMODB JSON: %s", pipeline_details_dynamodb_json)
-              response = dynamodb.update_item(
-                  TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{dataset_name}"}},
-                  ExpressionAttributeNames={
-                      "#P": "pipeline",
-                      "#MXIP": "max_items_process",
-                      "#MIP": "min_items_process",
-                      "#V": "version",
-                  },
-                  ExpressionAttributeValues={
-                      ":p": pipeline_details_dynamodb_json,
-                      ":mxip": {"M":{"stage_b": {"N": "100"},"stage_c": {"N": "100"}}}, # todo replace with a nested "pipeline_modifiers" field (half done)
-                      ":mip": {"M":{"stage_b": {"N": "1"},"stage_c": {"N": "1"}}},
-                      ":v": {"N": "1"},
-                  },
-                  UpdateExpression="SET #P = :p, #MXIP = :mxip, #MIP = :mip, #V = :v",
-                  ReturnValues="UPDATED_NEW",
-              )
-              return response
-
-
-          def lambda_handler(event, context):
-              try:
-                  environment = os.getenv("ENVIRONMENT")
-                  team_name = os.getenv("TEAM_NAME")
-                  table = f"octagon-Datasets-{environment}"
-
-                  paginator = ssm.get_paginator("get_parameters_by_path")
-                  datasets_pages = paginator.paginate(
-                      Path=f"/SDLF/Datasets/{team_name}",
-                      PaginationConfig={"MaxItems": 30},
-                  )
-
-                  for datasets_page in datasets_pages:
-                    for dataset in datasets_page["Parameters"]:
-                        dataset_name = dataset["Name"].split("/")[-1]
-                        logger.info("DATASET SSM CONTENT: %s", dataset["Value"])
-                        dataset_pipeline_details = json.loads(dataset["Value"])
-                        create_dynamodb_dataset_entry(table, team_name, dataset_name, dataset_pipeline_details)
-                        logger.info(
-                            f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
-                        )
-
-                  logger.info(
-                      "INFO: Entries for datasets that no longer exist are not removed from DynamoDB"
-                  )
-              except Exception as e:
-                  message = "Function exception: " + str(e)
-                  raise
-
-              return "Success"
+      CodeUri: ./lambda/datasets-dynamodb/src
 
   rPermissionForDatasetsEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
@@ -689,6 +685,11 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
+      ManagedPolicyArns:
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
       Policies:
         - PolicyName: !Sub sdlf-${pTeamName}-dynamodb-lambda
           PolicyDocument:
@@ -733,96 +734,18 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}
 
   rPipelinesDynamodbLambda:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: !Sub Creates/updates DynamoDB entries for ${pTeamName} pipelines
       FunctionName: !Sub sdlf-${pTeamName}-pipelines-dynamodb
-      Handler: index.lambda_handler
       MemorySize: 192
       Role: !GetAtt rPipelinesDynamodbLambdaRole.Arn
-      Runtime: python3.11
       Timeout: 300
       Environment:
         Variables:
           TEAM_NAME: !Ref pTeamName
           ENVIRONMENT: !Ref pEnvironment
-      Code:
-        ZipFile: |
-          import logging
-          import os
-
-          import boto3
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          dynamodb = boto3.client("dynamodb")
-          ssm = boto3.client("ssm")
-          codepipeline = boto3.client("codepipeline")
-
-          def delete_dynamodb_pipeline_entry(table_name, team_name, pipeline_name, stage_name):
-              response = dynamodb.delete_item(
-                  TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{stage_name}"}},
-              )
-              return response
-
-
-          def create_dynamodb_pipeline_entry(
-              table_name, team_name, pipeline_name, stage_name
-          ):
-              response = dynamodb.update_item(
-                  TableName=table_name,
-                  Key={"name": {"S": f"{team_name}-{pipeline_name}-{stage_name}"}},
-                  ExpressionAttributeNames={
-                      "#T": "type",
-                      "#S": "status",
-                      "#V": "version",
-                  },
-                  ExpressionAttributeValues={
-                      ":t": {
-                          "S": "TRANSFORMATION",
-                      },
-                      ":s": {"S": "ACTIVE"},
-                      ":v": {"N": "1"},
-                  },
-                  UpdateExpression="SET #T = :t, #S = :s, #V = :v",
-                  ReturnValues="UPDATED_NEW",
-              )
-              return response
-
-
-          def lambda_handler(event, context):
-              try:
-                  environment = os.getenv("ENVIRONMENT")
-                  team_name = os.getenv("TEAM_NAME")
-                  table = f"octagon-Pipelines-{environment}"
-
-                  paginator = ssm.get_paginator("get_parameters_by_path")
-                  stages_pages = paginator.paginate(
-                      Path=f"/SDLF/Pipelines/{team_name}",
-                      Recursive=True,
-                      PaginationConfig={"MaxItems": 30},
-                  )
-                  for stages_page in stages_pages:
-                    for stage in stages_page["Parameters"]:
-                        pipeline_name = stage["Name"].split("/")[-2]
-                        stage_name = stage["Name"].split("/")[-1]
-                        create_dynamodb_pipeline_entry(
-                            table, team_name, pipeline_name, stage_name
-                        )
-                        logger.info(
-                            f"{team_name}-{pipeline_name}-{stage_name} DynamoDB Pipeline entry created"
-                        )
-
-                  logger.info(
-                      "INFO: Entries for stages that no longer exist are *not* removed from DynamoDB"
-                  )
-              except Exception as e:
-                  message = "Function exception: " + str(e)
-                  raise
-
-              return "Success"
+      CodeUri: ./lambda/pipelines-dynamodb/src
 
   rPermissionForPipelinesEventsToInvokeLambda:
     Type: AWS::Lambda::Permission

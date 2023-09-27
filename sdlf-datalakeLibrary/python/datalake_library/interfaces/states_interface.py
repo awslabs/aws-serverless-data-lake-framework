@@ -11,7 +11,8 @@ class StatesInterface:
     def __init__(self, log_level=None, states_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self._states_client = states_client or boto3.client("stepfunctions")
+        stepfunctions_endpoint_url = "https://states." + os.getenv("AWS_REGION") + ".amazonaws.com"
+        self._states_client = states_client or boto3.client("stepfunctions", endpoint_url=stepfunctions_endpoint_url)
 
     @staticmethod
     def json_serial(obj):
