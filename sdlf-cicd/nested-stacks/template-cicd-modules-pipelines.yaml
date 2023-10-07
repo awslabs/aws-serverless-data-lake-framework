@@ -214,6 +214,7 @@ Resources:
           - CodeCommit Repository State Change
         resources:
           - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+          - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
         detail:
           event:
             - referenceCreated
