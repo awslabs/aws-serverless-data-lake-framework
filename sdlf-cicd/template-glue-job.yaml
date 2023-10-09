@@ -106,12 +106,21 @@ Resources:
           Name: glueetl
           PythonVersion: "3"
           ScriptLocation: !Sub s3://${pArtifactsBucket}/transforms/${pDomain}/${pEnvironment}/${pTeamName}/${GlueJobName}-${pGitRef}.py
-        DefaultArguments:
-          "--job-bookmark-option": job-bookmark-disable
-          "--enable-glue-datacatalog": "true"
-          "--enable-continuous-cloudwatch-log": "true"
-          "--enable-continuous-log-filter": "true"
-          "--enable-metrics": "true"
+        DefaultArguments: !If
+          - RunInVpc
+          -
+            "--job-bookmark-option": job-bookmark-disable
+            "--enable-glue-datacatalog": "true"
+            "--enable-continuous-cloudwatch-log": "true"
+            "--enable-continuous-log-filter": "true"
+            "--enable-metrics": "true"
+            "--disable-proxy-v2": "true"
+          -
+            "--job-bookmark-option": job-bookmark-disable
+            "--enable-glue-datacatalog": "true"
+            "--enable-continuous-cloudwatch-log": "true"
+            "--enable-continuous-log-filter": "true"
+            "--enable-metrics": "true"
         ExecutionProperty:
           MaxConcurrentRuns: 10
         MaxRetries: 0
@@ -120,3 +129,8 @@ Resources:
         Name: !Sub sdlf-${pTeamName}-${GlueJobName}
         SecurityConfiguration: !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
         Role: !Ref rGlueRole
+        Connections: !If
+          - RunInVpc
+          - Connections:
+              - !Ref rGlueConnection
+          - !Ref "AWS::NoValue"

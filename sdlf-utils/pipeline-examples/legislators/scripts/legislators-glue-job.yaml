@@ -14,6 +14,13 @@ Parameters:
     Description: The team name
     Type: String
     Default: engineering
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/VPC/Enabled
+
+Conditions:
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
   rGlueRole:
@@ -50,7 +57,7 @@ Resources:
                 Resource:
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId:1}}"
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
+                  - "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
 
   rGlueJob:
     Type: AWS::Glue::Job
@@ -59,9 +66,15 @@ Resources:
         Name: glueetl
         PythonVersion: "3"
         ScriptLocation: !Sub s3://${pArtifactsBucket}/artifacts/${pDatasetName}-glue-job.py
-      DefaultArguments:
-        "--job-bookmark-option": job-bookmark-enable
-        "--enable-metrics": ""
+      DefaultArguments: !If
+        - RunInVpc
+        -
+          "--job-bookmark-option": job-bookmark-enable
+          "--enable-metrics": ""
+          "--disable-proxy-v2": "true"
+        -
+          "--job-bookmark-option": job-bookmark-enable
+          "--enable-metrics": ""
       ExecutionProperty:
         MaxConcurrentRuns: 3
       MaxRetries: 0
