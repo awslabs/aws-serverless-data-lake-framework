@@ -18,10 +18,12 @@ class DynamoInterface:
 
         self.object_metadata_table = None
         self.transform_mapping_table = None
+        self.pipelines_table = None
         self.manifests_control_table = None
 
         self._get_object_metadata_table()
         self._get_transform_mapping_table()
+        self._get_pipelines_table()
         self._get_manifests_control_table()
 
     def _get_object_metadata_table(self):
@@ -33,6 +35,11 @@ class DynamoInterface:
         if not self.transform_mapping_table:
             self.transform_mapping_table = self.dynamodb_resource.Table(self._config.transform_mapping_table)
         return self.transform_mapping_table
+
+    def _get_pipelines_table(self):
+        if not self.pipelines_table:
+            self.pipelines_table = self.dynamodb_resource.Table(self._config.pipelines_table)
+        return self.pipelines_table
 
     def _get_manifests_control_table(self):
         if not self.manifests_control_table:
@@ -68,6 +75,9 @@ class DynamoInterface:
 
     def get_transform_table_item(self, dataset):
         return self.get_item(self.transform_mapping_table, {"name": dataset})
+
+    def get_pipelines_table_item(self, pipeline):
+        return self.get_item(self.pipelines_table, {"name": pipeline})
 
     def update_object_metadata_catalog(self, item):
         item["id"] = self.build_id(item["bucket"], item["key"])

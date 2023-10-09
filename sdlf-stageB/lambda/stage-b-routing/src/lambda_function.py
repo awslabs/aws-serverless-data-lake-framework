@@ -2,20 +2,35 @@ import json
 import os
 
 from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import S3Configuration, SQSConfiguration, StateMachineConfiguration
+from datalake_library.configuration.resource_configs import DynamoConfiguration, S3Configuration, SQSConfiguration, StateMachineConfiguration
 from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.interfaces.states_interface import StatesInterface
+from datalake_library.interfaces.dynamo_interface import DynamoInterface
 
 logger = init_logger(__name__)
 
 
 def fetch_messages(team, pipeline, stage):
+    dynamo_config = DynamoConfiguration()
+    dynamo_interface = DynamoInterface(dynamo_config)
+    pipeline_info = dynamo_interface.get_pipelines_table_item(f"{team}-{pipeline}-{stage}")
+    min_items_to_process = 1
+    max_items_to_process = 100
+    logger.info(f"Pipeline is {pipeline}, stage is {stage}")
+    logger.info(
+        f"Details from DynamoDB: {pipeline_info.get('pipeline', {})}"
+    )
+    min_items_to_process = pipeline_info["pipeline"].get(
+        "min_items_process", min_items_to_process
+    )
+    max_items_to_process = pipeline_info["pipeline"].get(
+        "max_items_process", max_items_to_process
+    )
+
     keys_to_process = []
 
     sqs_config = SQSConfiguration(team, pipeline, stage)
     queue_interface = SQSInterface(sqs_config.get_stage_queue_name)
-    min_items_to_process = 1
-    max_items_to_process = 100  # TODO implement this at the pipeline level
     logger.info("Querying {}-{}-{} objects waiting for processing".format(team, pipeline, stage))
     keys_to_process = queue_interface.receive_min_max_messages(min_items_to_process, max_items_to_process)
 
@@ -36,7 +51,7 @@ def lambda_handler(event, context):
     try:
         keys_to_process = []
         trigger_type = event.get("trigger_type")  # this is set by the schedule event rule
-        if trigger_type:
+        if trigger_type: # scheduled
             records = fetch_messages(event["team"], event["pipeline"], event["pipeline_stage"])
         else:
             records = event["Records"]
