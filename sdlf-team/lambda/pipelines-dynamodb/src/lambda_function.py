@@ -27,6 +27,7 @@ def create_dynamodb_pipeline_entry(
         ExpressionAttributeNames={
             "#T": "type",
             "#S": "status",
+            "#P": "pipeline",
             "#V": "version",
         },
         ExpressionAttributeValues={
@@ -34,9 +35,10 @@ def create_dynamodb_pipeline_entry(
                 "S": "TRANSFORMATION",
             },
             ":s": {"S": "ACTIVE"},
+            ":p": {"M": {"max_items_process": {"N": "100"},"min_items_process": {"N": "1"}}},
             ":v": {"N": "1"},
         },
-        UpdateExpression="SET #T = :t, #S = :s, #V = :v",
+        UpdateExpression="SET #T = :t, #S = :s, #P = :p, #V = :v",
         ReturnValues="UPDATED_NEW",
     )
     return response
