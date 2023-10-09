@@ -104,6 +104,7 @@ class DynamoConfiguration(BaseConfig):
     def _fetch_from_ssm(self):
         self._object_metadata_table = None
         self._transform_mapping_table = None
+        self._pipelines_table = None
         self._manifests_control_table = None
 
     @property
@@ -117,6 +118,12 @@ class DynamoConfiguration(BaseConfig):
         if not self._transform_mapping_table:
             self._transform_mapping_table = self._get_ssm_param("/SDLF/Dynamo/TransformMapping")
         return self._transform_mapping_table
+
+    @property
+    def pipelines_table(self):
+        if not self._pipelines_table:
+            self._pipelines_table = self._get_ssm_param("/SDLF/Dynamo/Pipelines")
+        return self._pipelines_table
 
     @property
     def manifests_control_table(self):

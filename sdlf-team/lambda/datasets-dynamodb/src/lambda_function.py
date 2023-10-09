@@ -28,17 +28,13 @@ def create_dynamodb_dataset_entry(table_name, team_name, dataset_name, pipeline_
         Key={"name": {"S": f"{team_name}-{dataset_name}"}},
         ExpressionAttributeNames={
             "#P": "pipeline",
-            "#MXIP": "max_items_process",
-            "#MIP": "min_items_process",
             "#V": "version",
         },
         ExpressionAttributeValues={
             ":p": pipeline_details_dynamodb_json,
-            ":mxip": {"M":{"stage_b": {"N": "100"},"stage_c": {"N": "100"}}}, # todo replace with a nested "pipeline_modifiers" field (half done)
-            ":mip": {"M":{"stage_b": {"N": "1"},"stage_c": {"N": "1"}}},
             ":v": {"N": "1"},
         },
-        UpdateExpression="SET #P = :p, #MXIP = :mxip, #MIP = :mip, #V = :v",
+        UpdateExpression="SET #P = :p, #V = :v",
         ReturnValues="UPDATED_NEW",
     )
     return response
