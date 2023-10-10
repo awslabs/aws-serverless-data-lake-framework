@@ -20,7 +20,7 @@ Conditions:
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
-  # when enabling VPC support, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
+  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
   # both for the devops account and child accounts.
   rVpcFeatureSsm:
     Type: AWS::SSM::Parameter
@@ -155,7 +155,7 @@ Resources:
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-cfn-modules,arn:${AWS::Partition}:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - kms:Decrypt
@@ -290,7 +290,7 @@ Resources:
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-cfn-modules,arn:${AWS::Partition}:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - s3:*
