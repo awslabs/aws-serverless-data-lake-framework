@@ -143,3 +143,7 @@ class S3Interface:
     def get_last_modified(self, bucket, key):
         last_modified_date = self._s3_client.head_object(Bucket=bucket, Key=key)["LastModified"]
         return last_modified_date.isoformat()
+
+    def get_size_and_last_modified(self, bucket, key):
+        object_metadata = self._s3_client.head_object(Bucket=bucket, Key=key)
+        return (object_metadata["ContentLength"], object_metadata["LastModified"].isoformat())
