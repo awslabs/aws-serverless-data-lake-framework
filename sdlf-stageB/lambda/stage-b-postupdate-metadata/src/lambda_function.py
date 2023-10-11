@@ -42,11 +42,12 @@ def lambda_handler(event, context):
 
         logger.info("Storing metadata to DynamoDB")
         for key in processed_keys:
+            size, last_modified_date = S3Interface().get_size_and_last_modified(bucket, key)
             object_metadata = {
                 "bucket": bucket,
                 "key": key,
-                "size": S3Interface().get_size(bucket, key),
-                "last_modified_date": S3Interface().get_last_modified(bucket, key),
+                "size": size,
+                "last_modified_date": last_modified_date,
                 "org": event["body"]["org"],
                 "app": event["body"]["domain"],
                 "env": event["body"]["env"],
