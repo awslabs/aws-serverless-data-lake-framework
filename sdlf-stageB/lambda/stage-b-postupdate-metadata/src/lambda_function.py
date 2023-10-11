@@ -41,6 +41,7 @@ def lambda_handler(event, context):
         dynamo_interface = DynamoInterface(dynamo_config)
 
         logger.info("Storing metadata to DynamoDB")
+        all_objects_metadata = []
         for key in processed_keys:
             size, last_modified_date = S3Interface().get_size_and_last_modified(bucket, key)
             object_metadata = {
@@ -58,7 +59,8 @@ def lambda_handler(event, context):
                 "pipeline_stage": stage,
                 "peh_id": peh_id,
             }
-            dynamo_interface.update_object_metadata_catalog(object_metadata)
+            all_objects_metadata.append(object_metadata)
+        dynamo_interface.batch_update_object_metadata_catalog(all_objects_metadata)
 
         octagon_client.update_pipeline_execution(
             status="{} {} Processing".format(stage, component), component=component

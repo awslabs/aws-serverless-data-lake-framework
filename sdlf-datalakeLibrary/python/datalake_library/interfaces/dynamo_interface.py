@@ -87,6 +87,20 @@ class DynamoInterface:
     def put_item_in_object_metadata_table(self, item):
         return self.put_item(self.object_metadata_table, item)
 
+    def batch_update_object_metadata_catalog(self, items):
+        for item in items:
+            item["id"] = self.build_id(item["bucket"], item["key"])
+            item["timestamp"] = int(round(dt.datetime.utcnow().timestamp() * 1000, 0))
+
+        return self.batch_put_item_in_object_metadata_table(items)
+
+    def batch_put_item_in_object_metadata_table(self, items):
+        with self.object_metadata_table.batch_writer() as writer:
+            for item in items:
+                writer.put_item(Item=item)
+
+        return
+
     def update_object(self, bucket, key, attribute_updates):
         try:
             self.object_metadata_table.update_item(
