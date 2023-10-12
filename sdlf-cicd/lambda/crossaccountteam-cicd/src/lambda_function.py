@@ -250,7 +250,7 @@ def lambda_handler(event, context):
 
             # assume role in child account to be able to deploy a cloudformation stack
             crossaccount_pipeline_role = (
-                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-crossaccount-pipeline"
+                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-devops-crossaccount-pipeline"
             )
             sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
             sts = boto3.client("sts", endpoint_url=sts_endpoint_url)

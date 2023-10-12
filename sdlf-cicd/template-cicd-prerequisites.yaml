@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Default: sdlf
   pDomainAccounts:
-    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
+    Description: List of AWS account ids bootstrapped with SDLF domain roles
     Type: CommaDelimitedList
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
@@ -17,6 +17,9 @@ Parameters:
 Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
+  GovCloudPartition: !Equals
+    - !Sub ${AWS::Partition}
+    - aws-us-gov
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
@@ -51,6 +54,11 @@ Resources:
     Type: AWS::KMS::Key
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - I3042
     Properties:
       Description: KMS key for encryption of CodePipeline artifacts
       Enabled: true
@@ -75,33 +83,23 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource: "*"
-          - Sid: CrossAccount Domain Pipelines
+          - Sid: CrossAccount Pipelines
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain-crossaccount-pipeline"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-devops-crossaccount-pipeline"
                   - inner: !Join
-                    - ":role/sdlf-cicd-domain-crossaccount-pipeline,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-devops-crossaccount-pipeline,arn:aws-us-gov:iam::"
                     - Ref: "pDomainAccounts"
-            Action:
-              - kms:Decrypt
-              - kms:Describe*
-              - kms:Encrypt
-              - kms:GenerateDataKey*
-              - kms:List*
-              - kms:ReEncrypt*
-            Resource: "*"
-          - Sid: CrossAccount Team Pipelines
-            Effect: Allow
-            Principal:
-              AWS: !Split
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-crossaccount-pipeline"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-devops-crossaccount-pipeline"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team-crossaccount-pipeline,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-devops-crossaccount-pipeline,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - kms:Decrypt
@@ -113,13 +111,21 @@ Resources:
             Resource: "*"
           - Sid: CrossAccount Domain Cfn
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain"
                   - inner: !Join
-                    - ":role/sdlf-cicd-domain,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-domain,arn:aws-us-gov:iam::"
+                    - Ref: "pDomainAccounts"
+              - AWS: !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-domain,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - kms:Decrypt
@@ -131,13 +137,21 @@ Resources:
             Resource: "*"
           - Sid: CrossAccount Team Role Cfn
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-team,arn:aws-us-gov:iam::"
+                    - Ref: "pDomainAccounts"
+              - AWS: !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-team,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - kms:Decrypt
@@ -149,13 +163,21 @@ Resources:
             Resource: "*"
           - Sid: CrossAccount Module Cfn
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
                   - inner: !Join
-                    - ":role/sdlf-cicd-cfn-modules,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-cfn-modules,arn:aws-us-gov:iam::"
+                    - Ref: "pDomainAccounts"
+              - AWS: !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-cfn-modules,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - kms:Decrypt
@@ -206,6 +228,11 @@ Resources:
 
   rArtifactsBucketPolicy:
     Type: AWS::S3::BucketPolicy
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - I3042
     Properties:
       Bucket: !Ref rArtifactsBucket
       PolicyDocument:
@@ -222,30 +249,23 @@ Resources:
                 aws:SecureTransport: False
               NumericLessThan:
                 s3:TlsVersion: "1.2"
-          - Sid: CrossAccount Domain Pipelines
+          - Sid: CrossAccount Pipelines
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain-crossaccount-pipeline"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-devops-crossaccount-pipeline"
                   - inner: !Join
-                    - ":role/sdlf-cicd-domain-crossaccount-pipeline,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-devops-crossaccount-pipeline,arn:aws-us-gov:iam::"
                     - Ref: "pDomainAccounts"
-            Action:
-              - s3:*
-            Resource:
-              - !GetAtt rArtifactsBucket.Arn
-              - !Sub ${rArtifactsBucket.Arn}/*
-          - Sid: CrossAccount Team Pipelines
-            Effect: Allow
-            Principal:
-              AWS: !Split
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-crossaccount-pipeline"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-devops-crossaccount-pipeline"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team-crossaccount-pipeline,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-devops-crossaccount-pipeline,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - s3:*
@@ -254,13 +274,21 @@ Resources:
               - !Sub ${rArtifactsBucket.Arn}/*
           - Sid: CrossAccount Domain Cfn
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain"
                   - inner: !Join
-                    - ":role/sdlf-cicd-domain,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-domain,arn:aws-us-gov:iam::"
+                    - Ref: "pDomainAccounts"
+              - AWS: !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-domain"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-domain,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - s3:*
@@ -269,28 +297,21 @@ Resources:
               - !Sub ${rArtifactsBucket.Arn}/*
           - Sid: CrossAccount Team Role Cfn
             Effect: Allow
-            Principal:
-              AWS: !Split
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
                   - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-team,arn:aws-us-gov:iam::"
                     - Ref: "pDomainAccounts"
-            Action:
-              - s3:*
-            Resource:
-              - !GetAtt rArtifactsBucket.Arn
-              - !Sub ${rArtifactsBucket.Arn}/*
-          - Sid: CrossAccount Module Cfn
-            Effect: Allow
-            Principal:
-              AWS: !Split
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team"
                   - inner: !Join
-                    - ":role/sdlf-cicd-cfn-modules,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-team,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
               - s3:*
@@ -307,14 +328,45 @@ Resources:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
             Condition:
-              "ArnLike":
-                "aws:PrincipalArn": !Split
+              "ArnLike": !If
+                - GovCloudPartition
+                - "aws:PrincipalArn": !Split
+                  - ","
+                  - !Sub
+                    - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-*"
+                    - inner: !Join
+                      - ":role/sdlf-cicd-team-*,arn:aws-us-gov:iam::"
+                      - Ref: "pDomainAccounts"
+                - "aws:PrincipalArn": !Split
+                  - ","
+                  - !Sub
+                    - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-*"
+                    - inner: !Join
+                      - ":role/sdlf-cicd-team-*,arn:aws:iam::"
+                      - Ref: "pDomainAccounts"
+          - Sid: CrossAccount Module Cfn
+            Effect: Allow
+            Principal: !If
+              - GovCloudPartition
+              - AWS: !Split
                 - ","
                 - !Sub
-                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-team-*"
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
                   - inner: !Join
-                    - ":role/sdlf-cicd-team-*,arn:${AWS::Partition}:iam::"
+                    - ":role/sdlf-cicd-cfn-modules,arn:aws-us-gov:iam::"
                     - Ref: "pDomainAccounts"
+              - AWS: !Split
+                - ","
+                - !Sub
+                  - "arn:${AWS::Partition}:iam::${inner}:role/sdlf-cicd-cfn-modules"
+                  - inner: !Join
+                    - ":role/sdlf-cicd-cfn-modules,arn:aws:iam::"
+                    - Ref: "pDomainAccounts"
+            Action:
+              - s3:*
+            Resource:
+              - !GetAtt rArtifactsBucket.Arn
+              - !Sub ${rArtifactsBucket.Arn}/*
 
   rArtifactsBucketSsm:
     Type: AWS::SSM::Parameter

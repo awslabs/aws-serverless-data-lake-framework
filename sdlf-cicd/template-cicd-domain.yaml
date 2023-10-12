@@ -124,7 +124,7 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain-crossaccount-pipeline
+                  - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
 
   rDomainCodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -250,7 +250,7 @@ Resources:
         - Name: DeployFoundationsAndTeamsInfrastructure
           Actions:
             - Name: CreateStack
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-domain-crossaccount-pipeline
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
