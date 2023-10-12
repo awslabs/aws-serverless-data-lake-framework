@@ -76,7 +76,7 @@ Resources:
                   - !Ref pKMSKey
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-devops-crossaccount-pipeline
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -195,7 +195,7 @@ Resources:
                                           --key "modules/$DOMAIN_NAME/$ENVIRONMENT/$TEAM_NAME/$MODULE_NAME-$NEW_MODULE.zip" \
                                           --body "../$MODULE_NAME.zip"
                 - |-
-                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-devops-crossaccount-pipeline" --role-session-name "codebuild-cfn-module")
                     AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
                     AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
                     AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
@@ -321,7 +321,7 @@ Resources:
                       popd || exit
                     done
                 - |-
-                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-cfn-module")
+                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-devops-crossaccount-pipeline" --role-session-name "codebuild-cfn-module")
                     AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
                     AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
                     AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)

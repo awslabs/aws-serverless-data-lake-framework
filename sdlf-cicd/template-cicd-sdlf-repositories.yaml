@@ -582,7 +582,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-crossaccount-pipeline
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-devops-crossaccount-pipeline
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -627,14 +627,6 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-team-crossaccount-pipeline
-                Condition:
-                  StringEquals:
-                    "iam:PassedToService": codepipeline.amazonaws.com
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-teams-*
                 Condition:
@@ -646,7 +638,7 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-pipeline
+                  - !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-devops-crossaccount-pipeline
                 Condition:
                   StringEquals:
                     "iam:PassedToService": codepipeline.amazonaws.com
@@ -946,7 +938,7 @@ Resources:
                   - !Ref pKMSKey
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-domain-crossaccount-cfn-modules
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-devops-crossaccount-pipeline
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -1027,7 +1019,7 @@ Resources:
                 - |-
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
                     STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-domain-crossaccount-cfn-modules" --role-session-name "codebuild-lambda-layer")
+                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-devops-crossaccount-pipeline" --role-session-name "codebuild-lambda-layer")
                     AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
                     AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
                     AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
