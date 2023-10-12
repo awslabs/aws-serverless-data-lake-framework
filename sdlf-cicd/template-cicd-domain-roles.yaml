@@ -31,7 +31,7 @@ Resources:
       Value: !Ref pEnableVpc
       Description: Deploy SDLF resources in a VPC
 
-  rBuildModuleActionCodePipelineRole:
+  rDevopsCrossaccountCodePipelineRole:
     Type: AWS::IAM::Role
     Metadata:
       cfn_nag:
@@ -39,7 +39,7 @@ Resources:
           - id: W11
             reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
     Properties:
-      RoleName: sdlf-cicd-domain-crossaccount-cfn-modules
+      RoleName: sdlf-cicd-devops-crossaccount-pipeline
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -82,22 +82,40 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
               - Effect: Allow
                 Action:
-                  - cloudformation:CreateStack
-                  - cloudformation:UpdateStack
-                  - cloudformation:DescribeStacks
-                  - cloudformation:DescribeChangeSet
                   - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
                   - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:UpdateStack
                   - cloudformation:GetTemplateSummary
                 Resource:
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cfn-module-*"
                   - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*"
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-domain-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cicd-team-role-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-pipelines-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-datasets-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-lambdalayers-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-gluejobs-*
               - Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-cfn-modules
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-cfn-modules
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-*
                 Condition:
                   StringEquals:
                     "iam:PassedToService": cloudformation.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
 
   rBuildModuleCloudFormationRole:
     Type: AWS::IAM::Role
@@ -199,74 +217,6 @@ Resources:
                   - ssm:DeleteParameter
                 Resource:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/LatestDatalakeLibraryLayer
-
-  rDomainCodePipelineRole:
-    Type: AWS::IAM::Role
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
-    Properties:
-      RoleName: sdlf-cicd-domain-crossaccount-pipeline
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:${AWS::Partition}:iam::${pDevOpsAccountId}:root
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-cicd-codepipeline
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:Get*
-                  - s3:ListBucket*
-                  - s3:Put*
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}/*
-              - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:Describe*
-                  - kms:Encrypt
-                  - kms:GenerateDataKey*
-                  - kms:List*
-                  - kms:ReEncrypt*
-                Resource: "*"
-                Condition:
-                  "ForAnyValue:StringLike":
-                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeStacks
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:SetStackPolicy
-                  - cloudformation:UpdateStack
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-domain-*
-              - Effect: Allow
-                Action: iam:PassRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
-                Condition:
-                  StringEquals:
-                    "iam:PassedToService": cloudformation.amazonaws.com
 
   rDomainCloudFormationRole:
     Type: AWS::IAM::Role
@@ -615,80 +565,6 @@ Resources:
                   Resource:
                     - "*"
                 - !Ref "AWS::NoValue"
-
-  rTeamCodePipelineRole:
-    Type: AWS::IAM::Role
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
-    Properties:
-      RoleName: sdlf-cicd-team-crossaccount-pipeline
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS:
-                - !Sub arn:${AWS::Partition}:iam::${pDevOpsAccountId}:root
-            Action:
-              - sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-cicd-team-codepipeline
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:Get*
-                  - s3:ListBucket*
-                  - s3:Put*
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}/*
-              - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:Describe*
-                  - kms:Encrypt
-                  - kms:GenerateDataKey*
-                  - kms:List*
-                  - kms:ReEncrypt*
-                Resource: "*"
-                Condition:
-                  "ForAnyValue:StringLike":
-                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeStacks
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:SetStackPolicy
-                  - cloudformation:UpdateStack
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cicd-team-role-*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-pipelines-*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-datasets-*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-lambdalayers-*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-gluejobs-*
-              - Effect: Allow
-                Action: iam:PassRole
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-*
-                Condition:
-                  StringEquals:
-                    "iam:PassedToService": cloudformation.amazonaws.com
 
   rTeamCloudFormationRole:
     Type: AWS::IAM::Role

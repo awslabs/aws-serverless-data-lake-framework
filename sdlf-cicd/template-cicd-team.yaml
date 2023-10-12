@@ -182,7 +182,7 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                  - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
 
   ######## CODEPIPELINE #########
   rTeamCodePipeline:
@@ -340,7 +340,7 @@ Resources:
               - !If
                 - EnableLambdaLayerBuilder
                 - Name: CreateLambdaLayersStack
-                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
                   ActionTypeId:
                     Category: Deploy
                     Owner: AWS
@@ -370,7 +370,7 @@ Resources:
               - !If
                 - EnableGlueJobDeployer
                 - Name: CreateGlueJobsStack
-                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
                   ActionTypeId:
                     Category: Deploy
                     Owner: AWS
@@ -539,7 +539,7 @@ Resources:
         - Name: DeployPipelinesInfrastructure
           Actions:
             - Name: CreateStack
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -563,7 +563,7 @@ Resources:
         - Name: DeployDatasetsInfrastructure
           Actions:
             - Name: CreateStack
-              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-team-crossaccount-pipeline
+              RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
