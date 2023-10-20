@@ -20,11 +20,13 @@ Parameters:
 
 Conditions:
   RunInVpc: !Equals [!Ref pEnableVpc, true]
+  MultiAccountSetup: !Not [!Equals [!Ref pDevOpsAccountId, !Ref "AWS::AccountId"]]
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
   rVpcFeatureSsm:
     Type: AWS::SSM::Parameter
+    Condition: MultiAccountSetup
     Properties:
       Name: /SDLF/VPC/Enabled
       Type: String
