@@ -224,6 +224,8 @@ def lambda_handler(event, context):
                 while line := template_domain.readline():
                     if "pChildAccountId:" in line:
                         child_account = line.split(":", 1)[-1].strip()
+                        if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                            child_account = context.invoked_function_arn.split(":")[4]
                     elif "pTeamName:" in line:
                         teams.append(line.split(":", 1)[-1].strip())
                     elif (
@@ -241,6 +243,8 @@ def lambda_handler(event, context):
                                     child_account = nested_stack_line.split(":", 1)[
                                         -1
                                     ].strip()
+                                    if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                                        child_account = context.invoked_function_arn.split(":")[4]
                                 elif "pTeamName:" in nested_stack_line:
                                     teams.append(
                                         nested_stack_line.split(":", 1)[-1].strip()
@@ -301,29 +305,35 @@ def lambda_handler(event, context):
                 cloudformation_update_waiter.wait(
                     StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
                 )
-            crossaccount_team_role = (
-                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
-            )
-            # unfortunately kms grants cannot be defined using cloudformation
-            grant_id = kms.create_grant(
-                KeyId=devops_kms_key,
-                GranteePrincipal=crossaccount_team_role,
-                Operations=[
-                    "DescribeKey",
-                    "Decrypt",
-                    "Encrypt",
-                    "GenerateDataKey",
-                    "GenerateDataKeyPair",
-                    "GenerateDataKeyPairWithoutPlaintext",
-                    "GenerateDataKeyWithoutPlaintext",
-                    "ReEncryptFrom",
-                    "ReEncryptTo",
-                ],
-            )["GrantId"]
-            # revoke all grants for the same grantee principal except the one that was just created
+
+            crossaccount_team_roles = []
+            grants_ids = []
+            for team in teams:
+                crossaccount_team_role = (
+                    f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
+                )
+                crossaccount_team_roles.append(crossaccount_team_role)
+                # unfortunately kms grants cannot be defined using cloudformation
+                grant_id = kms.create_grant(
+                    KeyId=devops_kms_key,
+                    GranteePrincipal=crossaccount_team_role,
+                    Operations=[
+                        "DescribeKey",
+                        "Decrypt",
+                        "Encrypt",
+                        "GenerateDataKey",
+                        "GenerateDataKeyPair",
+                        "GenerateDataKeyPairWithoutPlaintext",
+                        "GenerateDataKeyWithoutPlaintext",
+                        "ReEncryptFrom",
+                        "ReEncryptTo",
+                    ],
+                )["GrantId"]
+                grants_ids.append(grant_id)
+            # revoke all grants for the same grantee principal except the ones that were just created
             grants = kms.list_grants(KeyId=devops_kms_key)["Grants"]
             for grant in grants:
-                if grant["GranteePrincipal"] == crossaccount_team_role and grant["GrantId"] != grant_id:
+                if grant["GranteePrincipal"] in crossaccount_team_roles and grant["GrantId"] not in grants_ids:
                     kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant["GrantId"])
 
     except Exception as e:
