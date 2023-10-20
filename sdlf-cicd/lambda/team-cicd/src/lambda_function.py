@@ -240,6 +240,8 @@ def lambda_handler(event, context):
                 while line := template_domain.readline():
                     if "pChildAccountId:" in line:
                         child_account = line.split(":", 1)[-1].strip()
+                        if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                            child_account = context.invoked_function_arn.split(":")[4]
                     elif "pTeamName:" in line:
                         teams.append(line.split(":", 1)[-1].strip())
                     elif (
@@ -257,6 +259,8 @@ def lambda_handler(event, context):
                                     child_account = nested_stack_line.split(":", 1)[
                                         -1
                                     ].strip()
+                                    if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                                        child_account = context.invoked_function_arn.split(":")[4]
                                 elif "pTeamName:" in nested_stack_line:
                                     teams.append(
                                         nested_stack_line.split(":", 1)[-1].strip()

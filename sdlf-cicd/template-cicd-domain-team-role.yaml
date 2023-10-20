@@ -418,6 +418,7 @@ Resources:
               - iam:UpdateAssumeRolePolicy
             Resource:
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-* # TODO should not be required. investigate
       Roles:
         - !Ref rTeamCloudFormationRole
 
