@@ -158,6 +158,9 @@ Resources:
       Admins:
         - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
         - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
+      CreateDatabaseDefaultPermissions: []
+      CreateTableDefaultPermissions: []
+      MutationType: REPLACE
 
   rLakeFormationDataAccessRole: # https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
     Type: AWS::IAM::Role
