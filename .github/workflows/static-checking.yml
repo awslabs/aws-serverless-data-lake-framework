@@ -53,3 +53,15 @@ jobs:
           python -m pip install ruff
       - name: ruff
         run: ruff check .
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: install requirements
+        run: |
+          sudo apt update
+          sudo apt install shellcheck
+      - name: shellcheck
+        run: |
+          find . -not \( -path ./sdlf-utils -prune \) -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.ksh' \) -print0 \
+          | xargs -0 shellcheck -x --format gcc
