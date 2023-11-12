@@ -25,3 +25,17 @@ jobs:
         run: |
           find . -not \( -path ./sdlf-utils -prune \) -type f -name '*.yaml' -print0 \
           | xargs -0 cfn-lint
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: install requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install black
+      - name: black
+        run: black --check .
