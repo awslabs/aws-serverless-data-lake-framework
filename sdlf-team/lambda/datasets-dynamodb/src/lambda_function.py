@@ -1,9 +1,8 @@
+import json
 import logging
 import os
 
 import boto3
-import json
-
 from boto3.dynamodb.types import TypeSerializer
 
 logger = logging.getLogger()
@@ -13,12 +12,14 @@ dynamodb = boto3.client("dynamodb")
 ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
 ssm = boto3.client("ssm", endpoint_url=ssm_endpoint_url)
 
+
 def delete_dynamodb_dataset_entry(table_name, team_name, dataset_name):
     response = dynamodb.delete_item(
         TableName=table_name,
         Key={"name": {"S": f"{team_name}-{dataset_name}"}},
     )
     return response
+
 
 def create_dynamodb_dataset_entry(table_name, team_name, dataset_name, pipeline_details):
     pipeline_details_dynamodb_json = TypeSerializer().serialize(pipeline_details)
@@ -58,15 +59,12 @@ def lambda_handler(event, context):
                 logger.info("DATASET SSM CONTENT: %s", dataset["Value"])
                 dataset_pipeline_details = json.loads(dataset["Value"])
                 create_dynamodb_dataset_entry(table, team_name, dataset_name, dataset_pipeline_details)
-                logger.info(
-                    f"{team_name}-{dataset_name} DynamoDB Dataset entry created"
-                )
+                logger.info(f"{team_name}-{dataset_name} DynamoDB Dataset entry created")
 
-        logger.info(
-            "INFO: Entries for datasets that no longer exist are not removed from DynamoDB"
-        )
+        logger.info("INFO: Entries for datasets that no longer exist are not removed from DynamoDB")
     except Exception as e:
         message = "Function exception: " + str(e)
+        logger.error(message, exc_info=True)
         raise
 
     return "Success"

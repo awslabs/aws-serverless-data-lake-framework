@@ -1,17 +1,14 @@
-import os
 import json
-
 from pathlib import PurePath
 
 from datalake_library import octagon
 from datalake_library.commons import init_logger
-from datalake_library.octagon import peh
-
 from datalake_library.configuration.resource_configs import (
     KMSConfiguration,
     S3Configuration,
 )
 from datalake_library.interfaces.s3_interface import S3Interface
+from datalake_library.octagon import peh
 
 logger = init_logger(__name__)
 
@@ -85,21 +82,15 @@ def lambda_handler(event, context):
         bucket = event["body"]["bucket"]
         key = event["body"]["key"]
         team = event["body"]["team"]
-        pipeline = event["body"]["pipeline"]
         stage = event["body"]["pipeline_stage"]
         dataset = event["body"]["dataset"]
 
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
         octagon_client = (
-            octagon.OctagonClient()
-            .with_run_lambda(True)
-            .with_configuration_instance(event["body"]["env"])
-            .build()
+            octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(event["body"]["env"]).build()
         )
-        peh.PipelineExecutionHistoryAPI(octagon_client).retrieve_pipeline_execution(
-            event["body"]["peh_id"]
-        )
+        peh.PipelineExecutionHistoryAPI(octagon_client).retrieve_pipeline_execution(event["body"]["peh_id"])
 
         # Call custom transform created by user and process the file
         logger.info("Calling user custom processing code")

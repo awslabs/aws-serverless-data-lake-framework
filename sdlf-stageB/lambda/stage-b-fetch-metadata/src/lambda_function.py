@@ -1,6 +1,3 @@
-import os
-import shutil
-
 from datalake_library import octagon
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import DynamoConfiguration
@@ -14,7 +11,7 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     dynamo_interface = DynamoInterface(dynamo_config)
     transform_info = dynamo_interface.get_transform_table_item(f"{team}-{dataset}")
     # we assume a Glue Job has already been created based on customer needs
-    job_name = f"sdlf-{team}-{dataset}-glue-job" # Name of the Glue Job
+    job_name = f"sdlf-{team}-{dataset}-glue-job"  # Name of the Glue Job
     glue_capacity = {"WorkerType": "G.1X", "NumberOfWorkers": 10}
     glue_arguments = {
         # Specify any arguments needed based on bucket and keys (e.g. input/output S3 locations)
@@ -26,18 +23,10 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     logger.info(f"Pipeline is {pipeline}, stage is {stage}")
     if pipeline in transform_info.get("pipeline", {}):
         if stage in transform_info["pipeline"][pipeline]:
-            logger.info(
-                f"Details from DynamoDB: {transform_info['pipeline'][pipeline][stage]}"
-            )
-            job_name = transform_info["pipeline"][pipeline][stage].get(
-                "job_name", job_name
-            )
-            glue_capacity = transform_info["pipeline"][pipeline][stage].get(
-                "glue_capacity", glue_capacity
-            )
-            glue_arguments |= transform_info["pipeline"][
-                pipeline
-            ][stage].get("glue_extra_arguments", {})
+            logger.info(f"Details from DynamoDB: {transform_info['pipeline'][pipeline][stage]}")
+            job_name = transform_info["pipeline"][pipeline][stage].get("job_name", job_name)
+            glue_capacity = transform_info["pipeline"][pipeline][stage].get("glue_capacity", glue_capacity)
+            glue_arguments |= transform_info["pipeline"][pipeline][stage].get("glue_extra_arguments", {})
 
     return {"job_name": job_name, "arguments": glue_arguments, **glue_capacity}
 
@@ -55,7 +44,6 @@ def lambda_handler(event, context):
     try:
         logger.info("Fetching event data from previous step")
         bucket = event["body"]["bucket"]
-        keys_to_process = event["body"]["keysToProcess"]
         team = event["body"]["team"]
         pipeline = event["body"]["pipeline"]
         stage = event["body"]["pipeline_stage"]
@@ -64,10 +52,7 @@ def lambda_handler(event, context):
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
         octagon_client = (
-            octagon.OctagonClient()
-            .with_run_lambda(True)
-            .with_configuration_instance(event["body"]["env"])
-            .build()
+            octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(event["body"]["env"]).build()
         )
         peh_id = octagon_client.start_pipeline_execution(
             pipeline_name="{}-{}-{}".format(team, pipeline, stage),
@@ -80,9 +65,7 @@ def lambda_handler(event, context):
         event["body"]["glue"] = get_glue_transform_details(
             bucket, team, dataset, pipeline, stage
         )  # custom user code called
-        event["body"]["glue"]["crawler_name"] = "-".join(
-            ["sdlf", team, dataset, "post-stage-crawler"]
-        )
+        event["body"]["glue"]["crawler_name"] = "-".join(["sdlf", team, dataset, "post-stage-crawler"])
         event["body"]["peh_id"] = peh_id
         octagon_client.update_pipeline_execution(
             status="{} {} Processing".format(stage, component), component=component

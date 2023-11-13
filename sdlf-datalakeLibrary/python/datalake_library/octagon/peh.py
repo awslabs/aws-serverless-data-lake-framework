@@ -23,7 +23,6 @@ PEH_STATUS_CANCELED = "CANCELED"
 
 
 class PipelineExecutionHistoryAPI:
-
     pipelines = dict()  # Pipelines cache across all instances
 
     def __init__(self, client):
@@ -110,7 +109,6 @@ class PipelineExecutionHistoryAPI:
         local_date_iso = get_local_date()
 
         if status in [PEH_STATUS_COMPLETED, PEH_STATUS_CANCELED, PEH_STATUS_FAILED]:
-
             duration_sec = get_duration_sec(start_time, utc_time_iso)
 
             if status == PEH_STATUS_COMPLETED:
@@ -121,7 +119,6 @@ class PipelineExecutionHistoryAPI:
             expr_names = {
                 "#H": "history",
                 "#St": "status",
-                "#V": "version",
                 "#LUT": "last_updated_timestamp",
                 "#STT": "status_last_updated_timestamp",
                 "#A": "active",
@@ -161,7 +158,6 @@ class PipelineExecutionHistoryAPI:
                 update_expr += ", #C = :C"
 
         else:
-
             expr_names = {
                 "#H": "history",
                 "#St": "status",
@@ -202,7 +198,6 @@ class PipelineExecutionHistoryAPI:
 
         # Add pipeline update for COMPLETED Executions
         if status == PEH_STATUS_COMPLETED:
-
             self.logger.debug(f"Pipeline: {self.client.pipeline_name}")
             item = self.pipelines_table.get_item(
                 Key={"name": self.client.pipeline_name}, ConsistentRead=True, AttributesToGet=["name", "version"]
@@ -272,7 +267,6 @@ class PipelineExecutionHistoryAPI:
         return self.pipelines[pipeline_name]
 
     def retrieve_pipeline_execution(self, peh_id: str):
-
         throw_none_or_empty(peh_id, "Pipeline is not specified")
 
         item = self.get_peh_record(peh_id)
