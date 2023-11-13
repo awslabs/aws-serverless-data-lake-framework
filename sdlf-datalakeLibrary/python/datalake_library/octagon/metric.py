@@ -39,7 +39,6 @@ class MetricAPI:
         self.metrics_ttl = client.config.get_metrics_ttl()
 
     def create_metrics(self, date_str: str, metric_code: str, value: int):
-
         throw_if_false(self.client.is_pipeline_set(), "Pipeline execution is not yet assigned")
 
         throw_none_or_empty(metric_code, "Metric code is not defined")
@@ -128,19 +127,16 @@ class MetricAPI:
 
     def _process_sns_notifications(self, metric_rec: MetricRecordInfo, new_metric_value: int, new_metric_version):
         for metric_config_info in self.client.config.metric_info:
-
             if (
                 metric_rec.root == metric_config_info.metric
                 and metric_rec.metric_type == metric_config_info.metric_type
             ):
-
                 if self._check_metric_threshold(
                     new_metric_value, metric_config_info.evaluation, metric_config_info.threshold
                 ) and (
                     (metric_config_info.notify == METRIC_ALWAYS)
                     or (metric_config_info.notify == METRIC_ONCE and not self._is_notification_sent(metric_rec))
                 ):
-
                     message = {
                         "root": metric_rec.root,
                         "metric": metric_rec.metric,
@@ -175,13 +171,11 @@ class MetricAPI:
         return True
 
     def _get_metric_records(self, date_str, metric_name) -> [MetricRecordInfo]:
-
         validate_date(date_str)
 
         metric_arr = parse_metrics(metric_name)
         records = []
         for metric in metric_arr:
-
             # Root
             root_metric = MetricRecordInfo(root=metric, metric=metric, metric_type=METRIC_ROOT)
             records.append(root_metric)
@@ -226,7 +220,6 @@ class MetricAPI:
         sns_message_id: str,
         version: int,
     ):
-
         utc_timestamp = get_timestamp_iso()
 
         expr_names = {
@@ -273,7 +266,6 @@ class MetricAPI:
         return response
 
     def _check_metric_threshold(self, current_value, evaluation, threshold_value):
-
         throw_if_false(isinstance(current_value, int), "Wrong current value")
         throw_if_false(isinstance(threshold_value, int), "Wrong threshold value")
 

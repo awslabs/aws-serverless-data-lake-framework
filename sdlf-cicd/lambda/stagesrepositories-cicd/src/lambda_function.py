@@ -26,9 +26,7 @@ def lambda_handler(event, context):
                 [
                     repo["repositoryName"]
                     for repo in repos
-                    if repo["repositoryName"].startswith(
-                        os.getenv("STAGES_REPOSITORIES_PREFIX")
-                    )
+                    if repo["repositoryName"].startswith(os.getenv("STAGES_REPOSITORIES_PREFIX"))
                 ]
             )
             next_token = response.get("nextToken")
@@ -45,7 +43,11 @@ def lambda_handler(event, context):
         )
         raise
 
-    codepipeline.put_job_success_result(jobId=event["CodePipeline.job"]["id"], outputVariables={
-        "StagesRepositories": ",".join(sdlf_stage_repositories),
-        "StagesRepositoriesCount": ",".join(list(map(str, range(0, len(sdlf_stage_repositories)))))})
+    codepipeline.put_job_success_result(
+        jobId=event["CodePipeline.job"]["id"],
+        outputVariables={
+            "StagesRepositories": ",".join(sdlf_stage_repositories),
+            "StagesRepositoriesCount": ",".join(list(map(str, range(0, len(sdlf_stage_repositories))))),
+        },
+    )
     return "Success"

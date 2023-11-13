@@ -297,7 +297,7 @@ def lambda_handler(event, context):
     request_type = event["RequestType"]
 
     try:
-        if request_type == "Create" or request_type == "Update":
+        if request_type in ("Create", "Update"):
             adjust_subscriptions(event, logger)
 
             message = None

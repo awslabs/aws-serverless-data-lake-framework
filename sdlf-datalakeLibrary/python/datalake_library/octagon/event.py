@@ -24,7 +24,6 @@ class EventAPI:
         self.events_table = client.dynamodb.Table(client.config.get_events_table())
 
     def create_event(self, reason, comment, component_name=None, event_details=None):
-
         throw_if_false(self.client.is_pipeline_set(), "Pipeline execution is not yet assigned")
 
         throw_none_or_empty(str(reason), "No reason specified")

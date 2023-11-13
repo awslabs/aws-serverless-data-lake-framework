@@ -19,4 +19,3 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e
-    return

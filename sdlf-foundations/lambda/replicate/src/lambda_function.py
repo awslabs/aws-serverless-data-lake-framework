@@ -63,18 +63,12 @@ def build_table_item(team, dataset, table):
 
 
 def get_table_item(table_id):
-    response = dynamodb.get_item(
-        TableName=schemas_table,
-        Key={"name": table_id}
-    )
+    response = dynamodb.get_item(TableName=schemas_table, Key={"name": table_id})
     return response["Item"]
 
 
 def put_table_item(table_item):
-    response = dynamodb.put_item(
-        TableName=schemas_table,
-        Item=table_item
-    )
+    response = dynamodb.put_item(TableName=schemas_table, Item=table_item)
     return response
 
 
@@ -87,14 +81,10 @@ def update_table_item(table_id, schema):
         ExpressionAttributeNames={"#s": "schema"},
         ReturnValues="UPDATED_NEW",
     )
-    return
 
 
 def delete_table_item(table_id):
-    response = dynamodb.delete_item(
-        TableName=schemas_table,
-        Key={"name": table_id}
-    )
+    response = dynamodb.delete_item(TableName=schemas_table, Key={"name": table_id})
     return response
 
 
