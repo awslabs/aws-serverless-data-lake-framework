@@ -1,8 +1,9 @@
 import json
 import os
+import shutil
 from io import StringIO
 from urllib.parse import unquote_plus
-import shutil
+
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
@@ -47,7 +48,6 @@ class S3Interface:
             msg = "Error uploading object: {}/{}".format(bucket, key)
             self._logger.exception(msg)
             raise
-        return
 
     def list_objects(self, bucket, keys_path):
         keys_path = unquote_plus(keys_path)

@@ -99,8 +99,6 @@ class DynamoInterface:
             for item in items:
                 writer.put_item(Item=item)
 
-        return
-
     def update_object(self, bucket, key, attribute_updates):
         try:
             self.object_metadata_table.update_item(

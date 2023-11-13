@@ -41,10 +41,7 @@ def put_item(table, item, key):
 
 def delete_item(table, key):
     try:
-        response = dynamodb.delete_item(
-            TableName=table,
-            Key=key
-        )
+        response = dynamodb.delete_item(TableName=table, Key=key)
     except ClientError as e:
         logger.error("Fatal error", exc_info=True)
         raise e
@@ -77,4 +74,3 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e
-    return

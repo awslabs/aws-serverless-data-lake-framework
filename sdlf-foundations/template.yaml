@@ -1505,7 +1505,6 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: Delete
 
-
   rDynamoOctagonManifests:
     Type: AWS::DynamoDB::Table
     Metadata:

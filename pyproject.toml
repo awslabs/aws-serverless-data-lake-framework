@@ -12,7 +12,7 @@ extend-exclude = '''
 extend-select = ["I", "PL", "W"]
 ignore = ["PLR0912", "PLR0913", "PLR0915"]
 fixable = ["I001"]
-extend-exclude = ["sdlf-stage-dataquality/scripts/deequ", "sdlf-utils"]
+extend-exclude = ["sdlf-stage-dataquality/scripts/deequ", "sdlf-utils", "sdlf-cicd/sam-translate.py"]
 line-length = 120
 target-version = "py311"
 

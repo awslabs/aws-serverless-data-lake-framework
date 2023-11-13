@@ -390,6 +390,8 @@ Resources:
 
   rTrailLogGroup:
     Type: AWS::Logs::LogGroup
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
     Properties:
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
 
@@ -711,8 +713,8 @@ Resources:
   # Creates a user pool in cognito to auth against
   ESUserPool:
     Type: AWS::Cognito::UserPool
-    # UpdateReplacePolicy: "Retain"
-    # DeletionPolicy: "Retain"
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -887,8 +889,8 @@ Resources:
   ESDomain:
     Type: AWS::OpenSearchService::Domain
     DependsOn: ESUserPoolESCognitoDomain
-    # DeletionPolicy: "Retain"
-    # UpdateReplacePolicy: "Retain"
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
     Properties:
       CognitoOptions:
         Enabled: true
@@ -966,8 +968,11 @@ Resources:
 
   Dlq:
     Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
     Properties:
       KmsMasterKeyId: !Ref KMSKeyId
+      MessageRetentionPeriod: 1209600
 
 
   CLTransformerServiceRole:
@@ -1167,8 +1172,8 @@ Resources:
 
   CLFirehoseFirehoseLogGroup:
     Type: AWS::Logs::LogGroup
-    # UpdateReplacePolicy: Retain
-    # DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
     Properties:
       RetentionInDays: 365
 

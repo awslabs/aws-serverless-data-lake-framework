@@ -35,11 +35,10 @@ def lambda_handler(event, context):
                 "env": env,
             }
 
-            state_config = StateMachineConfiguration(
-                team, pipeline, pipeline_stage
+            state_config = StateMachineConfiguration(team, pipeline, pipeline_stage)
+            StatesInterface().run_state_machine(
+                state_config.get_stage_state_machine_arn, json.dumps(event_with_pipeline_details)
             )
-            StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, json.dumps(event_with_pipeline_details))
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e
-    return

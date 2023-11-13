@@ -1,13 +1,12 @@
 import logging
 import os
-import json
 import zipfile
+from io import BytesIO
+from tempfile import mkdtemp
 
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
-from tempfile import mkdtemp
-from io import BytesIO
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -41,7 +40,9 @@ def delete_team_cicd_stack(domain, environment, team_name, cloudformation_role):
     return (stack_name, "stack_delete_complete")
 
 
-def create_team_cicd_stack(domain, environment, team_name, crossaccount_team_role, template_body_url, child_account, cloudformation_role):
+def create_team_cicd_stack(
+    domain, environment, team_name, crossaccount_team_role, template_body_url, child_account, cloudformation_role
+):
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
@@ -154,9 +155,7 @@ def create_codecommit_approval_rule(team_name, repository):
 
 def lambda_handler(event, context):
     try:
-        branch = event["CodePipeline.job"]["data"]["actionConfiguration"][
-            "configuration"
-        ]["UserParameters"]
+        branch = event["CodePipeline.job"]["data"]["actionConfiguration"]["configuration"]["UserParameters"]
         codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "main": "prod"}
         environment = codecommit_branch_env_mapping[branch]
         logger.info("ENVIRONMENT: %s", environment)
@@ -183,12 +182,8 @@ def lambda_handler(event, context):
             zip_ref.extractall(temp_directory)
         logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
 
-        template_cicd_team = os.path.join(
-            temp_directory, "template-cicd-team.yaml"
-        )
-        template_cicd_team_key = (
-            "template-cicd-sdlf-repositories/template-cicd-team.yaml"
-        )
+        template_cicd_team = os.path.join(temp_directory, "template-cicd-team.yaml")
+        template_cicd_team_key = "template-cicd-sdlf-repositories/template-cicd-team.yaml"
         s3.upload_file(
             Filename=template_cicd_team,
             Bucket=artifacts_bucket,
@@ -221,8 +216,7 @@ def lambda_handler(event, context):
         domain_files = [
             main_artifact_file
             for main_artifact_file in main_artifact_files
-            if main_artifact_file.endswith(f"-{environment}.yaml")
-            and main_artifact_file.startswith("datadomain-")
+            if main_artifact_file.endswith(f"-{environment}.yaml") and main_artifact_file.startswith("datadomain-")
         ]
         logger.info("DATA DOMAIN FILES: %s", domain_files)
 
@@ -234,45 +228,36 @@ def lambda_handler(event, context):
 
             child_account = ""
             teams = []
-            with open(
-                os.path.join(temp_directory, domain_file), "r", encoding="utf-8"
-            ) as template_domain:
+            with open(os.path.join(temp_directory, domain_file), "r", encoding="utf-8") as template_domain:
                 while line := template_domain.readline():
                     if "pChildAccountId:" in line:
                         child_account = line.split(":", 1)[-1].strip()
-                        if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                        if "AWS::AccountId" in child_account:  # same account setup, usually for workshops/demo
                             child_account = context.invoked_function_arn.split(":")[4]
                     elif "pTeamName:" in line:
                         teams.append(line.split(":", 1)[-1].strip())
-                    elif (
-                        "TemplateURL:" in line
-                    ):  # teams can be declared in nested stacks
+                    elif "TemplateURL:" in line:  # teams can be declared in nested stacks
                         with open(
-                            os.path.join(
-                                temp_directory, line.split(":", 1)[-1].strip()
-                            ),
+                            os.path.join(temp_directory, line.split(":", 1)[-1].strip()),
                             "r",
                             encoding="utf-8",
                         ) as nested_stack:
                             while nested_stack_line := nested_stack.readline():
                                 if "pChildAccountId:" in nested_stack_line:
-                                    child_account = nested_stack_line.split(":", 1)[
-                                        -1
-                                    ].strip()
-                                    if "AWS::AccountId" in child_account: # same account setup, usually for workshops/demo
+                                    child_account = nested_stack_line.split(":", 1)[-1].strip()
+                                    if (
+                                        "AWS::AccountId" in child_account
+                                    ):  # same account setup, usually for workshops/demo
                                         child_account = context.invoked_function_arn.split(":")[4]
                                 elif "pTeamName:" in nested_stack_line:
-                                    teams.append(
-                                        nested_stack_line.split(":", 1)[-1].strip()
-                                    )
+                                    teams.append(nested_stack_line.split(":", 1)[-1].strip())
             logger.info("pChildAccountId: %s", child_account)
             logger.info("DATA DOMAIN (%s) TEAMS: %s", domain, teams)
 
             ###### CLEANUP OLD TEAMS ######
-            paginator = cloudformation.get_paginator('list_stacks')
+            paginator = cloudformation.get_paginator("list_stacks")
             existing_stacks_pages = paginator.paginate(
-                StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
-                PaginationConfig={'MaxItems': 30}
+                StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"], PaginationConfig={"MaxItems": 30}
             )
             existing_teams = [
                 existing_stack["StackName"].removeprefix(f"sdlf-cicd-teams-{domain}-{environment}-")
@@ -292,18 +277,18 @@ def lambda_handler(event, context):
             for legacy_team in legacy_teams:
                 grants = kms.list_grants(KeyId=devops_kms_key)["Grants"]
                 for grant in grants:
-                    if grant["GranteePrincipal"].endswith(f":role/sdlf-cicd-team-{team}"):
+                    if grant["GranteePrincipal"].endswith(f":role/sdlf-cicd-team-{legacy_team}"):
                         grant_id = grant["GrantId"]
                         break
                 kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant_id)
-                codecommit.delete_approval_rule_template(approvalRuleTemplateName=f"{domain}-{legacy_team}-approval-to-production")
+                codecommit.delete_approval_rule_template(
+                    approvalRuleTemplateName=f"{domain}-{legacy_team}-approval-to-production"
+                )
+                crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{legacy_team}"
                 stack_details = delete_domain_team_role_stack(legacy_team, crossaccount_team_role)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
                 stack_details = delete_team_cicd_stack(domain, environment, legacy_team, cloudformation_role)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
-                crossaccount_team_role = (
-                    f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{legacy_team}"
-                )
 
             cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
             for stack in cloudformation_waiters["stack_delete_complete"]:
@@ -315,9 +300,7 @@ def lambda_handler(event, context):
                 "stack_update_complete": [],
             }
             for team in teams:
-                crossaccount_team_role = (
-                    f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
-                )
+                crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
                 stack_details = create_team_cicd_stack(
                     domain,
                     environment,
@@ -329,21 +312,12 @@ def lambda_handler(event, context):
                 )
                 if stack_details[1]:
                     cloudformation_waiters[stack_details[1]].append(stack_details[0])
-            cloudformation_create_waiter = cloudformation.get_waiter(
-                "stack_create_complete"
-            )
-            cloudformation_update_waiter = cloudformation.get_waiter(
-                "stack_update_complete"
-            )
+            cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
+            cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
             for stack in cloudformation_waiters["stack_create_complete"]:
-                cloudformation_create_waiter.wait(
-                    StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
-                )
+                cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
             for stack in cloudformation_waiters["stack_update_complete"]:
-                cloudformation_update_waiter.wait(
-                    StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10}
-                )
-
+                cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
     except Exception as e:
         message = "Function exception: " + str(e)
