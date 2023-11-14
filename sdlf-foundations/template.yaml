@@ -1652,6 +1652,13 @@ Resources:
       Type: String
       Value: !GetAtt rDataLakeAdminRole.Arn
       Description: Lake Formation Data Lake Admin Role
+  rS3AccessLogsBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/S3/AccessLogsBucket
+      Type: String
+      Value: !Ref rS3AccessLogsBucket
+      Description: S3 Access Logs Bucket
 Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with

@@ -162,7 +162,6 @@ Resources:
   rSNSTopicSubscriptionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: sdlf-cr-sns-topic-endpoints-subscription-role
       AssumeRolePolicyDocument:
         Statement:
           - Action: sts:AssumeRole
@@ -244,7 +243,6 @@ Resources:
   rLambdaCatalogCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: sdlf-catalog
       AlarmDescription: Catalog Lambda Alarm
       AlarmActions:
         - !Ref rSNSTopic
@@ -259,25 +257,6 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref LambdaCatalog
-
-  rLambdaRoutingCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: sdlf-routing
-      AlarmDescription: Routing Lambda Alarm
-      AlarmActions:
-        - !Ref rSNSTopic
-      MetricName: Errors
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 10
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref LambdaRouting
 
   ####### Event Rules #######
   rCICDFoundationsPipelineFailedRule:
@@ -339,6 +318,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-cloudtrail",
           !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Ref pCustomBucketPrefix,
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -394,6 +381,7 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
   rTrailLogGroupRole:
     Type: AWS::IAM::Role
@@ -565,6 +553,12 @@ Resources:
 
   rCatalogIndexFunction:
     Type: AWS::Serverless::Function
+    DependsOn: rCatalogIndexRolePolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: rCatalogIndexRole has permission to write CloudWatch Logs through rCatalogIndexRolePolicy
     Properties:
       CodeUri: ./lambda/catalog-search/src
       Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch/OpenSearch
@@ -605,26 +599,36 @@ Resources:
 
   HelperRolePolicy:
     Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       PolicyName: HelperRolePolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: "Allow"
-            Action: 
+          - Sid: LogAccessPolicy
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
-              - logs:CreateLogGroup
-            Resource: !Sub arn:${AWS::Partition}:logs:*:*:*
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
           - Effect: "Allow"
-            Action: 
-              - ec2:DescribeRegions
+            Action:
+              - ec2:DescribeRegions # W12 exception
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
               - logs:PutDestination
               - logs:DeleteDestination
               - logs:PutDestinationPolicy
-            Resource: "*"
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:*
           - Effect: "Allow"
-            Action: 
+            Action:
               - iam:CreateServiceLinkedRole
             Resource: !Sub arn:${AWS::Partition}:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*
             Condition:
@@ -636,6 +640,11 @@ Resources:
   HelperLambda:
     Type: AWS::Lambda::Function
     DependsOn: HelperRolePolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: HelperRole has permission to write CloudWatch Logs through HelperRolePolicy
     Properties:
       Description: centralized-logging - solution helper functions
       Environment:
@@ -687,6 +696,11 @@ Resources:
   CustomResourceProviderframeworkonEvent:
     Type: AWS::Lambda::Function
     DependsOn: CustomResourceProviderframeworkonEventServiceRoleDefaultPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: CustomResourceProviderframeworkonEventServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
     Properties:
       Description: AWS CDK resource provider framework - onEvent (CL-PrimaryStack/CustomResourceProvider)
       Code:
@@ -1026,6 +1040,11 @@ Resources:
   CLTransformer:
     Type: AWS::Lambda::Function
     DependsOn: CLTransformerServiceRoleDefaultPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: CLTransformerServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
     Properties:
       Description: centralized-logging - Lambda function to transform log events and send to kinesis firehose
       Code:
@@ -1128,6 +1147,14 @@ Resources:
     # UpdateReplacePolicy: "Retain"
     # DeletionPolicy: "Retain"
     Properties:
+      LoggingConfiguration:
+        DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Ref pCustomBucketPrefix,
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -1176,6 +1203,7 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       RetentionInDays: 365
+      KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
   FirehoseESLogStream:
     Type: AWS::Logs::LogStream
@@ -1195,6 +1223,11 @@ Resources:
 
   FirehosePolicy:
     Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: EC2 permissions are controlled through the ec2:Vpc and ec2:AuthorizedService conditions
     Properties:
       PolicyName: CL-Firehose-Policy
       PolicyDocument:
@@ -1224,15 +1257,33 @@ Resources:
               - !Sub arn:${AWS::Partition}:s3:::${CLBucket}/*
         - Effect: Allow
           Action:
-            - ec2:DescribeVpcs
-            - ec2:DescribeVpcAttribute
-            - ec2:DescribeSubnets
-            - ec2:DescribeSecurityGroups
-            - ec2:DescribeNetworkInterfaces
-            - ec2:CreateNetworkInterface
-            - ec2:CreateNetworkInterfacePermission
-            - ec2:DeleteNetworkInterface
+            - ec2:DescribeVpcs # W12 exception
+            - ec2:DescribeSubnets # W12 exception
+            - ec2:DescribeSecurityGroups # W12 exception
+            - ec2:DescribeNetworkInterfaces # W12 exception
+            - ec2:CreateNetworkInterface # W12 exception
+            - ec2:DeleteNetworkInterface # W12 exception
           Resource: "*"
+          Condition:
+            ArnEqualsIfExists:
+              "ec2:Vpc":
+                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - Effect: Allow
+          Action:
+            - ec2:DescribeVpcAttribute
+          Resource:
+            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - Effect: Allow
+          Action:
+            - ec2:CreateNetworkInterfacePermission
+          Resource:
+            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+          Condition:
+            StringEquals:
+              "ec2:AuthorizedService": firehose.amazonaws.com
+            ArnEquals:
+              "ec2:Vpc":
+                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
         - Effect: Allow
           Action:
             - es:DescribeElasticsearchDomain
