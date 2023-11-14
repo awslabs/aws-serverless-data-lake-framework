@@ -773,6 +773,11 @@ Resources:
   ######## CODEBUILD JOBS #########
   rCloudFormationPackageCodeBuildServiceRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: EC2 permissions are controlled through the ec2:Vpc and ec2:AuthorizedService conditions
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -896,6 +901,11 @@ Resources:
 
   rLambdaLayersCodeBuildServiceRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: EC2 permissions are controlled through the ec2:Vpc and ec2:AuthorizedService conditions
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"

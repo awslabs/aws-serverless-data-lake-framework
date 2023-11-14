@@ -203,6 +203,71 @@ Resources:
       Description: CICD KMS key
 
   ######## S3 #########
+  ####### Access Logging Bucket ######
+  rS3AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: Access logs bucket should not have logging enabled https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html
+    Properties:
+      BucketName:
+        !If [
+          UseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-devops-s3-access-logs",
+          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-devops-s3-access-logs",
+        ]
+      LifecycleConfiguration:
+        Rules:
+          - Id: InfrequentAccess
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+          - Id: DeepArchive
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 60
+                StorageClass: DEEP_ARCHIVE
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Ref rKMSKey
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rS3AccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rS3AccessLogsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}
+            Condition:
+              ArnLike:
+                "aws:SourceArn":
+                  !If [
+                    UseCustomBucketPrefix,
+                    !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*",
+                    !Sub "arn:${AWS::Partition}:s3:::sdlf-${AWS::Region}-${AWS::AccountId}*",
+                  ]
+              StringEquals:
+                "aws:SourceAccount": !Sub ${AWS::AccountId}
+
   rArtifactsBucket:
     Type: AWS::S3::Bucket
     UpdateReplacePolicy: Delete
@@ -214,6 +279,14 @@ Resources:
           !Sub "${pCustomBucketPrefix}-cicd-cfn-artifacts",
           !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-cicd-cfn-artifacts",
         ]
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rS3AccessLogsBucket
+        LogFilePrefix:
+          !If [
+            UseCustomBucketPrefix,
+            !Ref pCustomBucketPrefix,
+            !Sub "sdlf-${AWS::Region}-${AWS::AccountId}",
+          ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -233,6 +306,10 @@ Resources:
         config:
           ignore_checks:
             - I3042
+      cfn_nag:
+        rules_to_suppress:
+          - id: F16
+            reason: Principal is checked through the aws:PrincipalArn condition as the roles do not exist yet
     Properties:
       Bucket: !Ref rArtifactsBucket
       PolicyDocument:
@@ -268,7 +345,12 @@ Resources:
                     - ":role/sdlf-cicd-devops-crossaccount-pipeline,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
-              - s3:*
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject*
+              - s3:Abort*
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
@@ -291,7 +373,12 @@ Resources:
                     - ":role/sdlf-cicd-domain,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
-              - s3:*
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject*
+              - s3:Abort*
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
@@ -314,7 +401,12 @@ Resources:
                     - ":role/sdlf-cicd-team,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
-              - s3:*
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject*
+              - s3:Abort*
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
@@ -323,7 +415,12 @@ Resources:
             Principal:
               AWS: "*"
             Action:
-              - s3:*
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject*
+              - s3:Abort*
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*
@@ -363,7 +460,12 @@ Resources:
                     - ":role/sdlf-cicd-cfn-modules,arn:aws:iam::"
                     - Ref: "pDomainAccounts"
             Action:
-              - s3:*
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject*
+              - s3:Abort*
             Resource:
               - !GetAtt rArtifactsBucket.Arn
               - !Sub ${rArtifactsBucket.Arn}/*

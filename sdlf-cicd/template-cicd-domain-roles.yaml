@@ -13,14 +13,19 @@ Parameters:
   pDevOpsKMSKey:
     Description: DevOps KMS key alias
     Type: String
+  pCustomBucketPrefix:
+    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
+    Type: String
+    Default: sdlf
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
 
 Conditions:
-  RunInVpc: !Equals [!Ref pEnableVpc, true]
   MultiAccountSetup: !Not [!Equals [!Ref pDevOpsAccountId, !Ref "AWS::AccountId"]]
+  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
@@ -40,6 +45,8 @@ Resources:
         rules_to_suppress:
           - id: W11
             reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
+          - id: W28
+            reason: Resource uses an explicit name as it is used as principal in crossaccount S3 policies (devops kms & s3)
     Properties:
       RoleName: sdlf-cicd-devops-crossaccount-pipeline
       AssumeRolePolicyDocument:
@@ -128,6 +135,8 @@ Resources:
             reason: |-
               KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
               The other actions with "*" are all ones that only support the all resources wildcard
+          - id: W28
+            reason: Resource uses an explicit name as it is used as principal in crossaccount S3 policies (devops kms & s3)
     Properties:
       RoleName: sdlf-cicd-cfn-modules
       AssumeRolePolicyDocument:
@@ -222,6 +231,13 @@ Resources:
 
   rDomainCloudFormationRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
+          - id: W28
+            reason: Resource uses an explicit name as it is used as principal in crossaccount S3 policies (devops kms & s3)
     Properties:
       RoleName: sdlf-cicd-domain
       Description: Role assumed by CodePipeline to deploy the Domain CloudFormation stack
@@ -439,14 +455,14 @@ Resources:
                   - s3:PutBucketLogging
                   - s3:PutBucketNotification
                   - s3:GetBucketNotification
-                Resource: "*"
-              - Effect: Allow
-                Action:
                   - s3:DeleteBucket
                   - s3:GetBucketPolicy
                   - s3:PutBucketPolicy
                   - s3:DeleteBucketPolicy
-                Resource: "*"
+                Resource: !If
+                  - UseCustomBucketPrefix
+                  - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*"
+                  - !Sub "arn:${AWS::Partition}:s3:::*-${AWS::Region}-${AWS::AccountId}-*"
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -472,7 +488,7 @@ Resources:
                   - kms:EnableKey
                   - kms:EnableKeyRotation
                   - kms:ScheduleKeyDeletion
-                Resource: "*"
+                Resource: "*" # TODO meaningful way of restricting these permissions?
               - Effect: Allow
                 Action:
                   - scheduler:GetScheduleGroup
@@ -575,6 +591,8 @@ Resources:
         rules_to_suppress:
           - id: W11
             reason: KMS permissions are controlled through kms:ResourceAliases, the team's KMS infra key has not been created yet and its ARN is not known
+          - id: W28
+            reason: Resource uses an explicit name as it is used as principal in crossaccount S3 policies (devops kms & s3)
     Properties:
       RoleName: sdlf-cicd-team
       Description: Role assumed by a Lambda stage in CodePipeline to deploy the Team Role CloudFormation stack
