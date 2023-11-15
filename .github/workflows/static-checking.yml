@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  cfnlint:
+  cfn:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,15 +17,30 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
+      - name: Set up Ruby 3.2
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
       - name: install requirements
         run: |
           python -m pip install --upgrade pip
           python -m pip install cfn-lint
+          gem install cfn-nag
       - name: cfn-lint
         run: |
           find . -not \( -path ./sdlf-utils -prune \) -type f -name '*.yaml' -print0 \
           | xargs -0 cfn-lint
-  black:
+      - name: cfn-nag
+        run: |
+          cat <<EOT >> .cfn-nag-deny-list.yml
+          - id: W61
+            reason: |-
+              Certificates are handled by customers downstream, see https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-encryption-enable.html#emr-encryption-certificates
+              This is ignored only during CI as we want customers to be aware they need to update the security configuration should they choose to use it.
+          EOT
+          find . -not \( -path ./sdlf-utils -prune -o -type f -name 'template-glue-job.yaml' -o -type f -name 'template-lambda-layer.yaml' \) -type f -name '*.yaml' -print0 \
+          | xargs -0 -L 1 cfn_nag_scan --fail-on-warnings --ignore-fatal --deny-list-path .cfn-nag-deny-list.yml --input-path
+  python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -36,21 +51,9 @@ jobs:
       - name: install requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install black
+          python -m pip install black ruff
       - name: black
         run: black --check .
-  ruff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: install requirements
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ruff
       - name: ruff
         run: ruff check .
   shellcheck:
