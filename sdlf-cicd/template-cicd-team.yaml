@@ -533,8 +533,8 @@ Resources:
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref pBuildCloudFormationPackage
-                EnvironmentVariables: !Sub >-
-                  [{"name":"TEMPLATE", "value":"pipelines-${pEnvironment}.yaml", "type":"PLAINTEXT"}]
+                EnvironmentVariables: >-
+                  [{"name":"TEMPLATE", "value":"pipelines.yaml", "type":"PLAINTEXT"}]
               RunOrder: 1
         - Name: DeployPipelinesInfrastructure
           Actions:
@@ -575,7 +575,7 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !Ref pCrossAccountTeamRole
                 StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
-                TemplatePath: !Sub "TemplateSource::datasets-${pEnvironment}.yaml"
+                TemplatePath: "TemplateSource::datasets.yaml"
                 TemplateConfiguration: "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
