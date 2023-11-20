@@ -1,18 +1,28 @@
 import datetime as dt
 import os
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+from boto3.dynamodb.types import TypeSerializer
 from botocore.exceptions import ClientError
 
-from ..commons import init_logger
+from ..commons import deserialize_dynamodb_item, init_logger, serialize_dynamodb_item
+
+if TYPE_CHECKING:
+    from mypy_boto3_dynamodb.client import DynamoDBClient
+    from mypy_boto3_dynamodb.type_defs import (
+        AttributeValueTypeDef,
+        WriteRequestTypeDef,
+    )
 
 
 class DynamoInterface:
-    def __init__(self, configuration, log_level=None, dynamodb_resource=None):
+    def __init__(self, configuration, log_level=None, dynamodb_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.dynamodb_resource = dynamodb_resource or boto3.resource("dynamodb")
+        self.dynamodb_client = dynamodb_client or boto3.client("dynamodb")
 
         self._config = configuration
 
@@ -28,22 +38,22 @@ class DynamoInterface:
 
     def _get_object_metadata_table(self):
         if not self.object_metadata_table:
-            self.object_metadata_table = self.dynamodb_resource.Table(self._config.object_metadata_table)
+            self.object_metadata_table = self._config.object_metadata_table
         return self.object_metadata_table
 
     def _get_transform_mapping_table(self):
         if not self.transform_mapping_table:
-            self.transform_mapping_table = self.dynamodb_resource.Table(self._config.transform_mapping_table)
+            self.transform_mapping_table = self._config.transform_mapping_table
         return self.transform_mapping_table
 
     def _get_pipelines_table(self):
         if not self.pipelines_table:
-            self.pipelines_table = self.dynamodb_resource.Table(self._config.pipelines_table)
+            self.pipelines_table = self._config.pipelines_table
         return self.pipelines_table
 
     def _get_manifests_control_table(self):
         if not self.manifests_control_table:
-            self.manifests_control_table = self.dynamodb_resource.Table(self._config.manifests_control_table)
+            self.manifests_control_table = self._config.manifests_control_table
         return self.manifests_control_table
 
     @staticmethod
@@ -58,7 +68,12 @@ class DynamoInterface:
 
     def get_item(self, table, key):
         try:
-            item = table.get_item(Key=key, ConsistentRead=True)["Item"]
+            serializer = TypeSerializer()
+            item = deserialize_dynamodb_item(
+                self.dynamodb_client.get_item(
+                    TableName=table, Key=serialize_dynamodb_item(key, serializer), ConsistentRead=True
+                )["Item"]
+            )
         except ClientError:
             msg = "Error getting item from {} table".format(table)
             self._logger.exception(msg)
@@ -67,7 +82,8 @@ class DynamoInterface:
 
     def put_item(self, table, item):
         try:
-            table.put_item(Item=item)
+            serializer = TypeSerializer()
+            self.dynamodb_client.put_item(TableName=table, Item=serialize_dynamodb_item(item, serializer))
         except ClientError:
             msg = "Error putting item {} into {} table".format(item, table)
             self._logger.exception(msg)
@@ -95,14 +111,21 @@ class DynamoInterface:
         return self.batch_put_item_in_object_metadata_table(items)
 
     def batch_put_item_in_object_metadata_table(self, items):
-        with self.object_metadata_table.batch_writer() as writer:
+        serializer = TypeSerializer()
+        with _TableBatchWriter(self.object_metadata_table, self.dynamodb_client) as writer:
             for item in items:
-                writer.put_item(Item=item)
+                writer.put_item(serialize_dynamodb_item(item, serializer))
 
-    def update_object(self, bucket, key, attribute_updates):
+    def update_object(self, bucket, key, update_expr, expr_names, expr_values):
         try:
-            self.object_metadata_table.update_item(
-                Key={"id": self.build_id(bucket, key)}, AttributeUpdates=attribute_updates
+            serializer = TypeSerializer()
+            self.dynamodb_client.update_item(
+                TableName=self.object_metadata_table,
+                Key={"id": {"S": self.build_id(bucket, key)}},
+                UpdateExpression=update_expr,
+                ExpressionAttributeNames=expr_names,
+                ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
+                ReturnValues="UPDATED_NEW",
             )
         except ClientError:
             msg = "Error updating object object s3://{}/{}".format(bucket, key)
@@ -111,8 +134,10 @@ class DynamoInterface:
 
     def remove_object_attribute(self, bucket, key, attribute):
         try:
-            self.object_metadata_table.update_item(
-                Key={"id": self.build_id(bucket, key)}, UpdateExpression="REMOVE {}".format(attribute)
+            self.dynamodb_client.update_item(
+                TableName=self.object_metadata_table,
+                Key={"id": {"S": self.build_id(bucket, key)}},
+                UpdateExpression="REMOVE {}".format(attribute),
             )
         except ClientError:
             msg = "Error removing attribute {} for object s3://{}/{}".format(attribute, bucket, key)
@@ -122,22 +147,24 @@ class DynamoInterface:
     def query_object_metadata_index(self, index, key_expression, key_value, filter_expression, filter_value, max_items):
         try:
             items = []
-            response = self.object_metadata_table.query(
+            response = self.dynamodb_client.query(
+                TableName=self.object_metadata_table,
                 IndexName=index,
                 KeyConditionExpression=Key(key_expression).eq(key_value),
                 FilterExpression=Attr(filter_expression).eq(filter_value),
             )
             if response["Items"]:
-                items.extend(response["Items"])
+                items.extend([deserialize_dynamodb_item(item) for item in response["Items"]])
             while "LastEvaluatedKey" in response:
-                response = self.object_metadata_table.query(
+                response = self.dynamodb_client.query(
+                    TableName=self.object_metadata_table,
                     IndexName=index,
                     KeyConditionExpression=Key(key_expression).eq(key_value),
                     FilterExpression=Attr(filter_expression).eq(filter_value),
                     ExclusiveStartKey=response["LastEvaluatedKey"],
                 )
                 if response["Items"]:
-                    items.extend(response["Items"])
+                    items.extend([deserialize_dynamodb_item(item) for item in response["Items"]])
                 if len(items) > max_items:
                     items = items[:max_items]
                     break
@@ -155,12 +182,14 @@ class DynamoInterface:
             self.manifests_control_table, self.manifest_keys(dataset_name, manifest_file_name, data_file_name)
         )
 
-    def update_manifests_control_table(self, key, update_expr, expr_values, expr_names):
-        return self.manifests_control_table.update_item(
+    def update_manifests_control_table(self, key, update_expr, expr_names, expr_values):
+        serializer = TypeSerializer()
+        return self.dynamodb_client.update_item(
+            TableName=self.manifests_control_table,
             Key=key,
             UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_values,
             ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
             ReturnValues="UPDATED_NEW",
         )
 
@@ -183,7 +212,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ST = :ST , #STS = :STS"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "PROCESSING":
             expr_names = {
@@ -194,7 +223,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "COMPLETED":
             endtime_time = dt.datetime.utcnow()
@@ -212,7 +241,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS, #S3K = :S3K"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "FAILED":
             endtime_time = dt.datetime.utcnow()
@@ -232,7 +261,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
     def update_manifests_control_table_stageb(self, ddb_key, status, s3_key=None, comment=None):
         if status == "STARTED":
@@ -253,7 +282,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ST = :ST , #STS = :STS"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "COMPLETED":
             endtime_time = dt.datetime.utcnow()
@@ -269,7 +298,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "FAILED":
             endtime_time = dt.datetime.utcnow()
@@ -291,7 +320,7 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S, #ET = :ET , #ETS = :ETS, #C = :C"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "PROCESSING":
             expr_names = {
@@ -304,4 +333,110 @@ class DynamoInterface:
 
             update_expr = "SET #S = :S"
 
-            return self.update_manifests_control_table(ddb_key, update_expr, expr_values, expr_names)
+            return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
+
+
+class _TableBatchWriter:
+    """Automatically handle batch writes to DynamoDB for a single table."""
+
+    def __init__(
+        self,
+        table_name: str,
+        client: "DynamoDBClient",
+        flush_amount: int = 25,
+        overwrite_by_pkeys: Optional[List[str]] = None,
+        log_level=None,
+    ):
+        self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
+        self._logger = init_logger(__name__, self.log_level)
+        self._table_name = table_name
+        self._client = client
+        self._items_buffer: List["WriteRequestTypeDef"] = []
+        self._flush_amount = flush_amount
+        self._overwrite_by_pkeys = overwrite_by_pkeys
+
+    def put_item(self, item: Dict[str, "AttributeValueTypeDef"]) -> None:
+        """
+        Add a new put item request to the batch.
+
+        Parameters
+        ----------
+        item: Dict[str, AttributeValueTypeDef]
+            The item to add.
+        """
+        self._add_request_and_process({"PutRequest": {"Item": item}})
+
+    def delete_item(self, key: Dict[str, "AttributeValueTypeDef"]) -> None:
+        """
+        Add a new delete request to the batch.
+
+        Parameters
+        ----------
+        key: Dict[str, AttributeValueTypeDef]
+            The key of the item to delete.
+        """
+        self._add_request_and_process({"DeleteRequest": {"Key": key}})
+
+    def _add_request_and_process(self, request: "WriteRequestTypeDef") -> None:
+        if self._overwrite_by_pkeys:
+            self._remove_dup_pkeys_request_if_any(request, self._overwrite_by_pkeys)
+        self._items_buffer.append(request)
+        self._flush_if_needed()
+
+    def _remove_dup_pkeys_request_if_any(self, request: "WriteRequestTypeDef", overwrite_by_pkeys: List[str]) -> None:
+        pkey_values_new = self._extract_pkey_values(request, overwrite_by_pkeys)
+        for item in self._items_buffer:
+            if self._extract_pkey_values(item, overwrite_by_pkeys) == pkey_values_new:
+                self._items_buffer.remove(item)
+                self._logger.debug(
+                    "With overwrite_by_pkeys enabled, skipping " "request:%s",
+                    item,
+                )
+
+    def _extract_pkey_values(
+        self, request: "WriteRequestTypeDef", overwrite_by_pkeys: List[str]
+    ) -> Optional[List[Any]]:
+        if request.get("PutRequest"):
+            return [request["PutRequest"]["Item"][key] for key in overwrite_by_pkeys]
+        elif request.get("DeleteRequest"):
+            return [request["DeleteRequest"]["Key"][key] for key in overwrite_by_pkeys]
+        return None
+
+    def _flush_if_needed(self) -> None:
+        if len(self._items_buffer) >= self._flush_amount:
+            self._flush()
+
+    def _flush(self) -> None:
+        items_to_send = self._items_buffer[: self._flush_amount]
+        self._items_buffer = self._items_buffer[self._flush_amount :]
+        response = self._client.batch_write_item(RequestItems={self._table_name: items_to_send})
+
+        unprocessed_items = response["UnprocessedItems"]
+        if not unprocessed_items:
+            unprocessed_items = {}
+        item_list = unprocessed_items.get(self._table_name, [])
+
+        # Any unprocessed_items are immediately added to the
+        # next batch we send.
+        self._items_buffer.extend(item_list)
+        self._logger.debug(
+            "Batch write sent %s, unprocessed: %s",
+            len(items_to_send),
+            len(self._items_buffer),
+        )
+
+    def __enter__(self) -> "_TableBatchWriter":
+        return self
+
+    def __exit__(
+        self,
+        exception_type: Optional[Type[BaseException]],
+        exception_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> Optional[bool]:
+        # When we exit, we need to keep flushing whatever's left
+        # until there's nothing left in our items buffer.
+        while self._items_buffer:
+            self._flush()
+
+        return None

@@ -26,11 +26,10 @@ def lambda_handler(event, context):
         logger.info("Received {} messages".format(len(messages)))
         for message in messages:
             logger.info("Starting State Machine Execution")
-            if isinstance(message.body, str):
-                response = json.loads(message.body)
+            if isinstance(message["Body"], str):
+                response = json.loads(message["Body"])
             StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, response)
-            message.delete()
-            logger.info("Delete message succeeded")
+            logger.info("Redrive message succeeded")
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e

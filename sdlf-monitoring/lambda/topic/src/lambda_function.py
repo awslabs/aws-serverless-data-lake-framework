@@ -5,6 +5,7 @@ import traceback
 from urllib.request import Request, urlopen
 
 import boto3
+from boto3.dynamodb.types import TypeSerializer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -14,9 +15,10 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+dynamodb = boto3.client("dynamodb")
+
 try:
     logger.info("Container initialization completed")
-
 except Exception as e:
     logger.error(e, exc_info=True)
     init_failed = e
@@ -80,22 +82,20 @@ def get_ssm_parameter(logger, ssm_param_name):
     return ssm_param_value
 
 
-def get_team_metadata_from_dynamo(team_name, table=None):
+def get_team_metadata_from_dynamo(team_name, table_name=None):
     """
     Gets whole team metadata.
     :param team_name: Name of the team that holds metadata
-    :param table: DynamoDB table (if passed, no new boto3 resource assignment is done)
+    :param table_name: DynamoDB table name
     """
 
-    if table is None:
-        dynamodb = boto3.resource("dynamodb")
+    if table_name is None:
         table_name = get_ssm_parameter(logger, os.getenv("TEAM_METADATA_TABLE_SSM_PARAM"))
-        table = dynamodb.Table(table_name)
 
-    response_data = table.get_item(Key={"team": team_name})
+    response_data = dynamodb.get_item(TableName=table_name, Key={"team": team_name})
 
     if isHttpStatus200(response_data) and "Item" in response_data:
-        return response_data["Item"]
+        return TypeSerializer().deserialize(response_data["Item"])
 
 
 def remove_subscription_from_dynamo(team_name, topic_arn, endpoint):
@@ -106,10 +106,8 @@ def remove_subscription_from_dynamo(team_name, topic_arn, endpoint):
     :param endpoint: Endpoint to be added to DynamoDB control table
     """
 
-    dynamodb = boto3.resource("dynamodb")
     table_name = get_ssm_parameter(logger, os.getenv("TEAM_METADATA_TABLE_SSM_PARAM"))
-    table = dynamodb.Table(table_name)
-    team_item = get_team_metadata_from_dynamo(team_name, table)
+    team_item = get_team_metadata_from_dynamo(team_name, table_name)
     item = None
 
     if team_item is None:
@@ -125,7 +123,7 @@ def remove_subscription_from_dynamo(team_name, topic_arn, endpoint):
                 del item["sns_subscriptions"][i]
                 break
 
-        response_data = table.put_item(Item=item)
+        response_data = dynamodb.put_item(TableName=table_name, Item=item)
 
         if isHttpStatus200(response_data):
             logger.info("Item updated %s into DynammoDB table.", item)
@@ -197,10 +195,8 @@ def register_subscription_into_dynamo(team_name, topic_arn, endpoint, subscripti
     :param subscription_arn: Subscription ARN of the endpoint
     """
 
-    dynamodb = boto3.resource("dynamodb")
     table_name = get_ssm_parameter(logger, os.getenv("TEAM_METADATA_TABLE_SSM_PARAM"))
-    table = dynamodb.Table(table_name)
-    team_item = get_team_metadata_from_dynamo(team_name, table)
+    team_item = get_team_metadata_from_dynamo(team_name, table_name)
     item = None
     item_status = None
 
@@ -226,7 +222,7 @@ def register_subscription_into_dynamo(team_name, topic_arn, endpoint, subscripti
             item["sns_subscriptions"].append(subscription)
             item_status = "added"
 
-    response_data = table.put_item(Item=item)
+    response_data = dynamodb.put_item(TableName=table_name, Item=item)
 
     if isHttpStatus200(response_data):
         logger.info("Item %s %s into DynammoDB table.", item_status, item)

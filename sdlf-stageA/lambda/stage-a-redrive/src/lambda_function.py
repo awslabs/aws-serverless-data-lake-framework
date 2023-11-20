@@ -19,9 +19,8 @@ def lambda_handler(event, context):
         logger.info("Received {} messages".format(len(messages)))
         queue_interface = SQSInterface(sqs_config.get_stage_queue_name)
         for message in messages:
-            queue_interface.send_message_to_fifo_queue(message.body, "redrive")
-            message.delete()
-            logger.info("Delete message succeeded")
+            queue_interface.send_message_to_fifo_queue(message["Body"], "redrive")
+            logger.info("Redrive message succeeded")
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         raise e
