@@ -2,6 +2,9 @@ import datetime
 import logging
 import uuid
 
+from boto3.dynamodb.types import TypeSerializer
+
+from ..commons import deserialize_dynamodb_item, serialize_dynamodb_item
 from .utils import get_local_date, get_timestamp_iso, get_ttl, throw_if_false, throw_if_none, throw_none_or_empty
 
 
@@ -82,7 +85,8 @@ class ArtifactAPI:
     def __init__(self, client):
         self.logger = logging.getLogger(__name__)
         self.client = client
-        self.artifacts_table = client.dynamodb.Table(client.config.get_artifacts_table())
+        self.dynamodb = client.dynamodb
+        self.artifacts_table = client.config.get_artifacts_table()
         self.artifacts_ttl = client.config.get_artifacts_ttl()
 
     def register_artifact(self, artifact: Artifact):
@@ -105,8 +109,11 @@ class ArtifactAPI:
         if self.artifacts_ttl > 0:
             item["ttl"] = get_ttl(self.artifacts_ttl)
 
-        self.artifacts_table.put_item(Item=item)
+        serializer = TypeSerializer()
+        self.dynamodb.put_item(TableName=self.artifacts_table, Item=serialize_dynamodb_item(item, serializer))
         return item["id"]
 
     def get_artifact(self, id):
-        return self.artifacts_table.get_item(Key={"id": id}, ConsistentRead=True)["Item"]
+        return deserialize_dynamodb_item(
+            self.dynamodb.get_item(TableName=self.artifacts_table, Key={"id": {"S": id}}, ConsistentRead=True)["Item"]
+        )

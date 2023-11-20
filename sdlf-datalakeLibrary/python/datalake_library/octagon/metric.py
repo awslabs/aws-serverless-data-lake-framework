@@ -1,6 +1,9 @@
 import json
 import logging
 
+from boto3.dynamodb.types import TypeSerializer
+
+from ..commons import deserialize_dynamodb_item, serialize_dynamodb_item
 from .utils import (
     get_local_date,
     get_timestamp_iso,
@@ -35,7 +38,8 @@ class MetricAPI:
     def __init__(self, client):
         self.logger = logging.getLogger(__name__)
         self.client = client
-        self.metrics_table = client.dynamodb.Table(client.config.get_metrics_table())
+        self.dynamodb = client.dynamodb
+        self.metrics_table = client.config.get_metrics_table()
         self.metrics_ttl = client.config.get_metrics_ttl()
 
     def create_metrics(self, date_str: str, metric_code: str, value: int):
@@ -58,10 +62,11 @@ class MetricAPI:
     def _create_single_metric(self, metric_rec: MetricRecordInfo, value: int):
         self.logger.debug(f"create_single_metric() {metric_rec}")
 
-        result = self.metrics_table.get_item(
-            Key={"root": metric_rec.root, "metric": metric_rec.metric},
+        result = self.dynamodb.get_item(
+            TableName=self.metrics_table,
+            Key={"root": {"S": {"S": metric_rec.root}}, "metric": {"S": {"S": metric_rec.metric}}},
             ConsistentRead=True,
-            AttributesToGet=["root", "metric", "version"],
+            ProjectionExpression="root, metric, version",
         )
 
         utc_time_iso = get_timestamp_iso()
@@ -70,8 +75,9 @@ class MetricAPI:
         metric_found = "Item" in result
         new_metric_value = None
         if metric_found:  # Update existing metrics
-            version = result["Item"]["version"]
+            version = deserialize_dynamodb_item(result["Item"])["version"]
 
+            expr_key = {"root": metric_rec.root, "metric": metric_rec.metric}
             expr_names = {
                 "#V": "version",
                 "#T": "last_updated_timestamp",
@@ -90,17 +96,21 @@ class MetricAPI:
             }
             update_expr = "ADD #V :INC, #X :X SET #T = :T, #P = :P, #D = :D"
 
-            result = self.metrics_table.update_item(
-                Key={"root": metric_rec.root, "metric": metric_rec.metric},
+            serializer = TypeSerializer()
+            result = self.dynamodb.update_item(
+                TableName=self.metrics_table,
+                Key=serialize_dynamodb_item(expr_key, serializer),
                 UpdateExpression=update_expr,
-                ExpressionAttributeValues=expr_values,
                 ExpressionAttributeNames=expr_names,
+                ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
                 ConditionExpression="#V = :V",
                 ReturnValues="UPDATED_NEW",
             )
+
             # self.logger.debug(result)
-            new_metric_value = int(result["Attributes"]["value"])
-            new_metric_version = int(result["Attributes"]["version"])
+            attributes = deserialize_dynamodb_item(result["Attributes"])
+            new_metric_value = int(attributes["value"])
+            new_metric_version = int(attributes["version"])
 
         else:  # New metric
             item = {}
@@ -116,7 +126,8 @@ class MetricAPI:
             if self.metrics_ttl > 0:
                 item["ttl"] = get_ttl(self.metrics_ttl)
 
-            self.metrics_table.put_item(Item=item)
+            serializer = TypeSerializer()
+            self.dynamodb.put_item(TableName=self.metrics_table, Item=serialize_dynamodb_item(item, serializer))
             new_metric_value = int(value)
             new_metric_version = 1
 
@@ -203,11 +214,11 @@ class MetricAPI:
         else:
             root = metric
 
-        result = self.metrics_table.get_item(Key={"root": root, "metric": metric}, ConsistentRead=True)
+        result = self.dynamodb.get_item(
+            TableName=self.metrics_table, Key={"root": {"S": root}, "metric": {"S": metric}}, ConsistentRead=True
+        )
         if "Item" in result:
-            return self.metrics_table.get_item(Key={"root": root, "metric": metric}, ConsistentRead=True)["Item"][
-                "value"
-            ]
+            return deserialize_dynamodb_item(result["Item"])["value"]
         else:
             return 0
 
@@ -222,6 +233,7 @@ class MetricAPI:
     ):
         utc_timestamp = get_timestamp_iso()
 
+        expr_key = {"root": metric_info.root, "metric": metric_info.metric}
         expr_names = {
             "#L": "last_notification_timestamp",
             "#F": "notification_frequency",
@@ -242,20 +254,27 @@ class MetricAPI:
         }
         update_expr = "SET #L = :L, #F = :F, #T = :T, #S = :S, #M = :M, #V = #V + :INC"
 
-        self.metrics_table.update_item(
-            Key={"root": metric_info.root, "metric": metric_info.metric},
+        serializer = TypeSerializer()
+        self.dynamodb.update_item(
+            TableName=self.metrics_table,
+            Key=serialize_dynamodb_item(expr_key, serializer),
             UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_values,
             ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
             ConditionExpression="#V = :V",
             ReturnValues="UPDATED_NEW",
         )
+
         return True
 
     def _is_notification_sent(self, metric_info: MetricRecordInfo):
-        item = self.metrics_table.get_item(
-            Key={"root": metric_info.root, "metric": metric_info.metric}, ConsistentRead=True
-        )["Item"]
+        item = deserialize_dynamodb_item(
+            self.dynamodb.get_item(
+                TableName=self.metrics_table,
+                Key={"root": {"S": metric_info.root}, "metric": {"S": metric_info.metric}},
+                ConsistentRead=True,
+            )["Item"]
+        )
         return "notification_timestamp" in item.keys()
 
     def _send_sns_message(self, message, topic_arn):

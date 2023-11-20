@@ -3,6 +3,9 @@ import logging
 import uuid
 from decimal import Decimal
 
+from boto3.dynamodb.types import TypeSerializer
+
+from ..commons import deserialize_dynamodb_item, serialize_dynamodb_item
 from .utils import (
     get_duration_sec,
     get_local_date,
@@ -28,8 +31,9 @@ class PipelineExecutionHistoryAPI:
     def __init__(self, client):
         self.logger = logging.getLogger(__name__)
         self.client = client
-        self.pipelines_table = client.dynamodb.Table(client.config.get_pipelines_table())
-        self.peh_table = client.dynamodb.Table(client.config.get_peh_table())
+        self.dynamodb = client.dynamodb
+        self.pipelines_table = client.config.get_pipelines_table()
+        self.peh_table = client.config.get_peh_table()
         self.peh_ttl = client.config.get_peh_ttl()
 
     def start_pipeline_execution(self, pipeline_name, dataset_name=None, dataset_date=None, comment=None):
@@ -81,8 +85,8 @@ class PipelineExecutionHistoryAPI:
 
         if self.peh_ttl > 0:
             item["ttl"] = get_ttl(self.peh_ttl)
-
-        self.peh_table.put_item(Item=item)
+        serializer = TypeSerializer()
+        self.dynamodb.put_item(TableName=self.peh_table, Item=serialize_dynamodb_item(item, serializer))
 
         self.client.set_pipeline_execution(peh_id, pipeline_name)
 
@@ -188,20 +192,28 @@ class PipelineExecutionHistoryAPI:
 
         # self.logger.debug(f"Update: {update_expr} \nNames: {expr_names} \nValues{expr_values}")
 
-        self.peh_table.update_item(
-            Key={"id": peh_id},
+        serializer = TypeSerializer()
+        self.dynamodb.update_item(
+            TableName=self.peh_table,
+            Key={"id": {"S": peh_id}},
             UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_values,
             ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
             ReturnValues="UPDATED_NEW",
         )
 
         # Add pipeline update for COMPLETED Executions
         if status == PEH_STATUS_COMPLETED:
             self.logger.debug(f"Pipeline: {self.client.pipeline_name}")
-            item = self.pipelines_table.get_item(
-                Key={"name": self.client.pipeline_name}, ConsistentRead=True, AttributesToGet=["name", "version"]
-            )["Item"]
+            item = deserialize_dynamodb_item(
+                self.dynamodb.get_item(
+                    TableName=self.pipelines_table,
+                    Key={"name": {"S": self.client.pipeline_name}},
+                    ConsistentRead=True,
+                    ProjectionExpression="#n, version",
+                    ExpressionAttributeNames={"#n": "name"},
+                )["Item"]
+            )
             pipeline_version = item["version"]
 
             expr_names = {
@@ -226,11 +238,13 @@ class PipelineExecutionHistoryAPI:
             }
             update_expr = "SET #P = :P, #V = :V + :INC, #S = :S, #D = :D, #X = :X, #E = :E, #U = :U"
 
-            self.pipelines_table.update_item(
-                Key={"name": self.client.pipeline_name},
+            serializer = TypeSerializer()
+            self.dynamodb.update_item(
+                TableName=self.pipelines_table,
+                Key={"name": {"S": self.client.pipeline_name}},
                 UpdateExpression=update_expr,
-                ExpressionAttributeValues=expr_values,
                 ExpressionAttributeNames=expr_names,
+                ExpressionAttributeValues=serialize_dynamodb_item(expr_values, serializer),
                 ReturnValues="UPDATED_NEW",
             )
 
@@ -238,11 +252,11 @@ class PipelineExecutionHistoryAPI:
 
     def get_peh_record(self, peh_id):
         # self.logger.debug(f"check_peh_active(): {peh_id}")
-        result = self.peh_table.get_item(Key={"id": peh_id}, ConsistentRead=True)
+        result = self.dynamodb.get_item(TableName=self.peh_table, Key={"id": {"S": peh_id}}, ConsistentRead=True)
         # self.logger.debug(f"check_peh_active(): {result}")
 
         if "Item" in result:
-            return result["Item"]
+            return deserialize_dynamodb_item(result["Item"])
         else:
             return None
 
@@ -252,13 +266,16 @@ class PipelineExecutionHistoryAPI:
         if pipeline_name not in self.pipelines.keys():  # Pipeline not found in cache
             # Go to DDB and add new pipeline to cache
             self.logger.debug(f"check_pipeline - get from DDB: {pipeline_name}")
-            result = self.pipelines_table.get_item(
-                Key={"name": pipeline_name}, ConsistentRead=True, AttributesToGet=["name", "status"]
+            result = self.dynamodb.get_item(
+                TableName=self.pipelines_table,
+                Key={"name": {"S": pipeline_name}},
+                ConsistentRead=True,
+                ProjectionExpression="#n, #s",
+                ExpressionAttributeNames={"#n": "name", "#s": "status"},
             )
             self.logger.debug("result:" + str(result))
-
             if "Item" in result:  # Pipeline found, check status
-                status = result["Item"]["status"]
+                status = deserialize_dynamodb_item(result["Item"])["status"]
                 self.pipelines[pipeline_name] = status == PIPELINE_STATUS_ACTIVE
             else:  # Pipeline not found
                 self.pipelines[pipeline_name] = False

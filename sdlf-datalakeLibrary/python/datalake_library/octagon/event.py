@@ -3,6 +3,9 @@ import logging
 import uuid
 from enum import Enum
 
+from boto3.dynamodb.types import TypeSerializer
+
+from ..commons import deserialize_dynamodb_item, serialize_dynamodb_item
 from .utils import get_local_date, get_timestamp_iso, get_ttl, throw_if_false, throw_none_or_empty
 
 
@@ -20,8 +23,8 @@ class EventAPI:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.dynamodb = client.dynamodb
+        self.events_table = client.config.get_events_table()
         self.events_ttl = client.config.get_events_ttl()
-        self.events_table = client.dynamodb.Table(client.config.get_events_table())
 
     def create_event(self, reason, comment, component_name=None, event_details=None):
         throw_if_false(self.client.is_pipeline_set(), "Pipeline execution is not yet assigned")
@@ -59,8 +62,11 @@ class EventAPI:
         if self.events_ttl != 0:
             item["ttl"] = get_ttl(self.events_ttl)
         # Save to DDB
-        self.events_table.put_item(Item=item)
+        serializer = TypeSerializer()
+        self.dynamodb.put_item(TableName=self.events_table, Item=serialize_dynamodb_item(item, serializer))
         return item["id"]
 
     def get_event(self, id):
-        return self.events_table.get_item(Key={"id": id}, ConsistentRead=True)["Item"]
+        return deserialize_dynamodb_item(
+            self.dynamodb.get_item(TableName=self.events_table, Key={"id": {"S": id}}, ConsistentRead=True)["Item"]
+        )
