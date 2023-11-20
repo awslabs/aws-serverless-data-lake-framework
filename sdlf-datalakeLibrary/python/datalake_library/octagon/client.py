@@ -151,7 +151,7 @@ class OctagonClient:
         sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self.account_id = boto3.client("sts", endpoint_url=sts_endpoint_url).get_caller_identity().get("Account")
 
-        self.dynamodb = boto3.resource("dynamodb")
+        self.dynamodb = boto3.client("dynamodb")
         sns_endpoint_url = "https://sns." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self.sns = boto3.client("sns", endpoint_url=sns_endpoint_url)
         self.config = ConfigParser(self.configuration_file, self.configuration_instance)

@@ -13,12 +13,11 @@ from ..datalake_exceptions import ObjectDeleteFailedException
 
 
 class S3Interface:
-    def __init__(self, log_level=None, s3_client=None, s3_resource=None):
+    def __init__(self, log_level=None, s3_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
         self._session_config = Config(user_agent="awssdlf/2.0.0")
         self._s3_client = s3_client or boto3.client("s3", config=self._session_config)
-        self._s3_resource = s3_resource or boto3.resource("s3", config=self._session_config)
 
     def download_object(self, bucket, key):
         dir_path = f"/tmp/{bucket}/"
@@ -30,7 +29,7 @@ class S3Interface:
         object_path = dir_path + key.split("/")[-1]
         key = unquote_plus(key)
         try:
-            self._s3_resource.Bucket(bucket).download_file(key, object_path)
+            self._s3_client.download_file(bucket, key, object_path)
         except ClientError:
             msg = "Error downloading object: {}/{}".format(bucket, key)
             self._logger.exception(msg)
@@ -54,9 +53,13 @@ class S3Interface:
         self._logger.info("Listing objects in: s3://{}/{}".format(bucket, keys_path))
         keys_path = keys_path + "/" if not keys_path.endswith("/") else keys_path
         keys = []
-        for obj in self._s3_resource.Bucket(bucket).objects.filter(Prefix=keys_path):
-            if obj.key[-1] != "/":
-                keys.append(obj.key)
+        paginator = self._s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket, Prefix=keys_path)
+
+        for page in pages:
+            for obj in page["Contents"]:
+                if obj["Key"][-1] != "/":
+                    keys.append(obj["Key"])
         return keys
 
     def read_object(self, bucket, key):
@@ -64,8 +67,8 @@ class S3Interface:
         self._logger.info("Reading object from {}/{}".format(bucket, key))
         data = StringIO()
         try:
-            obj = self._s3_resource.Object(bucket, key)
-            for line in obj.get()["Body"].iter_lines():
+            obj = self._s3_client.get_object(Bucket=bucket, Key=key)
+            for line in obj["Body"].iter_lines():
                 data.write("{}\n".format(line.decode("utf-8")))
             data.seek(0)
         except ClientError:
@@ -100,9 +103,7 @@ class S3Interface:
             if kms_key:
                 extra_kwargs = {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": kms_key}
             copy_source = {"Bucket": source_bucket, "Key": source_key}
-            self._s3_resource.meta.client.copy(
-                copy_source, dest_bucket, dest_key if dest_key else source_key, ExtraArgs=extra_kwargs
-            )
+            self._s3_client.copy(copy_source, dest_bucket, dest_key if dest_key else source_key, ExtraArgs=extra_kwargs)
         except ClientError:
             msg = "Error copying object: {}/{} to {}/{}".format(
                 source_bucket, source_key, dest_bucket, dest_key if dest_key else source_key
