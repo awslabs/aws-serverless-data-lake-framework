@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Engineering team pipelines
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rMain:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: ./pipeline-main.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: main

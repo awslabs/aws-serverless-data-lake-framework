@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Industry SDLF Team in marketing domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rIndustry:
+        Type: awslabs::sdlf::team::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pTeamName: industry
+            pEnvironment: dev
+            pSNSNotificationsEmail: nobody@amazon.com

@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: proserve data domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rProserve:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: ./foundations-proserve-dev.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+
+    rIot:
+        Type: AWS::CloudFormation::Stack
+        DependsOn: rProserve
+        Properties:
+            TemplateURL: ./team-proserve-iot-dev.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:team
+                  Value: iot

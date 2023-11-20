@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: marketing data domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rMarketing:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: ./foundations-marketing-dev.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+
+    rIndustry:
+        Type: AWS::CloudFormation::Stack
+        DependsOn: rMarketing
+        Properties:
+            TemplateURL: ./team-marketing-industry-dev.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:team
+                  Value: industry

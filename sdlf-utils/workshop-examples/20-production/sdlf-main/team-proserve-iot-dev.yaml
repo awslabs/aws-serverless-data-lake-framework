@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IOT SDLF Team in proserve domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rIot:
+        Type: awslabs::sdlf::team::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pTeamName: iot
+            pEnvironment: dev
+            pSNSNotificationsEmail: nobody@amazon.com

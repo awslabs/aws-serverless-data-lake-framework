@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Engineering SDLF Team in datalake domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rEngineering:
+        Type: awslabs::sdlf::team::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pTeamName: engineering
+            pEnvironment: dev
+            pSNSNotificationsEmail: nobody@amazon.com
