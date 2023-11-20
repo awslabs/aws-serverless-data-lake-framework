@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Engineering team datasets
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rLegislators:
+        Type: awslabs::sdlf::dataset::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pTeamName: engineering
+            pDatasetName: legislators

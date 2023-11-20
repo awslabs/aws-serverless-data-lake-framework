@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: SDLF Foundations in datalake domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rForecourt:
+        Type: awslabs::sdlf::foundations::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pChildAccountId: !Ref "AWS::AccountId"
+            pOrganizationName: forecourt
+            pDomain: datalake
+            pEnvironment: dev
+            pNumBuckets: 3

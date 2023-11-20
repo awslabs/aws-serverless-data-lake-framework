@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: SDLF Foundations in marketing domain, dev environment
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rMarketing:
+        Type: awslabs::sdlf::foundations::MODULE
+        Properties:
+            pPipelineReference: !Ref pPipelineReference
+            pChildAccountId: 222222222222
+            pOrganizationName: forecourt
+            pDomain: marketing
+            pEnvironment: dev
+            pNumBuckets: 3

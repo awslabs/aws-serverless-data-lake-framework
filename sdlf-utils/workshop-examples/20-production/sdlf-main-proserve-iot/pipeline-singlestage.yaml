@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Single stage pipeline
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rSingleA:
+        Type: awslabs::sdlf::stageA::MODULE
+        Properties:
+            pStageName: A
+            pPipeline: singlestage
+            pTeamName: iot
+            pTriggerType: event
+            pEventPattern: !Sub >-
+                {
+                    "source": ["aws.s3"],
+                    "detail-type": ["Object Created"],
+                    "detail": {
+                        "bucket": {
+                            "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
+                        },
+                        "object": {
+                            "key": [{ "prefix": "iot/legislators/" }]
+                        }
+                    }
+                }
+            pEnableTracing: false

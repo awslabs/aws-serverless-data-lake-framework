@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Engineering team Main pipeline
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rMainA:
+        Type: awslabs::sdlf::stageA::MODULE
+        Properties:
+            pStageName: A
+            pPipeline: main
+            pTeamName: engineering
+            pTriggerType: event
+            pEventPattern: !Sub >-
+                {
+                "source": ["aws.s3"],
+                "detail-type": ["Object Created"],
+                "detail": {
+                    "bucket": {
+                    "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
+                    },
+                    "object": {
+                    "key": [{ "prefix": "engineering/legislators/" }]
+                    }
+                }
+                }
+            pEnableTracing: false
+
+    rMainB:
+        Type: awslabs::sdlf::stageB::MODULE
+        Properties:
+            pDatasetBucket: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+            pStageName: B
+            pPipeline: main
+            pTeamName: engineering
+            pTriggerType: schedule
+            pEventPattern: !Sub >-
+                {
+                "source": ["aws.states"],
+                "detail-type": ["Step Functions Execution Status Change"],
+                "detail": {
+                    "status": ["SUCCEEDED"],
+                    "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-engineering-main-sm-a"]
+                }
+                }
+            pSchedule: "cron(*/5 * * * ? *)"
+            pEnableTracing: false
