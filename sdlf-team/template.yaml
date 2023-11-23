@@ -551,6 +551,14 @@ Resources:
                 Resource:
                   - !GetAtt rKMSInfraKey.Arn
                   - !GetAtt rKMSDataKey.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:AssociateKmsKey
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/crawlers-role/sdlf-${pTeamName}/*
 
   ####### SSM #######
   rTeamIAMManagedPolicySsm:
