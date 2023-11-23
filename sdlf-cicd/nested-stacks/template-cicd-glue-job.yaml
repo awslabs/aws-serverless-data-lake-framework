@@ -153,8 +153,8 @@ Resources:
             build:
               commands:
                 - |-
-                    if [ -d "./transforms-$ENVIRONMENT/" ]; then
-                        cd "./transforms-$ENVIRONMENT/" || exit
+                    if [ -d "./transforms/" ]; then
+                        cd "./transforms/" || exit
                         TRANSFORMS=()
 
                         echo ">>>>> Beginning build of subdirectories >>>>>"

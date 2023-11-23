@@ -153,8 +153,8 @@ Resources:
             build:
               commands:
                 - |-
-                    if [ -d "./layers-$ENVIRONMENT/" ]; then
-                        cd "./layers-$ENVIRONMENT/" || exit
+                    if [ -d "./layers/" ]; then
+                        cd "./layers/" || exit
                         LAYERS=()
 
                         # download already-zipped layers
