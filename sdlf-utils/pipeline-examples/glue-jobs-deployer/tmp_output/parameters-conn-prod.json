@@ -1,6 +1,0 @@
-[
-  {"ParameterKey":"pAZ","ParameterValue":"us-east-1a"},
-  {"ParameterKey":"pSubnetId","ParameterValue":"subnet-1010101001010"},
-  {"ParameterKey":"pSecurityGroupA","ParameterValue":"sg-1010101001010"},
-  {"ParameterKey":"pSecurityGroupB","ParameterValue":"sg-1010101001010"}
-]
