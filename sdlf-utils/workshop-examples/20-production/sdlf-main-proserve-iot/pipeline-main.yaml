@@ -10,6 +10,7 @@ Resources:
     rMainA:
         Type: awslabs::sdlf::stageA::MODULE
         Properties:
+            pPipelineReference: !Ref pPipelineReference
             pStageName: A
             pPipeline: main
             pTeamName: iot
@@ -32,6 +33,7 @@ Resources:
     rMainB:
         Type: awslabs::sdlf::stageB::MODULE
         Properties:
+            pPipelineReference: !Ref pPipelineReference
             pDatasetBucket: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
             pStageName: B
             pPipeline: main
