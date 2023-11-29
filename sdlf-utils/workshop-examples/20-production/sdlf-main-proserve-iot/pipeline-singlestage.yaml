@@ -10,6 +10,7 @@ Resources:
     rSingleA:
         Type: awslabs::sdlf::stageA::MODULE
         Properties:
+            pPipelineReference: !Ref pPipelineReference
             pStageName: A
             pPipeline: singlestage
             pTeamName: iot
