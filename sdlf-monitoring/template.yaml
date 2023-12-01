@@ -23,6 +23,12 @@ Parameters:
     Default: ""
   pOrganizationName:
     Type: String
+  pOpenSearchDomain:
+    Description: OpenSearch domain name
+    Type: String
+  pOpenSearchDomainEndpoint:
+    Description: OpenSearch domain endpoint
+    Type: String
   pS3DataEvents:
     Description: Record data events of all S3 buckets
     Type: String
@@ -55,84 +61,18 @@ Parameters:
         3653,
       ]
 
-  DomainName:
-    Description: Name for the Amazon ES domain that this template will create. Domain names must start with a lowercase letter and must be between 3 and 28 characters. Valid characters are a-z (lowercase only), 0-9.
-    Type: String
-    Default: sdlf
-
-  AdminEmail:
-    Type: String
-    AllowedPattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
-    Description: E-mail address of the Elasticsearch/OpenSearch/Cognito admin
-
-  ClusterSize:
-    Description: Amazon ES cluster size; small (4 data nodes), medium (6 data nodes), large (6 data nodes)
-    Type: String
-    Default: Small
-    AllowedValues:
-      - Small
-      - Medium
-      - Large
-
-
   # SDLF specific parameters
   octagonObjectMetadatastreamarn:
     Type: String
   LambdaCatalog:
     Type: String
-  LambdaRouting:
-    Type: String
   LambdaCatalogRedrive:
-    Type: String
-  LambdaRoutingRedrive:
     Type: String
   LambdaReplicate:
     Type: String
   KMSKeyId:
     Type: String
     Default: "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
-
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - Label:
-          default: Elasticsearch/OpenSearch Configuration
-        Parameters:
-          - DomainName
-          - AdminEmail
-          - ClusterSize
-    ParameterLabels:
-      AdminEmail:
-        default: Admin Email Address
-      DomainName:
-        default: Elasticsearch/OpenSearch Domain name
-      ClusterSize:
-        default: Cluster Size
-
-Mappings:
-  CLMap:
-    Metric:
-      SendAnonymousMetric: Yes
-      MetricsEndpoint: "https://metrics.awssolutionsbuilder.com/generic"
-  ESMap:
-    NodeCount:
-      Small: 4
-      Medium: 6
-      Large: 6
-    MasterSize:
-      Small: c5.large.search
-      Medium: c5.large.search
-      Large: c5.large.search
-    InstanceSize:
-      Small: r5.large.search
-      Medium: r5.2xlarge.search
-      Large: r5.4xlarge.search
-
-  # Lambda source code mapping
-  SourceCode:
-    General:
-      S3Bucket: "solutions"
-      KeyPrefix: "centralized-logging/v4.0.3"
 
 Conditions:
   InternalBucket: !Equals [!Ref pExternalTrailBucket, ""]
@@ -239,7 +179,7 @@ Resources:
       Value: !GetAtt rSNSTopicSubscriptionLambda.Arn
       Description: SNS Topic Subscription Lambda ARN
 
-  ######## CLOUD WATCH #########
+  ######## CLOUDWATCH #########
   rLambdaCatalogCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -475,29 +415,11 @@ Resources:
       RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  rLambdaRoutingUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaRouting}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
   rLambdaCatalogRedriveUpdateSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
     DependsOn: CWDestPolicy
     Properties:
       LogGroupName: !Sub "/aws/lambda/${LambdaCatalogRedrive}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rLambdaRoutingRedriveUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaRoutingRedrive}"
       DestinationArn: !GetAtt CLDataStream.Arn
       RoleArn: !GetAtt CWDestinationRole.Arn
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
@@ -540,7 +462,7 @@ Resources:
             - es:ESHttpPost
             - es:ESHttpGet
             - es:ESHttpPut
-          Resource: !GetAtt ESDomain.Arn
+          Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
         - Effect: "Allow"
           Action:
             - dynamodb:DescribeStream
@@ -564,10 +486,10 @@ Resources:
       Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch/OpenSearch
       Environment:
         Variables:
-          ES_ENDPOINT: !GetAtt ESDomain.DomainEndpoint
+          ES_ENDPOINT: !Ref pOpenSearchDomainEndpoint
           ES_REGION: !Ref AWS::Region
       Handler: index.handler
-      Runtime: nodejs16.x
+      Runtime: nodejs20.x
       Timeout: 180
       MemorySize: 256
       Role: !GetAtt rCatalogIndexRole.Arn
@@ -637,34 +559,6 @@ Resources:
       Roles:
         - !Ref HelperRole
 
-  HelperLambda:
-    Type: AWS::Lambda::Function
-    DependsOn: HelperRolePolicy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: HelperRole has permission to write CloudWatch Logs through HelperRolePolicy
-    Properties:
-      Description: centralized-logging - solution helper functions
-      Environment:
-        Variables:
-          LOG_LEVEL: "info" #change to WARN, ERROR or DEBUG as needed
-          METRICS_ENDPOINT: !FindInMap ["CLMap", "Metric", "MetricsEndpoint"]
-          SEND_METRIC: !FindInMap ["CLMap", "Metric", "SendAnonymousMetric"]
-          CUSTOM_SDK_USER_AGENT: "AwsSolution/SO0009/v4.0.3"
-          CLUSTER_SIZE: !Ref ClusterSize
-          SOLUTION_ID: "SO0009"
-          SOLUTION_VERSION: "v4.0.3"
-          STACK: "PrimaryStack"
-      Handler: asset06330d812ce7a326b497981a5b3d1edc8e256f299353ea8840a882747ffbc0a3/index.handler
-      Runtime: nodejs16.x
-      Timeout: 300
-      Role: !GetAtt HelperRole.Arn
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "asset06330d812ce7a326b497981a5b3d1edc8e256f299353ea8840a882747ffbc0a3.zip"]]
-
   CustomResourceProviderframeworkonEventServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -679,215 +573,7 @@ Resources:
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  CustomResourceProviderframeworkonEventServiceRoleDefaultPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: CustomResourceProviderframeworkonEventServiceRoleDefaultPolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action: 
-              - lambda:InvokeFunction
-            Resource: !GetAtt HelperLambda.Arn
-      Roles:
-        - !Ref CustomResourceProviderframeworkonEventServiceRole
-
-  CustomResourceProviderframeworkonEvent:
-    Type: AWS::Lambda::Function
-    DependsOn: CustomResourceProviderframeworkonEventServiceRoleDefaultPolicy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: CustomResourceProviderframeworkonEventServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
-    Properties:
-      Description: AWS CDK resource provider framework - onEvent (CL-PrimaryStack/CustomResourceProvider)
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "asset53c95d71cfd280747d971a38505aea07f812fdba75874a090358a2fc4f58f79b.zip"]]
-      Role: !GetAtt CustomResourceProviderframeworkonEventServiceRole.Arn
-      Environment:
-        Variables:
-          USER_ON_EVENT_FUNCTION_ARN: !GetAtt HelperLambda.Arn
-      Handler: "asset53c95d71cfd280747d971a38505aea07f812fdba75874a090358a2fc4f58f79b/framework.onEvent"
-      Runtime: "nodejs14.x"
-      Timeout: 900
-
-  CreateUUID:
-    Type: Custom::CreateUUID
-    Properties:
-      ServiceToken: !GetAtt CustomResourceProviderframeworkonEvent.Arn
-
-  CreateESServiceRole:
-    Type: Custom::CreateESServiceRole
-    Properties:
-      ServiceToken: !GetAtt CustomResourceProviderframeworkonEvent.Arn
-
-  # Creates a user pool in cognito to auth against
-  ESUserPool:
-    Type: AWS::Cognito::UserPool
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: F78
-            reason: MFA Configuration can be turned ON if required
-    Properties:
-      AutoVerifiedAttributes:
-        - email
-      EmailVerificationSubject: "Verify your new account"
-      EmailVerificationMessage: "The verification code to your new account is {####}"
-      Schema:
-        - Name: email
-          Mutable: true
-          Required: true
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Name: verified_email
-            Priority: 1
-      AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: true
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
-          RequireUppercase: true
-          TemporaryPasswordValidityDays: 3
-      SmsVerificationMessage: "The verification code to your new account is {####}"
-      UsernameAttributes:
-        - email
-      UserPoolAddOns:
-        AdvancedSecurityMode: ENFORCED
-      VerificationMessageTemplate:
-        DefaultEmailOption: CONFIRM_WITH_CODE
-        EmailMessage: "The verification code to your new account is {####}"
-        EmailSubject: "Verify your new account"
-        SmsMessage: "The verification code to your new account is {####}"
-      MfaConfiguration: "OFF"
-
-  ESUserPoolESCognitoDomain:
-    Type: "AWS::Cognito::UserPoolDomain"
-    Properties:
-      Domain: !Sub ${DomainName}-${CreateUUID.UUID}
-      UserPoolId: !Ref ESUserPool
-
-  # Create initial cognito user
-  AdminUser:
-    Type: AWS::Cognito::UserPoolUser
-    Properties:
-      DesiredDeliveryMediums:
-        - EMAIL
-      UserAttributes:
-        - Name: email
-          Value: !Ref AdminEmail
-      Username: !Ref AdminEmail
-      UserPoolId: !Ref ESUserPool
-
-  # Creates a federated Identity pool
-  ESIdentityPool:
-    Type: AWS::Cognito::IdentityPool
-    Properties:
-      AllowUnauthenticatedIdentities: false # Prevent anonymous access
-
-  CognitoAuthRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Federated: "cognito-identity.amazonaws.com"
-            Action:
-              - "sts:AssumeRoleWithWebIdentity"
-            Condition:
-              StringEquals:
-                "cognito-identity.amazonaws.com:aud": !Ref ESIdentityPool
-              "ForAnyValue:StringLike":
-                "cognito-identity.amazonaws.com:amr": authenticated
-
-  CognitoAuthRolePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: CognitoAuthorizedRolePolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action: 
-              - es:ESHttpGet
-              - es:ESHttpDelete
-              - es:ESHttpPut
-              - es:ESHttpPost
-              - es:ESHttpHead
-              - es:ESHttpPatch
-            Resource: !GetAtt ESDomain.Arn
-      Roles:
-        - !Ref CognitoAuthRole
-
-  # Assigns the roles to the Identity Pool
-  IdentityPoolRoleMapping:
-    Type: AWS::Cognito::IdentityPoolRoleAttachment
-    Properties:
-      IdentityPoolId: !Ref ESIdentityPool
-      Roles:
-        authenticated: !GetAtt CognitoAuthRole.Arn
-
-  ESCognitoRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service: "es.amazonaws.com"
-            Action:
-              - "sts:AssumeRole"
-      Policies:
-      - PolicyName: ESCognitoAccess
-        PolicyDocument:
-          Version: "2012-10-17"
-          Statement:
-          - Effect: Allow
-            Action:
-              - cognito-idp:DescribeUserPool
-              - cognito-idp:CreateUserPoolClient
-              - cognito-idp:DeleteUserPoolClient
-              - cognito-idp:DescribeUserPoolClient
-              - cognito-idp:AdminInitiateAuth
-              - cognito-idp:AdminUserGlobalSignOut
-              - cognito-idp:ListUserPoolClients
-              - cognito-identity:DescribeIdentityPool
-              - cognito-identity:UpdateIdentityPool
-              - cognito-identity:SetIdentityPoolRoles
-              - cognito-identity:GetIdentityPoolRoles
-            Resource:
-              - !Sub "arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ESUserPool}"
-              - !Sub "arn:${AWS::Partition}:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/${ESIdentityPool}"
-
-  ESCognitoRoleDefaultPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: ESCognitoRoleDefaultPolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action: 
-              - iam:PassRole
-            Resource: !GetAtt ESCognitoRole.Arn
-            Condition:
-              StringLike:
-                "iam:PassedToService": "cognito-identity.amazonaws.com"
-      Roles:
-        - !Ref ESCognitoRole
-
-  FirehoseRole:
+  rFirehoseRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -900,86 +586,6 @@ Resources:
 
 # the VPC stuff has been removed - for now.
 
-  ESDomain:
-    Type: AWS::OpenSearchService::Domain
-    DependsOn: ESUserPoolESCognitoDomain
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
-    Properties:
-      CognitoOptions:
-        Enabled: true
-        IdentityPoolId: !Ref ESIdentityPool
-        RoleArn: !GetAtt ESCognitoRole.Arn
-        UserPoolId: !Ref ESUserPool
-      DomainEndpointOptions:
-        EnforceHTTPS: true
-        TLSSecurityPolicy: "Policy-Min-TLS-1-2-2019-07"
-      DomainName: !Ref DomainName
-      EBSOptions:
-        EBSEnabled: true
-        VolumeSize: 10
-        VolumeType: gp2
-      ClusterConfig:
-        DedicatedMasterEnabled: true
-        DedicatedMasterCount: 3
-        DedicatedMasterType: !FindInMap [ESMap, MasterSize, !Ref ClusterSize]
-        InstanceCount: !FindInMap [ESMap, NodeCount, !Ref ClusterSize]
-        InstanceType: !FindInMap [ESMap, InstanceSize, !Ref ClusterSize]
-        ZoneAwarenessEnabled: true
-        ZoneAwarenessConfig:
-          AvailabilityZoneCount: 2
-      EngineVersion: OpenSearch_2.5
-      EncryptionAtRestOptions:
-        Enabled: true
-        KmsKeyId: !Ref KMSKeyId
-      NodeToNodeEncryptionOptions:
-        Enabled: true
-      SnapshotOptions:
-        AutomatedSnapshotStartHour: "1"
-      # V57095985 - 10/08/2018 - ES Domain needed configurations
-      # https://github.com/awslabs/aws-centralized-logging/issues/2
-      AdvancedOptions:
-        rest.action.multi.allow_explicit_index: "true"
-        indices.fielddata.cache.size: 40
-      AccessPolicies:
-        Version: 2012-10-17
-        Statement:
-          - Principal:
-              AWS: !GetAtt CognitoAuthRole.Arn
-            Effect: Allow
-            Action:
-              - es:ESHttpGet
-              - es:ESHttpDelete
-              - es:ESHttpPut
-              - es:ESHttpPost
-              - es:ESHttpHead
-              - es:ESHttpPatch
-            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
-          - Principal:
-              AWS: !GetAtt FirehoseRole.Arn
-            Effect: Allow
-            Action:
-              - es:DescribeElasticsearchDomain
-              - es:DescribeElasticsearchDomains
-              - es:DescribeElasticsearchDomainConfig
-              - es:ESHttpGet
-              - es:ESHttpPut
-              - es:ESHttpPost
-            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
-          - Principal:
-              AWS: !GetAtt rCatalogIndexRole.Arn
-            Effect: Allow
-            Action:
-              - es:ESHttpGet
-              - es:ESHttpPut
-              - es:ESHttpPost
-            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W28
-            reason: "The ES Domain is passed dynamically as as parameter and explicitly specified to ensure that IAM policies are configured to lockdown access to this specific ES instance only"
-
   Dlq:
     Type: AWS::SQS::Queue
     UpdateReplacePolicy: Delete
@@ -989,7 +595,7 @@ Resources:
       MessageRetentionPeriod: 1209600
 
 
-  CLTransformerServiceRole:
+  rCloudwatchLogsTransformerServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -1003,10 +609,10 @@ Resources:
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  CLTransformerServiceRoleDefaultPolicy:
+  rCloudwatchLogsTransformerServiceRoleDefaultPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: CLTransformerServiceRoleDefaultPolicy
+      PolicyName: rCloudwatchLogsTransformerServiceRoleDefaultPolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -1029,51 +635,45 @@ Resources:
           - Effect: "Allow"
             Action: 
               - firehose:PutRecordBatch
-            Resource: !GetAtt CLFirehose.Arn
+            Resource: !GetAtt rCloudwatchLogsFirehose.Arn
           - Effect: "Allow"
             Action:
               - kms:Decrypt
             Resource: !Ref KMSKeyId
       Roles:
-        - !Ref CLTransformerServiceRole
+        - !Ref rCloudwatchLogsTransformerServiceRole
 
-  CLTransformer:
-    Type: AWS::Lambda::Function
-    DependsOn: CLTransformerServiceRoleDefaultPolicy
+  rCloudwatchLogsTransformer:
+    Type: AWS::Serverless::Function
+    DependsOn: rCloudwatchLogsTransformerServiceRoleDefaultPolicy
     Metadata:
       cfn_nag:
         rules_to_suppress:
           - id: W58
-            reason: CLTransformerServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
+            reason: rCloudwatchLogsTransformerServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
     Properties:
-      Description: centralized-logging - Lambda function to transform log events and send to kinesis firehose
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "asset93c141eefda44fcb7e45e217e4f501ed5d29974bb6d3f99baedc70ab7d104060.zip"]]
-      Role: !GetAtt CLTransformerServiceRole.Arn
-      DeadLetterConfig:
+      Description: Lambda function to transform log events and send to kinesis firehose
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      KmsKeyArn: !Ref KMSKeyId
+      MemorySize: 192
+      Role: !GetAtt rCloudwatchLogsTransformerServiceRole.Arn
+      Timeout: 300
+      DeadLetterQueue:
+        Type: SQS
         TargetArn: !GetAtt Dlq.Arn
       Environment:
         Variables:
           LOG_LEVEL: "info" #change to WARN, ERROR or DEBUG as needed
-          SOLUTION_ID: "SO0009"
-          SOLUTION_VERSION: "v4.0.3"
-          UUID: !GetAtt CreateUUID.UUID
-          CLUSTER_SIZE: !Ref ClusterSize
           DELIVERY_STREAM: CL-Firehose
-          METRICS_ENDPOINT: !FindInMap ["CLMap", "Metric", "MetricsEndpoint"]
-          SEND_METRIC: !FindInMap ["CLMap", "Metric", "SendAnonymousMetric"]
-          CUSTOM_SDK_USER_AGENT: "AwsSolution/SO0009/v4.0.3"
-      Handler: "asset93c141eefda44fcb7e45e217e4f501ed5d29974bb6d3f99baedc70ab7d104060/index.handler"
-      Runtime: "nodejs16.x"
-      Timeout: 300
+      CodeUri: ./lambda/cloudwatchlogs-transformer/src
 
-  CLTransformerKinesisEventSourceCLPrimaryStackCLDataStream:
+  rCloudwatchLogsTransformerKinesisEventSourceCLPrimaryStackCLDataStream:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
       BatchSize: 100
       EventSourceArn: !GetAtt CLDataStream.Arn
-      FunctionName: !Ref CLTransformer
+      FunctionName: !Ref rCloudwatchLogsTransformer
       StartingPosition: TRIM_HORIZON
 
   Topic:
@@ -1124,7 +724,7 @@ Resources:
       EvaluationPeriods: 1
       Dimensions:
         - Name: FunctionName
-          Value: !Ref CLTransformer
+          Value: !Ref rCloudwatchLogsTransformer
       MetricName: "Errors"
       Namespace: "AWS/Lambda"
       Period: 300
@@ -1185,7 +785,7 @@ Resources:
               Bool:
                 aws:SecureTransport: False
           - Principal:
-              AWS: !GetAtt FirehoseRole.Arn
+              AWS: !GetAtt rFirehoseRole.Arn
             Action:
               - s3:Put*
               - s3:Get*
@@ -1221,7 +821,7 @@ Resources:
       LogGroupName: !Ref CLFirehoseFirehoseLogGroup
       LogStreamName: S3Delivery
 
-  FirehosePolicy:
+  rFirehosePolicy:
     Type: AWS::IAM::Policy
     Metadata:
       cfn_nag:
@@ -1292,19 +892,19 @@ Resources:
             - es:ESHttpPost
             - es:ESHttpPut
           Resource:
-            - !GetAtt ESDomain.Arn
-            - !Sub ${ESDomain.Arn}/*
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/*
         - Effect: Allow
           Action:
             - es:ESHttpGet
           Resource:
-            - !Sub ${ESDomain.Arn}/_all/_settings
-            - !Sub ${ESDomain.Arn}/_cluster/stats
-            - !Sub ${ESDomain.Arn}/cwl-kinesis/_mapping/kinesis
-            - !Sub ${ESDomain.Arn}/cwl-kinesis/_nodes
-            - !Sub ${ESDomain.Arn}/cwl-kinesis/_nodes/*/stats
-            - !Sub ${ESDomain.Arn}/_stats
-            - !Sub ${ESDomain.Arn}/cwl-kinesis/_stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_all/_settings
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_cluster/stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_mapping/kinesis
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_nodes
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_nodes/*/stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_stats
         - Effect: Allow
           Action:
             - logs:PutLogEvents
@@ -1321,11 +921,11 @@ Resources:
             StringLike:
               "kms:EncryptionContext:aws:kinesis:arn": !GetAtt CLDataStream.Arn
       Roles:
-        - !Ref FirehoseRole
+        - !Ref rFirehoseRole
 
-  CLFirehose:
+  rCloudwatchLogsFirehose:
     Type: AWS::KinesisFirehose::DeliveryStream
-    DependsOn: FirehosePolicy
+    DependsOn: rFirehosePolicy
     Properties:
       DeliveryStreamEncryptionConfigurationInput:
         KeyType: CUSTOMER_MANAGED_CMK
@@ -1337,10 +937,10 @@ Resources:
           Enabled: true
           LogGroupName: /aws/kinesisfirehose/CL-Firehose
           LogStreamName: !Ref FirehoseESLogStream
-        DomainARN: !GetAtt ESDomain.Arn
+        DomainARN: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
         IndexName: cwl
         IndexRotationPeriod: OneDay
-        RoleARN: !GetAtt FirehoseRole.Arn
+        RoleARN: !GetAtt rFirehoseRole.Arn
         S3BackupMode: AllDocuments
         S3Configuration:
           BucketARN: !GetAtt CLBucket.Arn
@@ -1348,7 +948,7 @@ Resources:
             Enabled: true
             LogGroupName: /aws/kinesisfirehose/CL-Firehose
             LogStreamName: !Ref FirehoseS3LogStream
-          RoleARN: !GetAtt FirehoseRole.Arn
+          RoleARN: !GetAtt rFirehoseRole.Arn
 
   CWDestinationRole:
     Type: AWS::IAM::Role
@@ -1398,227 +998,3 @@ Resources:
             Resource: !GetAtt CWDestinationRole.Arn
       Roles:
         - !Ref HelperRole
-
-  #
-  # CloudWatch Alarms
-  #
-
-  StatusYellowAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Replica shards for at least one index are not allocated to nodes in a cluster."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "ClusterStatus.yellow"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 60
-      Statistic: Maximum
-      Threshold: 1
-
-  StatusRedAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Primary and replica shards of at least one index are not allocated to nodes in a cluster."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "ClusterStatus.red"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 60
-      Statistic: Maximum
-      Threshold: 1
-
-  CPUUtilizationTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Average CPU utilization over last 45 minutes too high."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 3
-      MetricName: "CPUUtilization"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 900
-      Statistic: Average
-      Threshold: 80
-
-  MasterCPUUtilizationTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Average CPU utilization over last 45 minutes too high."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 3
-      MetricName: "MasterCPUUtilization"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 900
-      Statistic: Average
-      Threshold: 50
-
-  FreeStorageSpaceTooLowAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Cluster has less than 2GB of storage space."
-      ComparisonOperator: LessThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "FreeStorageSpace"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 60
-      Statistic: Minimum
-      Threshold: 2000
-
-  IndexWritesBlockedTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Cluster is blocking incoming write requests."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "ClusterIndexWritesBlocked"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 300
-      Statistic: Maximum
-      Threshold: 1
-
-  JVMMemoryPressureTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Average JVM memory pressure over last 15 minutes too high."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "JVMMemoryPressure"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 900
-      Statistic: Average
-      Threshold: 80
-
-  MasterJVMMemoryPressureTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Average JVM memory pressure over last 15 minutes too high."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "MasterJVMMemoryPressure"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 900
-      Statistic: Average
-      Threshold: 50
-
-  MasterNotReachableFromNodeAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "Master node stopped or not reachable. Usually the result of a network connectivity issue or AWS dependency problem."
-      ComparisonOperator: LessThanThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "MasterReachableFromNode"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 60
-      Statistic: Minimum
-      Threshold: 1
-
-  AutomatedSnapshotFailureTooHighAlarm:
-    DependsOn: rSNSTopicSubscription
-    Type: "AWS::CloudWatch::Alarm"
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      AlarmDescription: "No automated snapshot was taken for the domain in the previous 36 hours (created by marbot)."
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: ClientId
-          Value: !Ref "AWS::AccountId"
-        - Name: DomainName
-          Value: !Ref DomainName
-      EvaluationPeriods: 1
-      MetricName: "AutomatedSnapshotFailure"
-      Namespace: "AWS/ES"
-      OKActions:
-        - !Ref Topic
-      Period: 60
-      Statistic: Maximum
-      Threshold: 1
