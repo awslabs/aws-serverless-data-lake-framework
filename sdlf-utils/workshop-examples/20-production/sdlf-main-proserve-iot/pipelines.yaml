@@ -9,6 +9,8 @@ Parameters:
 Resources:
     rMain:
         Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./pipeline-main.yaml
             Parameters:
@@ -18,6 +20,8 @@ Resources:
                   Value: main
     rSingleStage:
         Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./pipeline-singlestage.yaml
             Parameters:
