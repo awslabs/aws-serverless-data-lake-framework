@@ -15,7 +15,7 @@ Resources:
             pPipeline: singlestage
             pTeamName: iot
             pTriggerType: event
-            pEventPattern: !Sub >-
+            pEventPattern: >-
                 {
                     "source": ["aws.s3"],
                     "detail-type": ["Object Created"],

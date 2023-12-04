@@ -9,6 +9,8 @@ Parameters:
 Resources:
     rForecourt:
         Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./foundations-datalake-dev.yaml
             Parameters:
@@ -17,6 +19,8 @@ Resources:
     rEngineering:
         Type: AWS::CloudFormation::Stack
         DependsOn: rForecourt
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./team-datalake-engineering-dev.yaml
             Parameters:

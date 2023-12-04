@@ -9,6 +9,8 @@ Parameters:
 Resources:
     rProserve:
         Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./foundations-proserve-dev.yaml
             Parameters:
@@ -17,6 +19,8 @@ Resources:
     rIot:
         Type: AWS::CloudFormation::Stack
         DependsOn: rProserve
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
         Properties:
             TemplateURL: ./team-proserve-iot-dev.yaml
             Parameters:
