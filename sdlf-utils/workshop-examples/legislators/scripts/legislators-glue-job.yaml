@@ -26,7 +26,7 @@ Resources:
   rGlueRole:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pTeamName}/
+      Path: /service-role/
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
