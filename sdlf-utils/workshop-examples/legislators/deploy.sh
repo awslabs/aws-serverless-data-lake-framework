@@ -65,9 +65,9 @@ function send_legislators()
   do
     (( COUNT++ )) || true
     if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp "$ORIGIN$FILE" "${S3_DESTINATION}raw/engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}raw/engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     else
-      aws s3 cp "$ORIGIN$FILE" "${S3_DESTINATION}engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     fi
     echo "transferred $COUNT files"
   done
