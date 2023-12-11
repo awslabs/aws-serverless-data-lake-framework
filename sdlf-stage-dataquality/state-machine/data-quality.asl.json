@@ -1,0 +1,60 @@
+{
+  "Comment": "Data Quality WorkFlow",
+  "StartAt": "Initial Check",
+  "States": {
+    "Initial Check": {
+      "Type": "Task",
+      "Resource": "${lStep1}",
+      "Comment": "Initial Check",
+      "ResultPath": "$.body.dataQuality",
+      "Next": "Wait"
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 15,
+      "Next": "Did Job finish?"
+    },
+    "Did Job finish?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.body.dataQuality.job.jobStatus",
+          "StringEquals": "SUCCEEDED",
+          "Next": "Run Glue Crawler"
+        },
+        {
+          "Variable": "$.body.dataQuality.job.jobStatus",
+          "StringEquals": "FAILED",
+          "Next": "Job Failed"
+        },
+        {
+          "Variable": "$.body.dataQuality.job.jobStatus",
+          "StringEquals": "PASS",
+          "Next": "Pass"
+        }
+      ],
+      "Default": "Get Job status"
+    },
+    "Get Job status": {
+      "Type": "Task",
+      "Resource": "${lCheckJob}",
+      "ResultPath": "$.body.dataQuality",
+      "Next": "Wait"
+    },
+    "Job Failed": {
+      "Type": "Fail",
+      "Error": "Job Failed",
+      "Cause": "Job failed, please check the logs"
+    },
+    "Run Glue Crawler": {
+      "Type": "Task",
+      "Resource": "${lStep2}",
+      "Comment": "Run Glue Crawler",
+      "ResultPath": "$.statusCode",
+      "End": true
+    },
+    "Pass": {
+      "Type": "Succeed"
+    }
+  }
+}
