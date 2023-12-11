@@ -57,9 +57,8 @@ glue_database = args['glueDatabase']
 glue_tables = [x.strip() for x in args['glueTables'].split(',')]
 
 # Determine which tables already had Deequ data quality suggestions set up
-profile_job_name = "sdlf-data-quality-profile-runner"
-suggestions_job_name = "sdlf-data-quality-suggestion-analysis-verification-runner"
-verification_job_name = "sdlf-data-quality-analysis-verification-runner"
+suggestions_job_name = "sdlf-data-quality-suggestion-runner"
+verification_job_name = "sdlf-data-quality-verification-runner"
 suggestions_tables = []
 verification_tables = []
 suggestions_dynamo = dynamodb.Table(
@@ -83,6 +82,7 @@ if suggestions_tables:
             '--glueTables': ','.join(suggestions_tables)
         }
     )
+
 if verification_tables:
     verification_response = glue.start_job_run(
         JobName=verification_job_name,
@@ -94,16 +94,6 @@ if verification_tables:
         }
     )
 
-profile_response = glue.start_job_run(
-    JobName=profile_job_name,
-    Arguments={
-        '--team': team,
-        '--dataset': dataset,
-        '--glueDatabase': glue_database,
-        '--glueTables': ','.join(glue_tables)
-    }
-)
-
 # Wait for execution to complete, timeout in 60*30=1800 secs
 logger.info('Waiting for execution')
 message = 'Error during Controller execution - Check logs'
@@ -113,5 +103,3 @@ if suggestions_tables:
 if verification_tables:
     if testGlueJob(verification_response['JobRunId'], 60, 30, verification_job_name) != 1:
         raise ValueError(message)
-if testGlueJob(profile_response['JobRunId'], 60, 30, profile_job_name) != 1:
-    raise ValueError(message)

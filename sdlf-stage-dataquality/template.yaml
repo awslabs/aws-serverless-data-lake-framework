@@ -427,98 +427,58 @@ Resources:
       Name: sdlf-data-quality-controller
       Role: !Ref pDataLakeAdminRoleArn
 
-  rSuggestionVerificationRunnerGlueJob:
+  rSuggestionRunnerGlueJob:
     Type: AWS::Glue::Job
     Properties:
       Command:
-        Name: glueetl
-        PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-suggestion-analysis-verification-runner.scala"
+        Name: "pythonshell"
+        PythonVersion: "3.9"
+        ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/sdlf-data-quality-suggestion-runner.py"
+      DefaultArguments:
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
-        "--job-language": "scala"
-        "--class": "GlueApp"
-        "--enable-continuous-cloudwatch-log": "true"
-        "--enable-continuous-log-filter": "true"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
         "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
-        "--dynamodbAnalysisTableName": !Sub octagon-DataQualityAnalysis-${pEnvironment}
         "--team": "default"
         "--dataset": "default"
         "--glueDatabase": "default"
         "--glueTables": "table1,table2"
         "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
+        "--additional-python-modules": "awswrangler==3.4.0,boto3==1.28.2"
+        "--pDataLakeAdminRoleArn": !Ref pDataLakeAdminRoleArn
       ExecutionProperty:
         MaxConcurrentRuns: 10
-      GlueVersion: "4.0"
-      MaxCapacity: 3
-      MaxRetries: 0
-      Timeout: 60
-      Name: sdlf-data-quality-suggestion-analysis-verification-runner
+      GlueVersion: "1.0"
+      Timeout: 65
+      Name: sdlf-data-quality-suggestion-runner
       Role: !Ref pDataLakeAdminRoleArn
 
   rVerificationRunnerGlueJob:
     Type: AWS::Glue::Job
     Properties:
       Command:
-        Name: glueetl
-        PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-analysis-verification-runner.scala"
+        Name: "pythonshell"
+        PythonVersion: "3.9"
+        ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/sdlf-data-quality-verification-runner.py"
+      DefaultArguments:
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
-        "--job-language": "scala"
-        "--class": "GlueApp"
-        "--enable-continuous-cloudwatch-log": "true"
-        "--enable-continuous-log-filter": "true"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
         "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
-        "--dynamodbAnalysisTableName": !Sub octagon-DataQualityAnalysis-${pEnvironment}
         "--team": "default"
         "--dataset": "default"
         "--glueDatabase": "default"
         "--glueTables": "table1,table2"
         "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
+        "--additional-python-modules": "awswrangler==3.4.0,boto3==1.28.2"
+        "--pDataLakeAdminRoleArn": !Ref pDataLakeAdminRoleArn
       ExecutionProperty:
         MaxConcurrentRuns: 10
-      MaxRetries: 0
-      Timeout: 60
-      GlueVersion: "4.0"
-      MaxCapacity: 3
-      Name: sdlf-data-quality-analysis-verification-runner
-      Role: !Ref pDataLakeAdminRoleArn
-
-  rProfilerRunnerGlueJob:
-    Type: AWS::Glue::Job
-    Properties:
-      Command:
-        Name: glueetl
-        PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/deequ-profile-runner.scala"
-      DefaultArguments:
-        "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
-        "--job-language": "scala"
-        "--class": "GlueApp"
-        "--enable-continuous-cloudwatch-log": "true"
-        "--enable-continuous-log-filter": "true"
-        "--enable-metrics": "true"
-        "--enable-glue-datacatalog": ""
-        "--extra-jars": !Sub "s3://${pPipelineBucket}/deequ/jars/deequ-1.1.0-spark-2.4.jar"
-        "--team": "default"
-        "--dataset": "default"
-        "--glueDatabase": "default"
-        "--glueTables": "table1,table2"
-        "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
-      ExecutionProperty:
-        MaxConcurrentRuns: 10
-      MaxRetries: 0
-      Timeout: 60
-      GlueVersion: "4.0"
-      MaxCapacity: 3
-      Name: sdlf-data-quality-profile-runner
+      GlueVersion: "1.0"
+      Timeout: 65
+      Name: sdlf-data-quality-verification-runner
       Role: !Ref pDataLakeAdminRoleArn
 
   rGlueDataCatalog:
