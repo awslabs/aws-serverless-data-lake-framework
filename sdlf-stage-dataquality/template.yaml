@@ -435,7 +435,6 @@ Resources:
         PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/sdlf-data-quality-suggestion-runner.py"
       DefaultArguments:
-      DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
         "--enable-metrics": "true"
         "--enable-glue-datacatalog": ""
@@ -461,7 +460,6 @@ Resources:
         Name: "pythonshell"
         PythonVersion: "3.9"
         ScriptLocation: !Sub "s3://${pPipelineBucket}/deequ/scripts/sdlf-data-quality-verification-runner.py"
-      DefaultArguments:
       DefaultArguments:
         "--TempDir": !Sub "s3://${pPipelineBucket}/deequ/"
         "--enable-metrics": "true"
