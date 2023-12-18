@@ -322,6 +322,14 @@ Resources:
       Value: !GetAtt rLakeFormationDataAccessRole.Arn
       Description: Lake Formation Data Access Role
 
+  rLakeFormationDataAccessRoleNameSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/IAM/LakeFormationDataAccessRole
+      Type: String
+      Value: !Ref rLakeFormationDataAccessRole
+      Description: Lake Formation Data Access Role
+
   ######## S3 #########
   ####### Access Logging Bucket ######
   rS3AccessLogsBucket:
