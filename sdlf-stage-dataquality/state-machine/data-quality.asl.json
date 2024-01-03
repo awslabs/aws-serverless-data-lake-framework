@@ -1,60 +1,85 @@
 {
-  "Comment": "Data Quality WorkFlow",
-  "StartAt": "Initial Check",
+  "Comment": "Simple Glue Data Quality transform",
+  "StartAt": "Try",
   "States": {
-    "Initial Check": {
-      "Type": "Task",
-      "Resource": "${lStep1}",
-      "Comment": "Initial Check",
-      "ResultPath": "$.body.dataQuality",
-      "Next": "Wait"
-    },
-    "Wait": {
-      "Type": "Wait",
-      "Seconds": 15,
-      "Next": "Did Job finish?"
-    },
-    "Did Job finish?": {
-      "Type": "Choice",
-      "Choices": [
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
         {
-          "Variable": "$.body.dataQuality.job.jobStatus",
-          "StringEquals": "SUCCEEDED",
-          "Next": "Run Glue Crawler"
-        },
-        {
-          "Variable": "$.body.dataQuality.job.jobStatus",
-          "StringEquals": "FAILED",
-          "Next": "Job Failed"
-        },
-        {
-          "Variable": "$.body.dataQuality.job.jobStatus",
-          "StringEquals": "PASS",
-          "Next": "Pass"
+          "StartAt": "Initial Check",
+          "States": {
+            "Initial Check": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep1}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Evaluate Data Quality Suggestions"
+            },
+            "Evaluate Data Quality Suggestions": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "ResultPath": "$.body.glue.suggestions_run_output",
+              "Parameters": {
+                "JobName.$": "$.body.glue.suggestions_job_name",
+                "WorkerType.$": "$.body.glue.WorkerType",
+                "NumberOfWorkers.$": "$.body.glue.NumberOfWorkers",
+                "Arguments.$": "$.body.glue.suggestions_arguments"
+              },
+              "Next": "Evaluate Data Quality Verification"
+            },
+            "Evaluate Data Quality Verification": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "ResultPath": "$.body.glue.verification_run_output",
+              "Parameters": {
+                "JobName.$": "$.body.glue.verification_job_name",
+                "WorkerType.$": "$.body.glue.WorkerType",
+                "NumberOfWorkers.$": "$.body.glue.NumberOfWorkers",
+                "Arguments.$": "$.body.glue.verification_arguments"
+              },
+              "Next": "Run Glue Crawler"
+            },
+            "Run Glue Crawler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "Parameters": {
+                "Name.$": "$.body.glue.crawler_name"
+              },
+              "End": true
+            }
+          }
         }
       ],
-      "Default": "Get Job status"
+      "End": true,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Fail"
+        }
+      ]
     },
-    "Get Job status": {
-      "Type": "Task",
-      "Resource": "${lCheckJob}",
-      "ResultPath": "$.body.dataQuality",
-      "Next": "Wait"
-    },
-    "Job Failed": {
-      "Type": "Fail",
-      "Error": "Job Failed",
-      "Cause": "Job failed, please check the logs"
-    },
-    "Run Glue Crawler": {
-      "Type": "Task",
-      "Resource": "${lStep2}",
-      "Comment": "Run Glue Crawler",
-      "ResultPath": "$.statusCode",
-      "End": true
-    },
-    "Pass": {
-      "Type": "Succeed"
+    "Fail": {
+      "Type": "Fail"
     }
   }
 }
