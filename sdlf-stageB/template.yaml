@@ -390,21 +390,6 @@ Resources:
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionStep1.Arn
 
-  rLambdaJobCheckStep:
-    Type: AWS::Serverless::Function
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
-    Properties:
-      CodeUri: ./lambda/stage-b-check-job/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-checkjob-b
-      Description: Checks if job has finished (success/failure)
-      MemorySize: 256
-      Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionStep1.Arn
-
   rLambdaStep3:
     Type: AWS::Serverless::Function
     Metadata:
@@ -504,24 +489,6 @@ Resources:
     Condition: DeployElasticSearch
     Properties:
       LogGroupName: !Ref rLambdaStep1LogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rLambdaJobCheckStepLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaJobCheckStep}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterJobCheckStep:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaJobCheckStepLogGroup
       DestinationArn: !Ref pKibanaStream
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
@@ -640,7 +607,6 @@ Resources:
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
         lStep3: !GetAtt rLambdaStep3.Arn
-        lCheckJob: !GetAtt rLambdaJobCheckStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
