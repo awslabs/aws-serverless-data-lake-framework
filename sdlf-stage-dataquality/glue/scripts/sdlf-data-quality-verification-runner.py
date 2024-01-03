@@ -1,6 +1,7 @@
 import logging
 import sys
 from datetime import datetime
+import os
 
 import awswrangler as wr
 import boto3
@@ -34,7 +35,8 @@ DataLakeAdminRoleArn = args["pDataLakeAdminRoleArn"]
 glue_tables = [x.strip() for x in args["glueTables"].split(",")]
 # iam_role_arn = "arn:aws:iam::885909252572:role/sdlf-lakeformation-admin"
 
-glue = boto3.client("glue")
+glue_endpoint_url = "https://glue." + os.getenv("AWS_REGION") + ".amazonaws.com"
+glue = boto3.client("glue", endpoint_url=glue_endpoint_url)
 # get current year & current month
 currentDay = datetime.now().day
 currentMonth = datetime.now().month
@@ -43,7 +45,7 @@ currentHour = datetime.now().hour
 currentMin = datetime.now().minute
 
 
-def getRulesfromDyamodbTable(catalog_table, dynamodb_table, table):
+def getRulesfromDynamodbTable(catalog_table, dynamodb_table, table):
     df_s3write = wr.dynamodb.read_items(
         table_name=dynamodb_table, filter_expression=(Attr("table_hash_key").eq(catalog_table))
     )
@@ -68,7 +70,7 @@ def getRulesfromDyamodbTable(catalog_table, dynamodb_table, table):
 
 for table in glue_tables:
     try:
-        rule_details = getRulesfromDyamodbTable(f"{team}-{dataset}-{table}", dynamodb_table, table)
+        rule_details = getRulesfromDynamodbTable(f"{team}-{dataset}-{table}", dynamodb_table, table)
         ddql_rules = f"Rules ={rule_details[1]}".replace("'", "")
         wr.data_quality.update_ruleset(name=rule_details[0][0], dqdl_rules=ddql_rules)
         logger.info("Evaluating data_quality ruleset")
