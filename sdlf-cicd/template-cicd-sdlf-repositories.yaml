@@ -1019,7 +1019,7 @@ Resources:
                 python: 3.11
             build:
               commands:
-                - ls && echo "-----> making artifactory directory"
+                - ls && echo "-----> making artifacts directory"
                 - |-
                     mkdir artifacts
                     zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*

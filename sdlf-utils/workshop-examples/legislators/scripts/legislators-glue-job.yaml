@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Default: legislators
   pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/ArtifactsBucket
   pTeamName:
