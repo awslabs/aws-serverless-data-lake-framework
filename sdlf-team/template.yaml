@@ -31,7 +31,7 @@ Parameters:
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
 #  pSNSNotificationsEmail:
@@ -426,18 +426,36 @@ Resources:
               - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pTeamName}-*
           - Effect: Allow
             Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-*
+            Condition:
+              StringEquals:
+                "iam:PassedToService":
+                  - glue.amazonaws.com
+          - Effect: Allow
+            Action:
               - glue:StartCrawler
               - glue:GetCrawler
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
           - Effect: Allow
             Action:
+              - glue:GetTable
               - glue:GetJobRun
               - glue:GetJobRuns
               - glue:StartJobRun
+              - glue:StartDataQualityRuleRecommendationRun
+              - glue:GetDataQualityRuleRecommendationRun
+              - glue:StartDataQualityRulesetEvaluationRun
+              - glue:GetDataQualityRulesetEvaluationRun
             Resource:
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrganizationName}_${pDomain}_${pEnvironment}_${pTeamName}_*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # TODO
           - Effect: Allow
             Action:
               - logs:CreateLogGroup
@@ -486,6 +504,11 @@ Resources:
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
       AssumeRolePolicyDocument:
@@ -552,6 +575,11 @@ Resources:
                 Resource:
                   - !GetAtt rKMSInfraKey.Arn
                   - !GetAtt rKMSDataKey.Arn
+                  - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess # W11 exception
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup

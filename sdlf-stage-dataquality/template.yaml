@@ -7,6 +7,14 @@ Parameters:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
     Default: none
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -15,31 +23,34 @@ Parameters:
     Description: The name of the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
-  pDataQualityBucket:
-    Description: S3 bucket to store and analyze the results of AWS Glue Data Quality evaluations
+  pEnv:
+    Description: Environment name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+  pStageName:
+    Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
+  pEntryPoint:
+    Description: Whether the stage is the first stage of the pipeline.
+    Type: String
+    Default: false
+  pTriggerType:
+    Description: Trigger type of the stage (event or schedule)
+    Type: String
+    Default: event
+    AllowedValues: [event, schedule]
+  pSchedule:
+    Description: Cron expression when trigger type is schedule
+    Type: String
+    Default: "cron(*/5 * * * ? *)"
+  pEventPattern:
+    Description: Event pattern to match from previous stage
+    Type: String
+  pStageBucket:
+    Description: The stage bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
-  pKMSKeyId:
-    Type: String
-  pPipelineBucket:
-    Type: String
-  pApplicationName:
-    Description: Name of the application (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,8}"
-    Default: datalake
-  pDataLakeAdminRoleArn:
-    Description: Lake Formation Admin Role Arn
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/IAM/DataLakeAdminRoleArn}}"
-  pEnvironment:
-    Description: Environment name
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pEnv
-  pOrganizationName:
-    Description: Name of the organization (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,9}"
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -100,74 +111,21 @@ Globals:
       - !Ref "AWS::NoValue"
 
 Resources:
-  ######## DYNAMODB #########
-  rDynamoOctagonQualitySuggestions:
-    Type: AWS::DynamoDB::Table
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W28
-            reason: DynamoDB tables require specific names to be compatible with Octagon
+  rPipelineInterface:
+    Type: awslabs::sdlf::pipeline::MODULE
     Properties:
-      KeySchema:
-        - AttributeName: suggestion_hash_key
-          KeyType: HASH
-      AttributeDefinitions:
-        - AttributeName: suggestion_hash_key
-          AttributeType: S
-        - AttributeName: table_hash_key
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      GlobalSecondaryIndexes:
-        - IndexName: table-index
-          KeySchema:
-            - AttributeName: table_hash_key
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TableName: !Sub octagon-DataQualitySuggestions-${pEnvironment}
-      SSESpecification:
-        SSEEnabled: True
-        SSEType: KMS
-        KMSMasterKeyId: !Ref pKMSKeyId
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: True
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
-
-  rDynamoOctagonQualityAnalysis:
-    Type: AWS::DynamoDB::Table
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W28
-            reason: DynamoDB tables require specific names to be compatible with Octagon
-    Properties:
-      KeySchema:
-        - AttributeName: analysis_hash_key
-          KeyType: HASH
-      AttributeDefinitions:
-        - AttributeName: analysis_hash_key
-          AttributeType: S
-        - AttributeName: table_hash_key
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      GlobalSecondaryIndexes:
-        - IndexName: table-index
-          KeySchema:
-            - AttributeName: table_hash_key
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TableName: !Sub octagon-DataQualityAnalysis-${pEnvironment}
-      SSESpecification:
-        SSEEnabled: True
-        SSEType: KMS
-        KMSMasterKeyId: !Ref pKMSKeyId
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: True
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Delete
+      pPipelineReference: !Ref pPipelineReference
+      pOrg: !Ref pOrg
+      pDomain: !Ref pDomain
+      pEnv: !Ref pEnv
+      pTeamName: !Ref pTeamName
+      pPipelineName: !Ref pPipeline
+      pStageName: !Ref pStageName
+      pEntryPoint: !Ref pEntryPoint
+      pTriggerType: !Ref pTriggerType
+      pSchedule: !Ref pSchedule
+      pEventPattern: !Ref pEventPattern
+      pLambdaRoutingStep: !GetAtt rLambdaRoutingStep.Arn
 
   ######## IAM #########
   # Common policy
@@ -213,7 +171,51 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - !Ref pKMSKeyId
+              - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  # Routing Step Role
+  rRoleLambdaExecutionRoutingStep:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-routing
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Ref rStateMachine
+              - Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:DeleteMessageBatch
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListDeadLetterSourceQueues
+                  - sqs:ListQueueTags
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
 
   # Step1 Role
   rRoleLambdaExecutionStep1:
@@ -278,16 +280,31 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource:
-                  - !GetAtt rLambdaStep1.Arn
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipeline}-*
               - Effect: Allow
                 Action:
-                  - glue:StartJobRun
-                  - glue:GetJobRun
-                  - glue:GetJobRuns
-                  - glue:BatchStopJobRun
+                  - glue:StartDataQualityRuleRecommendationRun
+                  - glue:GetDataQualityRuleRecommendationRun
+                  - glue:StartDataQualityRulesetEvaluationRun
+                  - glue:GetDataQualityRulesetEvaluationRun
                 Resource:
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-data-quality-*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # TODO
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService":
+                      - glue.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - glue:GetTable
+                Resource:
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pEnv}_${pTeamName}_*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pEnv}_${pTeamName}_*
               - Effect: Allow
                 Action:
                   - glue:StartCrawler
@@ -302,11 +319,76 @@ Resources:
                 Resource: "*"
 
   ######## LAMBDA #########
+  rLambdaRoutingStep:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/stage-routing/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
+      Description: Checks if items are to be processed and route them to state machine
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          PIPELINE: !Ref pPipeline
+          PIPELINE_STAGE: !Ref pStageName
+          ORG: !Ref pOrg
+          DOMAIN: !Ref pDomain
+          ENV: !Ref pEnv
+      Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
+
+  rLambdaRoutingStepLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rLambdaRedriveStep:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/stage-redrive/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
+      Environment:
+        Variables:
+          TEAM: !Ref pTeamName
+          PIPELINE: !Ref pPipeline
+          STAGE: StageB
+      Description: Redrives Failed messages to the routing queue
+      MemorySize: 256
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
+
+  rLambdaRedriveStepLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
   rLambdaStep1:
     Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
-      CodeUri: ../lambda/initial-check/src
-      FunctionName: sdlf-data-quality-initial-check
+      CodeUri: ./lambda/initial-check/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-dataquality-initial-check-${pStageName}
       Description: Performs checks and determines which Data Quality job to run
       MemorySize: 256
       Timeout: 300
@@ -319,146 +401,28 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSKeyId
-
-  rLambdaReplicate:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: sdlf-glue-replication
-      Description: Replicates Glue Catalog Metadata and Data Quality to Octagon Schemas Table
-      CodeUri: ../lambda/replicate/src
-      Environment:
-        Variables:
-          ENV: !Ref pEnvironment
-      MemorySize: 128
-      Timeout: 300
-      Role: !Ref pDataLakeAdminRoleArn
-
-  rLambdaReplicateLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaReplicate}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pKMSKeyId
-
-  rEventsInvokeLambdaPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref rLambdaReplicate
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt rLambdaEventsRule.Arn
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
   ######## STEP FUNCTIONS #########
-  rDataQualityStateMachine:
+  rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: sdlf-data-quality-sm
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
       DefinitionUri: ./state-machine/data-quality.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
+        dataQualityRole: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+        s3DataQualityResults: !Sub "s3://${pStageBucket}/post-stage/${pTeamName}/"
       Role: !GetAtt rStatesExecutionRole.Arn
 
-  ######## GLUE #########
-  rSuggestionRunnerGlueJob:
-    Type: AWS::Glue::Job
-    Properties:
-      Command:
-        Name: "pythonshell"
-        PythonVersion: "3.9"
-        ScriptLocation: ./glue/scripts/sdlf-data-quality-suggestion-runner.py
-      DefaultArguments:
-        "--TempDir": !Sub "s3://${pPipelineBucket}/glue/"
-        "--enable-metrics": "true"
-        "--enable-glue-datacatalog": ""
-        "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
-        "--team": "default"
-        "--dataset": "default"
-        "--glueDatabase": "default"
-        "--glueTables": "table1,table2"
-        "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
-        "--additional-python-modules": "awswrangler==3.4.2,boto3==1.29.4"
-        "--pDataLakeAdminRoleArn": !Ref pDataLakeAdminRoleArn
-      ExecutionProperty:
-        MaxConcurrentRuns: 10
-      GlueVersion: "1.0"
-      Timeout: 65
-      Name: !Sub sdlf-${pTeamName}-data-quality-suggestion-runner
-      Role: !Ref pDataLakeAdminRoleArn
-
-  rVerificationRunnerGlueJob:
-    Type: AWS::Glue::Job
-    Properties:
-      Command:
-        Name: "pythonshell"
-        PythonVersion: "3.9"
-        ScriptLocation: ./glue/scripts/sdlf-data-quality-verification-runner.py
-      DefaultArguments:
-        "--TempDir": !Sub "s3://${pPipelineBucket}/glue/"
-        "--enable-metrics": "true"
-        "--enable-glue-datacatalog": ""
-        "--dynamodbSuggestionTableName": !Sub octagon-DataQualitySuggestions-${pEnvironment}
-        "--team": "default"
-        "--dataset": "default"
-        "--glueDatabase": "default"
-        "--glueTables": "table1,table2"
-        "--targetBucketName": !Sub "s3://${pDataQualityBucket}"
-        "--additional-python-modules": "awswrangler==3.4.2,boto3==1.29.4"
-        "--pDataLakeAdminRoleArn": !Ref pDataLakeAdminRoleArn
-      ExecutionProperty:
-        MaxConcurrentRuns: 10
-      GlueVersion: "1.0"
-      Timeout: 65
-      Name: !Sub sdlf-${pTeamName}-data-quality-verification-runner
-      Role: !Ref pDataLakeAdminRoleArn
-
-  rGlueDataCatalog:
-    Type: AWS::Glue::Database
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Description: data quality metadata catalog
-        Name: !Sub "${pOrganizationName}_${pApplicationName}_${pEnvironment}_data_quality_db"
-
-  rGlueCrawlerLakeFormationPermissions:
-    Type: AWS::LakeFormation::Permissions
-    Properties:
-      DataLakePrincipal:
-        DataLakePrincipalIdentifier: !Ref pDataLakeAdminRoleArn
-      Permissions:
-        - CREATE_TABLE
-        - ALTER
-        - DROP
-      Resource:
-        DatabaseResource:
-          Name: !Ref rGlueDataCatalog
-
-  ######## EVENTS #########
-  rLambdaEventsRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: Triggers Glue replicate Lambda upon change to metadata catalog
-      State: ENABLED
-      EventPattern:
-        source:
-          - aws.glue
-        detail-type:
-          - Glue Data Catalog Database State Change
-          - Glue Data Catalog Table State Change
-      Targets:
-        - Arn: !GetAtt rLambdaReplicate.Arn
-          Id: LambdaReplicate
-
   ######## SSM #########
-  rDataQualityStateMachineSsm:
+  rStateMachineSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/SM/DataQualityStateMachine
+      Name: !Sub /SDLF/SM/${pTeamName}/${pPipeline}${pStageName}SM
       Type: String
-      Value: !Ref rDataQualityStateMachine
-      Description: Data Quality State Machine
+      Value: !Ref rStateMachine
+      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} State Machine"
 
 Outputs:
   oPipelineReference:

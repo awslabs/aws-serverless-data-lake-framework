@@ -4,7 +4,7 @@ Description: Deploy Glue jobs
 
 Parameters:
   pArtifactsBucket:
-    Description: The artifactory bucket used by CodeBuild and CodePipeline
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: String
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
