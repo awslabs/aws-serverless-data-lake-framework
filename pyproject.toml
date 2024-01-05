@@ -1,16 +1,7 @@
-[tool.black]
-target-version = ["py311"]
-line-length = 120
-extend-exclude = '''
-(
-    ^/sdlf-cicd/sam-translate.py
-)
-'''
-
 [tool.ruff]
 extend-select = ["I", "PL", "W"]
 ignore = ["PLR0912", "PLR0913", "PLR0915"]
-fixable = ["I001"]
+fixable = ["I001", "W291"]
 extend-exclude = ["sdlf-cicd/sam-translate.py"]
 line-length = 120
 target-version = "py311"

@@ -2,7 +2,7 @@
 set -ex
 
 # python
-black --check .
+ruff format --check .
 ruff check .
 # pylint $(git ls-files --exclude-standard '*.py') # pylint is disabled for now
 trivy fs --scanners vuln .

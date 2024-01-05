@@ -51,11 +51,11 @@ jobs:
       - name: install requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install black ruff
-      - name: black
-        run: black --check .
+          python -m pip install ruff
+      - name: ruff format
+        run: ruff format --check .
       - name: ruff
-        run: ruff check .
+        run: ruff check --output-format github .
   shellcheck:
     runs-on: ubuntu-latest
     steps:
