@@ -13,6 +13,7 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     # we assume a Glue Job has already been created based on customer needs
     job_name = f"sdlf-{team}-{dataset}-glue-job"  # Name of the Glue Job
     glue_capacity = {"WorkerType": "G.1X", "NumberOfWorkers": 10}
+    wait_time = 45
     glue_arguments = {
         # Specify any arguments needed based on bucket and keys (e.g. input/output S3 locations)
         "--JOB_NAME": f"sdlf-{team}-{dataset}-glue-job",
@@ -26,6 +27,7 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
             logger.info(f"Details from DynamoDB: {transform_info['pipeline'][pipeline][stage]}")
             job_name = transform_info["pipeline"][pipeline][stage].get("job_name", job_name)
             glue_capacity = transform_info["pipeline"][pipeline][stage].get("glue_capacity", glue_capacity)
+            wait_time = transform_info["pipeline"][pipeline][stage].get("wait_time", wait_time)
             glue_arguments |= transform_info["pipeline"][pipeline][stage].get("glue_extra_arguments", {})
 
     return {"job_name": job_name, "arguments": glue_arguments, **glue_capacity}
