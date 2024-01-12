@@ -50,7 +50,32 @@
               "Parameters": {
                 "Name.$": "$.body.glue.crawler_name"
               },
-              "Next": "Post-update Catalog"
+              "Next": "Wait X Seconds"
+            },
+            "Wait X Seconds": {
+              "Type": "Wait",
+              "SecondsPath": "$.body.glue.wait_time",
+              "Next": "GetCrawler"
+            },
+            "GetCrawler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+              "ResultPath": "$.body.glue.crawler_response",
+              "Parameters": {
+                "Name.$": "$.body.glue.crawler_name"
+              },
+              "Next": "Crawler Complete?"
+            },
+            "Crawler Complete?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.body.glue.crawler_response.Crawler.State",
+                  "StringEquals": "READY",
+                  "Next": "Post-update Catalog"
+                }
+              ],
+              "Default": "Wait X Seconds"
             },
             "Post-update Catalog": {
               "Type": "Task",

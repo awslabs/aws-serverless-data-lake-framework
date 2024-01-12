@@ -364,7 +364,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-b-redrive/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-b
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
       Environment:
         Variables:
           TEAM: !Ref pTeamName
