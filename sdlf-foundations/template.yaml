@@ -343,8 +343,8 @@ Resources:
       BucketName:
         !If [
           UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-s3-access-logs",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3-access-logs",
+          !Sub "${pCustomBucketPrefix}-s3logs",
+          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs",
         ]
       LifecycleConfiguration:
         Rules:
@@ -459,16 +459,16 @@ Resources:
       BucketName:
         !If [
           UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-artifactory",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifactory",
+          !Sub "${pCustomBucketPrefix}-artifacts",
+          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If [
             UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-artifactory",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifactory",
+            !Sub "${pCustomBucketPrefix}-artifacts",
+            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
