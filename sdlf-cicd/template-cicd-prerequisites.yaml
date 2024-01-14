@@ -215,8 +215,8 @@ Resources:
       BucketName:
         !If [
           UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-devops-s3-access-logs",
-          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-devops-s3-access-logs",
+          !Sub "${pCustomBucketPrefix}-devops-s3logs",
+          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-devops-s3logs",
         ]
       LifecycleConfiguration:
         Rules:
