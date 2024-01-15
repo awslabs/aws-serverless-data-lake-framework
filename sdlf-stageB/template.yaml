@@ -589,6 +589,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - glue:StartCrawler
+                  - glue:GetCrawler
                 Resource:
                   - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
               - Effect: Allow

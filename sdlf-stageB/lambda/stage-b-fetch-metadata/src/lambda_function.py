@@ -30,7 +30,7 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
             wait_time = transform_info["pipeline"][pipeline][stage].get("wait_time", wait_time)
             glue_arguments |= transform_info["pipeline"][pipeline][stage].get("glue_extra_arguments", {})
 
-    return {"job_name": job_name, "arguments": glue_arguments, **glue_capacity}
+    return {"job_name": job_name, "wait_time": wait_time, "arguments": glue_arguments, **glue_capacity}
 
 
 def lambda_handler(event, context):
