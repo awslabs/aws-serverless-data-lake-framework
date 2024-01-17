@@ -244,7 +244,7 @@ def lambda_handler(event, context):
             "stack_delete_complete": [],
         }
         for legacy_domain in legacy_domains:
-            stack_details = delete_domain_cicd_stack(domain, environment, cloudformation_role)
+            stack_details = delete_domain_cicd_stack(legacy_domain, environment, cloudformation_role)
             cloudformation_waiters[stack_details[1]].append(stack_details[0])
         cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
         for stack in cloudformation_waiters["stack_delete_complete"]:
