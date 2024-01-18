@@ -3,7 +3,7 @@ sflag=false
 pflag=false
 
 DIRNAME=$(dirname "$0")
-STACK_NAME=sdlf-engineering-legislators-glue-job
+STACK_NAME=sdlf-iot-legislators-glue-job
 
 usage () { echo "
     -h -- Opens up this help message
@@ -57,7 +57,7 @@ function send_legislators()
   
   CENTRAL_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/CentralBucket --query "Parameter.Value" --output text)
   STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/StageBucket --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/KMS/engineering/DataKeyId --query "Parameter.Value" --output text)
+  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/KMS/iot/DataKeyId --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$CENTRAL_BUCKET/
   COUNT=0
@@ -65,9 +65,9 @@ function send_legislators()
   do
     (( COUNT++ )) || true
     if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp "$FILE" "${S3_DESTINATION}raw/engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}raw/iot/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     else
-      aws s3 cp "$FILE" "${S3_DESTINATION}engineering/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}iot/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     fi
     echo "transferred $COUNT files"
   done

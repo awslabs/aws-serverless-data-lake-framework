@@ -12,7 +12,7 @@ Resources:
         Properties:
             pPipelineReference: !Ref pPipelineReference
             pStageName: A
-            pPipeline: main
+            pPipeline: mainE
             pTeamName: iot
             pTriggerType: event
             pEventPattern: >-
@@ -24,7 +24,7 @@ Resources:
                             "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
                         },
                         "object": {
-                            "key": [{ "prefix": "iot/legislators/" }]
+                            "key": [{ "prefix": "iot/legislatorsE/" }]
                         }
                     }
                 }
@@ -36,7 +36,7 @@ Resources:
             pPipelineReference: !Ref pPipelineReference
             pDatasetBucket: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
             pStageName: B
-            pPipeline: main
+            pPipeline: mainE
             pTeamName: iot
             pTriggerType: schedule
             pEventPattern: !Sub >-
@@ -45,7 +45,7 @@ Resources:
                     "detail-type": ["Step Functions Execution Status Change"],
                     "detail": {
                         "status": ["SUCCEEDED"],
-                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-main-sm-a"]
+                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-mainE-sm-a"]
                     }
                 }
             pSchedule: "cron(*/5 * * * ? *)"
@@ -56,7 +56,7 @@ Resources:
         Properties:
             pPipelineReference: !Ref pPipelineReference
             pStageName: DQ
-            pPipeline: main
+            pPipeline: mainE
             pTeamName: iot
             pTriggerType: event
             pEventPattern: !Sub >-
@@ -65,7 +65,7 @@ Resources:
                     "detail-type": ["Step Functions Execution Status Change"],
                     "detail": {
                         "status": ["SUCCEEDED"],
-                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-main-sm-b"]
+                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-mainE-sm-b"]
                     }
                 }
             pEnableTracing: false

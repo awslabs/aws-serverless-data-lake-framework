@@ -18,6 +18,105 @@ Resources:
             Tags:
                 - Key: sdlf:pipeline
                   Value: main
+    rMainA:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainA.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainA
+    rMainB:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainB.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainB
+    rMainC:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainC.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainC
+    rMainD:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainD.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainD
+    rMainE:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainE.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainE
+    rMainF:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainF.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainF
+    rMainG:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainG.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainG
+    rMainH:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainH.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainH
+    rMainI:
+        Type: AWS::CloudFormation::Stack
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            TemplateURL: ./pipeline-mainI.yaml
+            Parameters:
+                pPipelineReference: !Ref pPipelineReference
+            Tags:
+                - Key: sdlf:pipeline
+                  Value: mainI
     rSingleStage:
         Type: AWS::CloudFormation::Stack
         DeletionPolicy: Delete

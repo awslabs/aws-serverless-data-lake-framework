@@ -13,3 +13,11 @@ Resources:
             pPipelineReference: !Ref pPipelineReference
             pTeamName: iot
             pDatasetName: legislators
+            pPipelineDetails: >-
+                {
+                    "main": {
+                        "DQ": {
+                            "dataquality_tables": [ "persons" ]
+                        }
+                    }
+                }

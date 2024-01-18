@@ -13,7 +13,7 @@ Parameters:
   pTeamName:
     Description: The team name
     Type: String
-    Default: engineering
+    Default: iot
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>

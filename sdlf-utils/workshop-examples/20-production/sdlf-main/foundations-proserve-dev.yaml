@@ -11,7 +11,7 @@ Resources:
         Type: awslabs::sdlf::foundations::MODULE
         Properties:
             pPipelineReference: !Ref pPipelineReference
-            pChildAccountId: 111111111111
+            pChildAccountId: 436842067083
             pOrg: forecourt
             pDomain: proserve
             pEnvironment: dev
