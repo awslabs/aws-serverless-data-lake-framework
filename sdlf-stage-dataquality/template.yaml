@@ -288,7 +288,7 @@ Resources:
                   - glue:StartDataQualityRulesetEvaluationRun
                   - glue:GetDataQualityRulesetEvaluationRun
                 Resource:
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # TODO
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
               - Effect: Allow
                 Action:
                   - iam:PassRole
