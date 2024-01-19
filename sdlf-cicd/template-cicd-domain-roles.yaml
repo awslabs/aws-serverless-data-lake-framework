@@ -546,6 +546,11 @@ Resources:
                   - lakeformation:RegisterResource # W11 exception
                   - lakeformation:RevokePermissions # W11 exception
                   - lakeformation:UpdateResource # W11 exception
+                  - lakeformation:CreateLFTag # W11 exception
+                  - lakeformation:DeleteLFTag # W11 exception
+                  - lakeformation:UpdateLFTag # W11 exception
+                  - lakeformation:ListPermissions # W11 exception
+                  - lakeformation:GetLFTag # W11 exception
                 Resource: "*"
               - Effect: Allow
                 Action:

@@ -243,6 +243,10 @@ Resources:
               - lakeformation:GetDataAccess # W11 exception
               - lakeformation:GrantPermissions # W11 exception
               - lakeformation:RevokePermissions # W11 exception
+              - lakeformation:GetResourceLFTags # W11 exception
+              - lakeformation:AddLFTagsToResource # W11 exception
+              - lakeformation:RemoveLFTagsFromResource # W11 exception
+              - lakeformation:ListPermissions # W11 exception
             Resource: "*"
           - Effect: Allow
             Action:
