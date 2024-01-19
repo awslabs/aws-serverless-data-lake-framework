@@ -96,7 +96,7 @@ Resources:
                   - cloudformation:DeleteChangeSet
                   - cloudformation:DeleteStack
                   - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:SetStackPolicy
                   - cloudformation:UpdateStack

@@ -544,7 +544,7 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: '1'
+                Version: "1"
               InputArtifacts:
                 - Name: TemplateSource
                 - Name: TemplatePackage
