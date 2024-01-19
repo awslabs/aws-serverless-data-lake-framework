@@ -56,6 +56,19 @@ Resources:
         Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
         Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
+  rGlueDataCatalogLakeFormationTag:
+      Type: AWS::LakeFormation::TagAssociation
+      Properties:
+        Resource:
+          Database:
+            CatalogId: !Ref AWS::AccountId
+            Name: !Ref rGlueDataCatalog
+        LFTags:
+          - CatalogId: !Ref AWS::AccountId
+            TagKey: !Sub "sdlf:team:${pTeamName}"
+            TagValues:
+              - !Sub ${pTeamName}
+
   rGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:

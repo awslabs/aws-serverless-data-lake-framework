@@ -318,6 +318,23 @@ Resources:
                   - xray:GetSamplingTargets # W11 exception
                 Resource: "*"
 
+  rStatesExecutionLakeFormationPermissions:
+    Type: AWS::LakeFormation::PrincipalPermissions
+    Properties:
+      Principal:
+        DataLakePrincipalIdentifier: !GetAtt rStatesExecutionRole.Arn
+      Resource:
+        LFTagPolicy:
+          CatalogId: !Ref AWS::AccountId
+          ResourceType: TABLE
+          Expression:
+            - TagKey: !Sub "sdlf:team:${pTeamName}"
+              TagValues:
+                - !Sub ${pTeamName}
+      Permissions:
+        - SELECT
+      PermissionsWithGrantOption: []
+
   ######## LAMBDA #########
   rLambdaRoutingStep:
     Type: AWS::Serverless::Function
