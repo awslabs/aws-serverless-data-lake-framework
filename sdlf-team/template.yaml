@@ -6,7 +6,7 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
-  pOrganizationName:
+  pOrg:
     Description: Name of the organization owning the datalake
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
@@ -500,10 +500,10 @@ Resources:
               - glue:GetDataQualityRulesetEvaluationRun
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrganizationName}_${pDomain}_${pEnvironment}_${pTeamName}_*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrganizationName}_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrganizationName}-${pDomain}-${pEnvironment}-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
           - Effect: Allow
             Action:

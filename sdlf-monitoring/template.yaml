@@ -5,6 +5,8 @@ Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboa
 Parameters:
   pDomain:
     Type: String
+  pOrg:
+    Type: String
   pEnvironment:
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
@@ -21,8 +23,6 @@ Parameters:
     Description: Optional The log file prefix.
     Type: String
     Default: ""
-  pOrganizationName:
-    Type: String
   pOpenSearchDomain:
     Description: OpenSearch domain name
     Type: String
@@ -256,7 +256,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-cloudtrail",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
         ]
       LoggingConfiguration:
         DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
@@ -264,7 +264,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Ref pCustomBucketPrefix,
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -753,7 +753,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Ref pCustomBucketPrefix,
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
