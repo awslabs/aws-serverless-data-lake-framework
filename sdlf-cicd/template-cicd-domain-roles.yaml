@@ -321,7 +321,14 @@ Resources:
                   - events:PutRule
                   - events:PutTargets
                   - events:RemoveTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
+                  - events:DescribeEventBus
+                  - events:CreateEventBus
+                  - events:DeleteEventBus
+                  - events:TagResource
+                  - events:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-*
+                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:event-bus/sdlf-*
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-domain-*
@@ -330,6 +337,7 @@ Resources:
                     "iam:PassedToService":
                       - lambda.amazonaws.com
                       - lakeformation.amazonaws.com
+                      - events.amazonaws.com
               - Effect: Allow
                 Action:
                   - iam:DeleteRole

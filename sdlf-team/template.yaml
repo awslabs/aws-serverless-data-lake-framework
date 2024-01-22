@@ -208,6 +208,47 @@ Resources:
       AliasName: !Sub alias/sdlf-${pTeamName}-kms-data-key
       TargetKeyId: !Ref rKMSDataKey
 
+  rEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+        Name: !Sub sdlf-${pTeamName}
+
+  rForwardEventBusTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource:
+                  - !GetAtt rEventBus.Arn
+
+  rForwardEventBusRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - prefix: aws.
+        account:
+          - !Ref AWS::AccountId
+        region:
+          - !Ref AWS::Region
+      Targets:
+        - Arn: !GetAtt rEventBus.Arn
+          RoleArn: !GetAtt rForwardEventBusTriggerRole.Arn
+          Id: default-to-sdlf-team
+
   rScheduleGroup:
     Type: AWS::Scheduler::ScheduleGroup
     Properties:
@@ -270,6 +311,14 @@ Resources:
       Type: String
       Value: !GetAtt rKMSDataKey.Arn
       Description: !Sub Arn of the ${pTeamName} KMS data key
+
+  rEventBusSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/EventBridge/${pTeamName}/EventBusName
+      Type: String
+      Value: !Ref rEventBus
+      Description: !Sub Name of the ${pTeamName} event bus
 
   rScheduleGroupSsm:
     Type: AWS::SSM::Parameter
