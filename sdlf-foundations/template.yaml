@@ -11,6 +11,10 @@ Parameters:
     Type: String
     AllowedPattern: (\d{12}|^$)
     ConstraintDescription: Must be an AWS account ID
+  pOrg:
+    Description: Name of the organization owning the datalake (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,9}"
   pDomain:
     Description: Data domain name
     Type: String
@@ -27,10 +31,6 @@ Parameters:
     Type: String
     AllowedValues: ["3", "1"]
     ConstraintDescription: Must specify 3 or 1
-  pOrganizationName:
-    Description: Name of the organization (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,9}"
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -344,7 +344,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-s3logs",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs",
         ]
       LifecycleConfiguration:
         Rules:
@@ -391,7 +391,7 @@ Resources:
                   !If [
                     UseCustomBucketPrefix,
                     !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*",
-                    !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*",
+                    !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*",
                   ]
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
@@ -460,7 +460,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-artifacts",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -468,7 +468,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Sub "${pCustomBucketPrefix}-artifacts",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -510,7 +510,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Ref pCustomBucketPrefix,
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -518,7 +518,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Ref pCustomBucketPrefix,
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -574,7 +574,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-raw",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -582,7 +582,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Sub "${pCustomBucketPrefix}-raw",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -638,7 +638,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-stage",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -646,7 +646,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Sub "${pCustomBucketPrefix}-stage",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -702,7 +702,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-analytics",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -710,7 +710,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Sub "${pCustomBucketPrefix}-analytics",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -764,7 +764,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-athena",
-          !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
         ]
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
@@ -772,7 +772,7 @@ Resources:
           !If [
             UseCustomBucketPrefix,
             !Sub "${pCustomBucketPrefix}-athena",
-            !Sub "${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -902,11 +902,11 @@ Resources:
                     !If [
                       CreateMultipleBuckets,
                       [
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
+                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
                       ],
-                      !Sub "arn:${AWS::Partition}:s3:::${pOrganizationName}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+                      !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
                     ],
                   ]
               StringEquals:
@@ -1635,7 +1635,7 @@ Resources:
     Properties:
       Name: /SDLF/Misc/pOrg
       Type: String
-      Value: !Ref pOrganizationName
+      Value: !Ref pOrg
       Description: Name of the Organization owning the datalake
 
   rDomainSsm:

@@ -5,6 +5,10 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pDomain:
     Description: Data domain name
     Type: String
@@ -17,10 +21,6 @@ Parameters:
     Description: Environment name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
-  pOrg:
-    Description: Name of the organization owning the datalake
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String

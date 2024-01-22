@@ -12,7 +12,7 @@ Resources:
         Properties:
             pPipelineReference: !Ref pPipelineReference
             pChildAccountId: !Ref "AWS::AccountId"
-            pOrganizationName: forecourt
+            pOrg: forecourt
             pDomain: datalake
             pEnvironment: dev
             pNumBuckets: 3

@@ -12,7 +12,7 @@ Resources:
         Properties:
             pPipelineReference: !Ref pPipelineReference
             pChildAccountId: 111111111111
-            pOrganizationName: forecourt
+            pOrg: forecourt
             pDomain: proserve
             pEnvironment: dev
             pNumBuckets: 3

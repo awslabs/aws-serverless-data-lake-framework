@@ -7,14 +7,14 @@ Parameters:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
     Default: none
-  pDomain:
-    Description: Data domain name
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
