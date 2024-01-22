@@ -56,8 +56,8 @@ Resources:
     Properties:
       Name: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
       Description: !Sub Send events to ${pStageName} queue
-      EventPattern:
-        Ref: pEventPattern
+      EventPattern: !Ref pEventPattern
+      EventBusName: !Sub "{{resolve:ssm:/SDLF/EventBridge/${pTeamName}/EventBusName}}"
       State: ENABLED
       Targets:
         - Id: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}

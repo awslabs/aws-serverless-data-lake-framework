@@ -111,7 +111,7 @@ Resources:
                   - events:PutRule
                   - events:PutTargets
                   - events:RemoveTargets
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/sdlf-${pTeamName}/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - sqs:AddPermission
