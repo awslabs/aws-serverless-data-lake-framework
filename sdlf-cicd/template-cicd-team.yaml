@@ -106,6 +106,7 @@ Resources:
       #     Key: zip
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
       RepositoryName: !Sub sdlf-main-${pDomain}-${pTeamName}
+      KmsKeyId: !Ref pKMSKey
 
   rTeamMainCodePipelineRole:
     Type: AWS::IAM::Role
