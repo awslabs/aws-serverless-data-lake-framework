@@ -81,6 +81,7 @@ Resources:
         S3: ../sdlf-cicd
       RepositoryDescription: sdlf-cicd repository
       RepositoryName: !Ref pCicdRepository
+      KmsKeyId: !Ref pKMSKey
 
   rFoundationsCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -95,6 +96,7 @@ Resources:
         S3: ../sdlf-foundations
       RepositoryDescription: sdlf-foundations repository
       RepositoryName: !Ref pFoundationsRepository
+      KmsKeyId: !Ref pKMSKey
 
   rTeamCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -109,6 +111,7 @@ Resources:
         S3: ../sdlf-team
       RepositoryDescription: sdlf-team repository
       RepositoryName: !Ref pTeamRepository
+      KmsKeyId: !Ref pKMSKey
 
   rPipelineCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -123,6 +126,7 @@ Resources:
         S3: ../sdlf-pipeline
       RepositoryDescription: sdlf-pipeline repository
       RepositoryName: !Ref pPipelineRepository
+      KmsKeyId: !Ref pKMSKey
 
   rDatasetCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -137,6 +141,7 @@ Resources:
         S3: ../sdlf-dataset
       RepositoryDescription: sdlf-dataset repository
       RepositoryName: !Ref pDatasetRepository
+      KmsKeyId: !Ref pKMSKey
 
   rStageACodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -151,6 +156,7 @@ Resources:
         S3: ../sdlf-stageA
       RepositoryDescription: sdlf-stageA repository
       RepositoryName: !Ref pStageARepository
+      KmsKeyId: !Ref pKMSKey
 
   rStageBCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -165,6 +171,7 @@ Resources:
         S3: ../sdlf-stageB
       RepositoryDescription: sdlf-stageB repository
       RepositoryName: !Ref pStageBRepository
+      KmsKeyId: !Ref pKMSKey
 
   rDatalakeLibraryCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -179,6 +186,7 @@ Resources:
         S3: ../sdlf-datalakeLibrary
       RepositoryDescription: sdlf-datalakeLibrary repository
       RepositoryName: !Ref pDatalakeLibraryRepository
+      KmsKeyId: !Ref pKMSKey
 
   rMainCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -188,6 +196,7 @@ Resources:
       #   S3: ../sdlf-main
       RepositoryDescription: sdlf-main repository
       RepositoryName: !Ref pMainRepository
+      KmsKeyId: !Ref pKMSKey
 
   rCicdCodeCommitSsm:
     Type: AWS::SSM::Parameter
