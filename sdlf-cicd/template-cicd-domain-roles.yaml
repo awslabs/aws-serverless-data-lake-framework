@@ -21,11 +21,16 @@ Parameters:
     Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
+  pEnableMonitoring:
+    Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: String
+    Default: false
 
 Conditions:
   MultiAccountSetup: !Not [!Equals [!Ref pDevOpsAccountId, !Ref "AWS::AccountId"]]
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
@@ -422,7 +427,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
-                  - logs:DescribeLogGroups
                   - logs:CreateLogStream
                   - logs:DeleteLogStream
                   - logs:DeleteLogGroup
@@ -431,7 +435,12 @@ Resources:
                   - logs:PutRetentionPolicy
                   - logs:TagLogGroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/*/sdlf-*
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups # W11 exception
+                Resource:
+                  - "*"
               - Effect: Allow
                 Action: sns:ListTopics # W11 exception
                 Resource: "*"
@@ -596,6 +605,44 @@ Resources:
                   Resource:
                     - "*"
                 - !Ref "AWS::NoValue"
+
+  rMonitoringDomainCloudFormationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnableMonitoring
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudtrail:CreateTrail
+              - cloudtrail:DeleteTrail
+              - cloudtrail:AddTags
+              - cloudtrail:RemoveTags
+              - cloudtrail:StartLogging
+              - cloudtrail:StopLogging
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/sdlf-domain-*
+          - Effect: Allow
+            Action:
+              - firehose:DescribeDeliveryStream
+              - firehose:CreateDeliveryStream
+              - firehose:DeleteDeliveryStream
+              - firehose:TagDeliveryStream
+              - firehose:UntagDeliveryStream
+            Resource:
+              - !Sub arn:${AWS::Partition}:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/sdlf-cwlogs-to-os
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-domain-*
+            Condition:
+              StringEquals:
+                "iam:PassedToService":
+                  - cloudtrail.amazonaws.com
+      Roles:
+        - !Ref rDomainCloudFormationRole
 
   rTeamCloudFormationRole:
     Type: AWS::IAM::Role

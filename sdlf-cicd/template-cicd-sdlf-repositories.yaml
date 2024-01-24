@@ -43,6 +43,9 @@ Parameters:
   pStagesRepositoriesPrefix:
     Type: String
     Default: sdlf-stage-
+  pMonitoringRepository:
+    Type: String
+    Default: sdlf-monitoring
   pDatalakeLibsLambdaLayerName:
     Description: Name to give the Lambda Layer containing the Datalake Library.
     Type: String
@@ -60,10 +63,15 @@ Parameters:
     Description: Add Glue job deployer infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/GlueJobDeployer/Enabled
+  pEnableMonitoring:
+    Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Monitoring/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
@@ -198,6 +206,22 @@ Resources:
       RepositoryName: !Ref pMainRepository
       KmsKeyId: !Ref pKMSKey
 
+  rMonitoringCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Condition: EnableMonitoring
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
+    Properties:
+      Code:
+        BranchName: main
+        S3: ../sdlf-monitoring
+      RepositoryDescription: sdlf-monitoring repository
+      RepositoryName: !Ref pMonitoringRepository
+      KmsKeyId: !Ref pKMSKey
+
   rCicdCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -277,6 +301,15 @@ Resources:
       Type: String
       Value: !GetAtt rMainCodeCommit.Name
       Description: Name of the main repository
+
+  rMonitoringCodeCommitSsm:
+    Type: AWS::SSM::Parameter
+    Condition: EnableMonitoring
+    Properties:
+      Name: /SDLF/CodeCommit/MonitoringCodeCommit
+      Type: String
+      Value: !GetAtt rMonitoringCodeCommit.Name
+      Description: Name of the monitoring repository
 
   rCloudFormationModuleInfrastructure:
     Type: AWS::CloudFormation::Stack
@@ -711,6 +744,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/LambdaLayerBuilder/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GlueJobDeployer/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
               - Effect: Allow
                 Action:
