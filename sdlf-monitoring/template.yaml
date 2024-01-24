@@ -1,17 +1,27 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboards, ELK, Budgets
 
 Parameters:
-  pDomain:
+  pPipelineReference:
+    Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
+    Default: none
   pOrg:
+    Description: Name of the organization owning the datalake
     Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
   pEnvironment:
+    Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
-  pSNSNotificationsEmail:
-    Type: CommaDelimitedList
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+  pCloudtrailEnabled:
+    Type: String
+    Default: false
   pCustomBucketPrefix:
     Type: String
     Default: sdlf
@@ -23,12 +33,6 @@ Parameters:
     Description: Optional The log file prefix.
     Type: String
     Default: ""
-  pOpenSearchDomain:
-    Description: OpenSearch domain name
-    Type: String
-  pOpenSearchDomainEndpoint:
-    Description: OpenSearch domain endpoint
-    Type: String
   pS3DataEvents:
     Description: Record data events of all S3 buckets
     Type: String
@@ -60,201 +64,79 @@ Parameters:
         1827,
         3653,
       ]
-
-  # SDLF specific parameters
-  octagonObjectMetadatastreamarn:
+  pLogsForwardingEnabled:
     Type: String
-  LambdaCatalog:
+    Default: false
+  pOpenSearchDomain:
+    Description: OpenSearch domain name
     Type: String
-  LambdaCatalogRedrive:
+    Default: ""
+  pSnsEnabled:
     Type: String
-  LambdaReplicate:
+    Default: false
+  pStorageLensEnabled:
     Type: String
-  KMSKeyId:
+    Default: false
+  pTeamName:
     Type: String
-    Default: "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
+    Default: ""
+  pDataset:
+    Type: String
+    Default: ""
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
 
 Conditions:
-  InternalBucket: !Equals [!Ref pExternalTrailBucket, ""]
-  ExternalBucket: !Not [!Equals [!Ref pExternalTrailBucket, ""]]
-  HasLogFilePrefix: !Not [!Equals [!Ref pLogFilePrefix, ""]]
-  IsS3DataEvents: !Equals [!Ref pS3DataEvents, "true"]
-  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, "sdlf"]]
+  cTeamLevel: !And
+    - !Not [!Equals [!Ref pTeamName, ""]]
+    - !Equals [!Ref pDataset, ""]
+  cDatasetLevel: !And
+    - !Not [!Equals [!Ref pDataset, ""]]
+    - !Equals [!Ref pTeamName, ""]
+  cCloudtrailEnabled: !And
+    - !Not [!Condition cTeamLevel]
+    - !Not [!Condition cDatasetLevel]
+    - !Equals [!Ref pCloudtrailEnabled, true]
+  cLogsForwardingEnabled: !And
+    - !Not [!Condition cTeamLevel]
+    - !Not [!Condition cDatasetLevel]
+    - !Equals [!Ref pLogsForwardingEnabled, true]
+  cSnsEnabled: !And
+    - !Or
+        - !Condition cTeamLevel
+        - !Condition cDatasetLevel
+    - !Equals [!Ref pSnsEnabled, true]
+  cStorageLensEnabled: !And
+    - !Or
+        - !Condition cTeamLevel
+        - !Condition cDatasetLevel
+    - !Equals [!Ref pStorageLensEnabled, true]
+  cInternalBucket: !And
+    - !Condition cCloudtrailEnabled
+    - !Equals [!Ref pExternalTrailBucket, ""]
+  cExternalBucket: !And
+    - !Condition cCloudtrailEnabled
+    - !Not [!Equals [!Ref pExternalTrailBucket, ""]]
+  cHasLogFilePrefix: !Not [!Equals [!Ref pLogFilePrefix, ""]]
+  cIsS3DataEvents: !Equals [!Ref pS3DataEvents, true]
+  cUseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, "sdlf"]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
-  ######## LAMBDA #########
-  rSNSTopicSubscriptionLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      Runtime: python3.11
-      Handler: lambda_function.lambda_handler
-      KmsKeyArn: !Ref KMSKeyId
-      CodeUri: ./lambda/topic/src
-      FunctionName: sdlf-cr-sns-topic-endpoints-subscription
-      Description: Subscribes multiple endpoints to an SNS topic.
-      Role: !GetAtt rSNSTopicSubscriptionRole.Arn
-      Timeout: 30
-      Environment:
-        Variables:
-          TEAM_METADATA_TABLE_SSM_PARAM: /SDLF/Dynamo/TeamMetadata
-
-  ######## IAM #########
-  rSNSTopicSubscriptionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-        Version: 2012-10-17
-      Policies:
-        - PolicyName: root
-          PolicyDocument:
-            Statement:
-              - Action:
-                  - logs:CreateLogGroup
-                  - logs:DescribeLogGroups
-                  - logs:CreateLogStream
-                  - logs:DescribeLogStreams
-                  - logs:PutLogEvents
-                Effect: Allow
-                Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
-                Sid: LogAccessPolicy
-              - Action:
-                  - sns:Unsubscribe
-                  - sns:Subscribe
-                Effect: Allow
-                Resource:
-                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
-                Sid: SNSSubscription
-              - Action:
-                  - ssm:GetParameter
-                Effect: Allow
-                Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-                Sid: SSMGetParameter
-              - Action:
-                  - dynamodb:GetItem
-                  - dynamodb:PutItem
-                Effect: Allow
-                Resource:
-                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-Teams-${pEnvironment}
-                Sid: DynamoDBControl
-            Version: 2012-10-17
-
-  ######## SNS #########
-  rSNSTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: sdlf-notifications
-      KmsMasterKeyId: !Ref KMSKeyId
-
-  rSNSTopicPolicy:
-    Type: AWS::SNS::TopicPolicy
-    Properties:
-      PolicyDocument:
-        Id: sdlf-notifications
-        Version: 2012-10-17
-        Statement:
-          - Sid: sdlf-notifications
-            Effect: Allow
-            Principal:
-              Service:
-                - cloudtrail.amazonaws.com
-                - cloudwatch.amazonaws.com
-            Action: sns:Publish
-            Resource: !Ref rSNSTopic
-      Topics:
-        - !Ref rSNSTopic
-
-  rSnsTopicSubscriptionLambdaArnSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/SNS/SnsTopicSubscriptionLambda
-      Type: String
-      Value: !GetAtt rSNSTopicSubscriptionLambda.Arn
-      Description: SNS Topic Subscription Lambda ARN
-
-  ######## CLOUDWATCH #########
-  rLambdaCatalogCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Catalog Lambda Alarm
-      AlarmActions:
-        - !Ref rSNSTopic
-      MetricName: Errors
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 10
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref LambdaCatalog
-
-  ####### Event Rules #######
-  rCICDFoundationsPipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: sdlf-cicd-foundations-failure
-      Description: Notify data lake admins of foundations CICD pipeline failure
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-foundations
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: sdlf-cicd-foundations-failure
-          InputTransformer:
-            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-foundations"'
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
-  rCICDTeamPipelineFailedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: sdlf-cicd-team-failure
-      Description: Notify data lake admins of team CICD pipeline failure
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - CodePipeline Pipeline Execution State Change
-        detail:
-          state:
-            - FAILED
-          pipeline:
-            - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-team
-      State: ENABLED
-      Targets:
-        - Arn: !Ref rSNSTopic
-          Id: sdlf-cicd-team-failure
-          InputTransformer:
-            InputTemplate: !Sub '"The Pipeline <pipeline> has failed. Go to https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/sdlf-cicd-team"'
-            InputPathsMap:
-              pipeline: $.detail.pipeline
-
-  ######## CLOUDTRAIL #########
+  ######## CLOUDTRAIL (FOUNDATIONS-LEVEL ONLY) #########
   rTrailBucket:
-    Condition: InternalBucket
     Type: AWS::S3::Bucket
+    Condition: cInternalBucket
     Properties:
       BucketName:
         !If [
-          UseCustomBucketPrefix,
+          cUseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-cloudtrail",
           !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
         ]
@@ -262,14 +144,16 @@ Resources:
         DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
         LogFilePrefix:
           !If [
-            UseCustomBucketPrefix,
+            cUseCustomBucketPrefix,
             !Ref pCustomBucketPrefix,
             !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Sub "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              SSEAlgorithm: aws:kms
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
@@ -277,8 +161,8 @@ Resources:
         RestrictPublicBuckets: True
 
   rTrailBucketPolicy:
-    Condition: InternalBucket
     Type: AWS::S3::BucketPolicy
+    Condition: cInternalBucket
     Properties:
       Bucket: !Ref rTrailBucket
       PolicyDocument:
@@ -297,7 +181,7 @@ Resources:
             Action: s3:PutObject
             Resource:
               !If [
-                HasLogFilePrefix,
+                cHasLogFilePrefix,
                 !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/${pLogFilePrefix}/AWSLogs/${AWS::AccountId}/*",
                 !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/AWSLogs/${AWS::AccountId}/*",
               ]
@@ -317,14 +201,17 @@ Resources:
 
   rTrailLogGroup:
     Type: AWS::Logs::LogGroup
-    UpdateReplacePolicy: Retain
+    Condition: cCloudtrailEnabled
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
+      LogGroupName: /aws/cloudtrail/sdlf-trail
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
   rTrailLogGroupRole:
     Type: AWS::IAM::Role
+    Condition: cCloudtrailEnabled
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -346,16 +233,16 @@ Resources:
                 Resource: !GetAtt rTrailLogGroup.Arn
 
   rTrail:
-    Condition: InternalBucket
+    Type: AWS::CloudTrail::Trail
+    Condition: cInternalBucket
     DependsOn:
       - rTrailBucketPolicy
-    Type: AWS::CloudTrail::Trail
     Properties:
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: false
       EventSelectors: !If
-        - IsS3DataEvents
+        - cIsS3DataEvents
         -
           - DataResources:
             - Type: AWS::S3::Object
@@ -364,7 +251,7 @@ Resources:
             IncludeManagementEvents: true
             ReadWriteType: All
         - !Ref "AWS::NoValue"
-      KMSKeyId: !Ref KMSKeyId
+      KMSKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
       S3BucketName: !Ref rTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
       EnableLogFileValidation: true
@@ -372,14 +259,14 @@ Resources:
       CloudWatchLogsRoleArn: !GetAtt rTrailLogGroupRole.Arn
 
   rExternalTrail:
-    Condition: ExternalBucket
     Type: AWS::CloudTrail::Trail
+    Condition: cExternalBucket
     Properties:
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: true
       EventSelectors: !If
-        - IsS3DataEvents
+        - cIsS3DataEvents
         -
           - DataResources:
             - Type: AWS::S3::Object
@@ -388,7 +275,7 @@ Resources:
             IncludeManagementEvents: true
             ReadWriteType: All
         - !Ref "AWS::NoValue"
-      KMSKeyId: !Ref KMSKeyId
+      KMSKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
       S3BucketName: !Ref pExternalTrailBucket
       S3KeyPrefix: !Ref pLogFilePrefix
       EnableLogFileValidation: true
@@ -397,368 +284,50 @@ Resources:
 
   rTrailBucketSsm:
     Type: AWS::SSM::Parameter
+    Condition: cCloudtrailEnabled
     Properties:
       Name: /SDLF/S3/CloudTrailBucket
       Type: String
-      Value: !If [InternalBucket, !Ref rTrailBucket, !Ref pExternalTrailBucket]
+      Value: !If [cInternalBucket, !Ref rTrailBucket, !Ref pExternalTrailBucket]
       Description: Name of the CloudTrail S3 bucket
 
-  ######## ELK #########
-  ######## DATALAKE SPECIFIC RESOURCES #########
-  ######## LAMBDA AND ROLE FOR STAGE CLOUDWATCH UPDATE #########
-  rLambdaCatalogUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaCatalog}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rLambdaCatalogRedriveUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaCatalogRedrive}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  LambdaReplicateUpdateSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn: CWDestPolicy
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${LambdaReplicate}"
-      DestinationArn: !GetAtt CLDataStream.Arn
-      RoleArn: !GetAtt CWDestinationRole.Arn
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rCatalogIndexRole:
+  ######## CLOUDWATCH LOGS FORWARDING (FOUNDATIONS-LEVEL ONLY) #########
+  rCloudwatchLogsFirehoseRole:
     Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-
-  rCatalogIndexRolePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: !Sub catalogindex-${AWS::Region}
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-        - Effect: Allow
-          Action:
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-          Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
-        - Effect: Allow
-          Action:
-            - es:ESHttpPost
-            - es:ESHttpGet
-            - es:ESHttpPut
-          Resource: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
-        - Effect: "Allow"
-          Action:
-            - dynamodb:DescribeStream
-            - dynamodb:GetRecords
-            - dynamodb:GetShardIterator
-            - dynamodb:ListStreams
-          Resource: !Ref octagonObjectMetadatastreamarn
-      Roles:
-        - !Ref rCatalogIndexRole
-
-  rCatalogIndexFunction:
-    Type: AWS::Serverless::Function
-    DependsOn: rCatalogIndexRolePolicy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: rCatalogIndexRole has permission to write CloudWatch Logs through rCatalogIndexRolePolicy
-    Properties:
-      CodeUri: ./lambda/catalog-search/src
-      Description: Logs ObjectMetadata DynamoDB Streams to ElasticSearch/OpenSearch
-      Environment:
-        Variables:
-          ES_ENDPOINT: !Ref pOpenSearchDomainEndpoint
-          ES_REGION: !Ref AWS::Region
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Timeout: 180
-      MemorySize: 256
-      Role: !GetAtt rCatalogIndexRole.Arn
-
-  rCatalogTableStreamLambdaMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      BatchSize: 10
-      EventSourceArn: !Ref octagonObjectMetadatastreamarn
-      FunctionName: !GetAtt rCatalogIndexFunction.Arn
-      StartingPosition: LATEST
-
-  ######## ELASTIC SEARCH STACK SPECIFIC #########
-  #
-  # Cognito and IAM
-  #
-  HelperRole:
-    Type: AWS::IAM::Role
+    Condition: cLogsForwardingEnabled
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action:
-          - sts:AssumeRole
-
-  HelperRolePolicy:
-    Type: AWS::IAM::Policy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W12
-            reason: The actions with "*" are all ones that only support the all resources wildcard
-    Properties:
-      PolicyName: HelperRolePolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: LogAccessPolicy
-            Effect: Allow
-            Action:
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
-          - Effect: "Allow"
-            Action:
-              - ec2:DescribeRegions # W12 exception
-            Resource: "*"
-          - Effect: "Allow"
-            Action:
-              - logs:PutDestination
-              - logs:DeleteDestination
-              - logs:PutDestinationPolicy
-            Resource:
-              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:destination:*
-          - Effect: "Allow"
-            Action:
-              - iam:CreateServiceLinkedRole
-            Resource: !Sub arn:${AWS::Partition}:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*
-            Condition:
-              StringLike:
-                "iam:AWSServiceName": "es.amazonaws.com"
-      Roles:
-        - !Ref HelperRole
-
-  CustomResourceProviderframeworkonEventServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  rFirehoseRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
         Statement:
         - Effect: Allow
           Principal:
             Service: firehose.amazonaws.com
           Action: "sts:AssumeRole"
 
-# the VPC stuff has been removed - for now.
-
-  Dlq:
-    Type: AWS::SQS::Queue
-    UpdateReplacePolicy: Delete
-    DeletionPolicy: Delete
-    Properties:
-      KmsMasterKeyId: !Ref KMSKeyId
-      MessageRetentionPeriod: 1209600
-
-
-  rCloudwatchLogsTransformerServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  rCloudwatchLogsTransformerServiceRoleDefaultPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: rCloudwatchLogsTransformerServiceRoleDefaultPolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action: 
-              - sqs:SendMessage
-            Resource: !GetAtt Dlq.Arn
-          - Effect: "Allow"
-            Action: 
-              - kinesis:DescribeStreamSummary
-              - kinesis:GetRecords
-              - kinesis:GetShardIterator
-              - kinesis:ListShards
-              - kinesis:SubscribeToShard
-              - kinesis:DescribeStream
-              - kinesis:ListStreams
-              - kinesis:DescribeStreamConsumer
-              - kinesis:DescribeStream
-            Resource: !GetAtt CLDataStream.Arn
-          - Effect: "Allow"
-            Action: 
-              - firehose:PutRecordBatch
-            Resource: !GetAtt rCloudwatchLogsFirehose.Arn
-          - Effect: "Allow"
-            Action:
-              - kms:Decrypt
-            Resource: !Ref KMSKeyId
-      Roles:
-        - !Ref rCloudwatchLogsTransformerServiceRole
-
-  rCloudwatchLogsTransformer:
-    Type: AWS::Serverless::Function
-    DependsOn: rCloudwatchLogsTransformerServiceRoleDefaultPolicy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: rCloudwatchLogsTransformerServiceRole has permission to write CloudWatch Logs through AWSLambdaBasicExecutionRole
-    Properties:
-      Description: Lambda function to transform log events and send to kinesis firehose
-      Runtime: python3.11
-      Handler: lambda_function.lambda_handler
-      KmsKeyArn: !Ref KMSKeyId
-      MemorySize: 192
-      Role: !GetAtt rCloudwatchLogsTransformerServiceRole.Arn
-      Timeout: 300
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt Dlq.Arn
-      Environment:
-        Variables:
-          LOG_LEVEL: "info" #change to WARN, ERROR or DEBUG as needed
-          DELIVERY_STREAM: CL-Firehose
-      CodeUri: ./lambda/cloudwatchlogs-transformer/src
-
-  rCloudwatchLogsTransformerKinesisEventSourceCLPrimaryStackCLDataStream:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      BatchSize: 100
-      EventSourceArn: !GetAtt CLDataStream.Arn
-      FunctionName: !Ref rCloudwatchLogsTransformer
-      StartingPosition: TRIM_HORIZON
-
-  Topic:
-    Type: AWS::SNS::Topic
-    Properties:
-      DisplayName: "CL-Lambda-Error"
-      KmsMasterKeyId: !Ref KMSKeyId
-
-  TopicPolicy:
-    Type: AWS::SNS::TopicPolicy
-    Properties:
-      PolicyDocument:
-        Id: Id1
-        Version: "2012-10-17"
-        Statement:
-        - Sid: Sid1
-          Effect: Allow
-          Principal:
-            AWS: !Sub "${AWS::AccountId}" # Allow CloudWatch Alarms
-          Action: "sns:Publish"
-          Resource: "*"
-      Topics:
-      - !Ref Topic
-
-  # TopicEndpointSubscription:
-  #   Type: AWS::SNS::Subscription
-  #   DependsOn: TopicPolicy
-  #   Properties:
-  #     Endpoint: !Ref AdminEmail
-  #     Protocol: email
-  #     TopicArn: !Ref Topic
-
-  rSNSTopicSubscription:
-    Type: Custom::SNSSubscription
-    Properties:
-      ServiceToken: !GetAtt rSNSTopicSubscriptionLambda.Arn
-      TeamName: admin
-      TopicArn: !Ref rSNSTopic
-      SubscriptionEndpoints: !Ref pSNSNotificationsEmail
-      SubscriptionProtocol: email
-
-  CLLambdaErrorAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmActions:
-        - !Ref Topic
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      EvaluationPeriods: 1
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref rCloudwatchLogsTransformer
-      MetricName: "Errors"
-      Namespace: "AWS/Lambda"
-      Period: 300
-      Statistic: Sum
-      Threshold: 0.05
-
-  CLDataStream:
-    Type: AWS::Kinesis::Stream
-    Properties:
-      RetentionPeriodHours: 24
-      ShardCount: 1
-      StreamEncryption:
-        EncryptionType: KMS
-        KeyId: !Ref KMSKeyId
-      StreamModeDetails:
-        StreamMode: PROVISIONED
-
-  CLBucket:
+  rCloudwatchLogsFirehoseBucket:
     Type: AWS::S3::Bucket
-    # UpdateReplacePolicy: "Retain"
-    # DeletionPolicy: "Retain"
+    Condition: cLogsForwardingEnabled
     Properties:
+      BucketName:
+        !If [
+          cUseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-logs",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-logs",
+        ]
       LoggingConfiguration:
         DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
         LogFilePrefix:
           !If [
-            UseCustomBucketPrefix,
-            !Ref pCustomBucketPrefix,
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+            cUseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-logs",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-logs",
           ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Sub "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              SSEAlgorithm: aws:kms
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
@@ -767,69 +336,69 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
-  CLBucketPolicy:
+  rCloudwatchLogsFirehoseBucketPolicy:
     Type: AWS::S3::BucketPolicy
+    Condition: cLogsForwardingEnabled
     Properties:
-      Bucket: !Ref CLBucket
+      Bucket: !Ref rCloudwatchLogsFirehoseBucket
       PolicyDocument:
         Version: 2012-10-17
         Statement:
           - Sid: AllowSSLRequestsOnly
-            Principal: "*"
             Action: s3:*
             Effect: Deny
             Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${CLBucket}/*
-              - !Sub arn:${AWS::Partition}:s3:::${CLBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
+            Principal: "*"
           - Principal:
-              AWS: !GetAtt rFirehoseRole.Arn
+              AWS: !GetAtt rCloudwatchLogsFirehoseRole.Arn
             Action:
               - s3:Put*
               - s3:Get*
+              - s3:AbortMultipartUpload
             Effect: Allow
             Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${CLBucket}/*
-              - !Sub arn:${AWS::Partition}:s3:::${CLBucket}
-            Condition:
-              Bool:
-                aws:SecureTransport: False
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
 
-  CLFirehoseFirehoseLogGroup:
+  rCloudwatchLogsFirehoseLogGroup:
     Type: AWS::Logs::LogGroup
-    UpdateReplacePolicy: Retain
+    Condition: cLogsForwardingEnabled
     DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
-      RetentionInDays: 365
+      LogGroupName: !Sub /aws/kinesisfirehose/sdlf-cwlogs-to-os
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
-  FirehoseESLogStream:
+  rCloudwatchLogsFirehoseLogStream:
     Type: AWS::Logs::LogStream
-    # UpdateReplacePolicy: Retain
-    # DeletionPolicy: Retain
+    Condition: cLogsForwardingEnabled
     Properties:
-      LogGroupName: !Ref CLFirehoseFirehoseLogGroup
-      LogStreamName: ElasticsearchDelivery
+      LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+      LogStreamName: OpenSearchDelivery
 
-  FirehoseS3LogStream:
+  rCloudwatchLogsFirehoseS3LogStream:
     Type: AWS::Logs::LogStream
-    # UpdateReplacePolicy: Retain
-    # DeletionPolicy: Retain
+    Condition: cLogsForwardingEnabled
     Properties:
-      LogGroupName: !Ref CLFirehoseFirehoseLogGroup
-      LogStreamName: S3Delivery
+      LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+      LogStreamName: S3BackupDelivery
 
-  rFirehosePolicy:
+  rCloudwatchLogsFirehosePolicy:
     Type: AWS::IAM::Policy
+    Condition: cLogsForwardingEnabled
     Metadata:
       cfn_nag:
         rules_to_suppress:
           - id: W12
             reason: EC2 permissions are controlled through the ec2:Vpc and ec2:AuthorizedService conditions
     Properties:
-      PolicyName: CL-Firehose-Policy
+      PolicyName: cloudwatchlogs-to-firehose-to-esos
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -842,48 +411,57 @@ Resources:
             - s3:ListBucketMultipartUploads
             - s3:PutObject
           Resource:
-            - !Sub arn:${AWS::Partition}:s3:::${CLBucket}/*
-            - !Sub arn:${AWS::Partition}:s3:::${CLBucket}
+            - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+            - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
         - Effect: Allow
           Action:
             - kms:GenerateDataKey
             - kms:Decrypt
-          Resource: !Ref KMSKeyId
+          Resource: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
           Condition:
             StringEquals:
               "kms:ViaService": !Sub "s3.${AWS::Region}.amazonaws.com"
             StringLike:
               "kms:EncryptionContext:aws:s3:arn":
-              - !Sub arn:${AWS::Partition}:s3:::${CLBucket}/*
-        - Effect: Allow
-          Action:
-            - ec2:DescribeVpcs # W12 exception
-            - ec2:DescribeSubnets # W12 exception
-            - ec2:DescribeSecurityGroups # W12 exception
-            - ec2:DescribeNetworkInterfaces # W12 exception
-            - ec2:CreateNetworkInterface # W12 exception
-            - ec2:DeleteNetworkInterface # W12 exception
-          Resource: "*"
-          Condition:
-            ArnEqualsIfExists:
-              "ec2:Vpc":
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+        - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:DescribeVpcs # W12 exception
+                - ec2:DescribeSubnets # W12 exception
+                - ec2:DescribeSecurityGroups # W12 exception
+                - ec2:DescribeNetworkInterfaces # W12 exception
+                - ec2:CreateNetworkInterface # W12 exception
+                - ec2:DeleteNetworkInterface # W12 exception
+              Resource: "*"
+              Condition:
+                ArnEqualsIfExists:
+                  "ec2:Vpc":
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+            - !Ref "AWS::NoValue"
+        - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:DescribeVpcAttribute
+              Resource:
                 - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
-        - Effect: Allow
-          Action:
-            - ec2:DescribeVpcAttribute
-          Resource:
-            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
-        - Effect: Allow
-          Action:
-            - ec2:CreateNetworkInterfacePermission
-          Resource:
-            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
-          Condition:
-            StringEquals:
-              "ec2:AuthorizedService": firehose.amazonaws.com
-            ArnEquals:
-              "ec2:Vpc":
-                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+            - !Ref "AWS::NoValue"
+        - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterfacePermission
+              Resource:
+                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+              Condition:
+                StringEquals:
+                  "ec2:AuthorizedService": firehose.amazonaws.com
+                ArnEquals:
+                  "ec2:Vpc":
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+            - !Ref "AWS::NoValue"
         - Effect: Allow
           Action:
             - es:DescribeElasticsearchDomain
@@ -910,91 +488,107 @@ Resources:
             - logs:PutLogEvents
             - logs:CreateLogStream
           Resource:
-            - !GetAtt CLFirehoseFirehoseLogGroup.Arn
-        - Effect: Allow
-          Action:
-            - kms:Decrypt
-          Resource: !Ref KMSKeyId
-          Condition:
-            StringEquals:
-              "kms:ViaService": !Sub "kinesis.${AWS::Region}.amazonaws.com"
-            StringLike:
-              "kms:EncryptionContext:aws:kinesis:arn": !GetAtt CLDataStream.Arn
+            - !GetAtt rCloudwatchLogsFirehoseLogGroup.Arn
       Roles:
-        - !Ref rFirehoseRole
+        - !Ref rCloudwatchLogsFirehoseRole
 
   rCloudwatchLogsFirehose:
     Type: AWS::KinesisFirehose::DeliveryStream
-    DependsOn: rFirehosePolicy
+    Condition: cLogsForwardingEnabled
+    DependsOn: rCloudwatchLogsFirehosePolicy
     Properties:
       DeliveryStreamEncryptionConfigurationInput:
         KeyType: CUSTOMER_MANAGED_CMK
-        KeyARN: !Ref KMSKeyId
-      DeliveryStreamName: CL-Firehose
+        KeyARN: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+      DeliveryStreamName: sdlf-cwlogs-to-os
       DeliveryStreamType: DirectPut
-      ElasticsearchDestinationConfiguration:
+      AmazonopensearchserviceDestinationConfiguration:
         CloudWatchLoggingOptions:
           Enabled: true
-          LogGroupName: /aws/kinesisfirehose/CL-Firehose
-          LogStreamName: !Ref FirehoseESLogStream
+          LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+          LogStreamName: !Ref rCloudwatchLogsFirehoseLogStream
         DomainARN: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
         IndexName: cwl
         IndexRotationPeriod: OneDay
-        RoleARN: !GetAtt rFirehoseRole.Arn
+        RoleARN: !GetAtt rCloudwatchLogsFirehoseRole.Arn
         S3BackupMode: AllDocuments
         S3Configuration:
-          BucketARN: !GetAtt CLBucket.Arn
+          BucketARN: !GetAtt rCloudwatchLogsFirehoseBucket.Arn
+          EncryptionConfiguration:
+            KMSEncryptionConfig:
+              AWSKMSKeyARN: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
           CloudWatchLoggingOptions:
             Enabled: true
-            LogGroupName: /aws/kinesisfirehose/CL-Firehose
-            LogStreamName: !Ref FirehoseS3LogStream
-          RoleARN: !GetAtt rFirehoseRole.Arn
+            LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+            LogStreamName: !Ref rCloudwatchLogsFirehoseS3LogStream
+          RoleARN: !GetAtt rCloudwatchLogsFirehoseRole.Arn
 
-  CWDestinationRole:
-    Type: AWS::IAM::Role
+  ######## SNS (TEAM-LEVEL OR DATASET-LEVEL) #########
+  rSnsTopic:
+    Type: AWS::SNS::Topic
+    Condition: cSnsEnabled
     Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: logs.amazonaws.com
-          Action:
-          - sts:AssumeRole
-          Condition:
-            StringLike:
-              "aws:SourceArn": !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+      TopicName: !If
+        - cTeamLevel
+        - !Sub "sdlf-${pTeamName}-notifications"
+        - !Sub "sdlf-${pTeamName}-${pDataset}-notifications"
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  CWDestPolicy:
-    Type: AWS::IAM::Policy
+  rSnsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Condition: cSnsEnabled
     Properties:
-      PolicyName: CWDestPolicy
       PolicyDocument:
+        Id: !Sub sdlf-${pTeamName}-notifications
         Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Action:
-            - kinesis:PutRecord
-          Resource:
-            - !GetAtt CLDataStream.Arn
-        - Effect: Allow
-          Action:
-            - kms:GenerateDataKey
-          Resource:
-            - !Ref KMSKeyId
-      Roles:
-        - !Ref CWDestinationRole
+          - Sid: !Sub sdlf-${pTeamName}-notifications
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudwatch.amazonaws.com
+                - events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref rSnsTopic
+      Topics:
+        - !Ref rSnsTopic
 
-  HelperRoleCWDestPolicy:
-    Type: AWS::IAM::Policy
+  rSnsTopicSsm:
+    Type: AWS::SSM::Parameter
+    Condition: cSnsEnabled
     Properties:
-      PolicyName: HelperRoleCWDestPolicy
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action: 
-              - iam:PassRole
-            Resource: !GetAtt CWDestinationRole.Arn
-      Roles:
-        - !Ref HelperRole
+      Name: !If
+        - cTeamLevel
+        - !Sub "/SDLF/SNS/${pTeamName}/Notifications"
+        - !Sub "/SDLF/SNS/${pTeamName}/${pDataset}/Notifications"
+      Type: String
+      Value: !Ref rSnsTopic
+      Description: !If
+        - cTeamLevel
+        - The ARN of the team-specific SNS Topic
+        - The ARN of the dataset-specific SNS Topic
+
+  ######## S3 STORAGE LENS (TEAM-LEVEL OR DATASET-LEVEL) #########
+  rStorageLensGroup:
+    Type: AWS::S3::StorageLensGroup
+    Condition: cStorageLensEnabled
+    Properties:
+      Filter: !If
+        - cTeamLevel
+        - MatchAnyPrefix:
+            - !Sub "${pTeamName}/" # raw bucket, athena bucket
+            - !Sub "pre-stage/${pTeamName}/" # stage bucket
+            - !Sub "post-stage/${pTeamName}/" # stage bucket
+        - MatchAnyPrefix:
+            - !Sub "${pTeamName}/${pDataset}/" # raw bucket, athena bucket
+            - !Sub "pre-stage/${pTeamName}/${pDataset}/" # stage bucket
+            - !Sub "post-stage/${pTeamName}/${pDataset}/" # stage bucket
+      Name: !If
+        - cTeamLevel
+        - !Sub "sdlf-${pTeamName}"
+        - !Sub "sdlf-${pTeamName}-${pDataset}"
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference

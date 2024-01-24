@@ -34,6 +34,10 @@ Parameters:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeBuild/BuildCloudFormationPackage
+  pEnableMonitoring:
+    Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Monitoring/Enabled
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/CicdCodeCommit
@@ -60,6 +64,9 @@ Mappings:
       branch: test
     prod:
       branch: main
+
+Conditions:
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
   ######## CODEPIPELINE #########
@@ -94,6 +101,10 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                  - !If
+                      - EnableMonitoring
+                      - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                      - !Ref AWS::NoValue
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -190,6 +201,22 @@ Resources:
                 BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
               RunOrder: 1
+            - !If
+                - EnableMonitoring
+                - Name: SourceMonitoring
+                  ActionTypeId:
+                    Category: Source
+                    Owner: AWS
+                    Version: "1"
+                    Provider: CodeCommit
+                  OutputArtifacts:
+                    - Name: SourceMonitoringArtifact
+                  Configuration:
+                    RepositoryName: "{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                    BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                    PollForSourceChanges: false
+                  RunOrder: 1
+                - !Ref AWS::NoValue
         - Name: BuildTemplate
           Actions:
             -
@@ -232,6 +259,28 @@ Resources:
                    {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
                    {"name":"MODULE_NAME", "value":"team", "type":"PLAINTEXT"}]
               RunOrder: 1
+            - !If
+                - EnableMonitoring
+                - Name: BuildMonitoring
+                  InputArtifacts:
+                  - Name: SourceCicdArtifact
+                  - Name: SourceMonitoringArtifact
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Version: "1"
+                    Provider: CodeBuild
+                  Configuration:
+                    PrimarySource: SourceMonitoringArtifact
+                    ProjectName: !Ref pBuildCloudformationModuleStage
+                    EnvironmentVariables: !Sub >-
+                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
+                      {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                      {"name":"MODULE_NAME", "value":"monitoring", "type":"PLAINTEXT"}]
+                  RunOrder: 1
+                - !Ref AWS::NoValue
             - Name: BuildDomainTemplate
               InputArtifacts:
                 - Name: TemplateSource
