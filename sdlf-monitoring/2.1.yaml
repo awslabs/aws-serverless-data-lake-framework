@@ -1,0 +1,562 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Monitoring stack - SNS, CloudTrail, StorageLens, CloudWatch Dashboards, ELK, Budgets
+
+Parameters:
+  pPipelineReference:
+    Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
+    Type: String
+    Default: none
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+  pCloudtrailEnabled:
+    Type: String
+    Default: false
+  pCustomBucketPrefix:
+    Type: String
+    Default: sdlf
+  pExternalTrailBucket:
+    Description: Optional The name of the Amazon S3 bucket where CloudTrail publishes log files. If empty, the Amazon S3 bucket is created for you.
+    Type: String
+    Default: ""
+  pLogFilePrefix:
+    Description: Optional The log file prefix.
+    Type: String
+    Default: ""
+  pS3DataEvents:
+    Description: Record data events of all S3 buckets
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+  pCloudWatchLogsRetentionInDays:
+    Description: The number of days log events are kept in CloudWatch Logs
+    Type: Number
+    Default: 30
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
+  pLogsForwardingEnabled:
+    Type: String
+    Default: false
+  pSnsEnabled:
+    Type: String
+    Default: false
+  pStorageLensEnabled:
+    Type: String
+    Default: false
+  pTeamName:
+    Type: String
+    Default: ""
+  pDataset:
+    Type: String
+    Default: ""
+
+Conditions:
+  cTeamLevel: !And
+    - !Not [!Equals [!Ref pTeamName, ""]]
+    - !Equals [!Ref pDataset, ""]
+  cDatasetLevel: !And
+    - !Not [!Equals [!Ref pDataset, ""]]
+    - !Equals [!Ref pTeamName, ""]
+  cCloudtrailEnabled: !And
+    - !Not [!Condition cTeamLevel]
+    - !Not [!Condition cDatasetLevel]
+    - !Equals [!Ref pCloudtrailEnabled, true]
+  cLogsForwardingEnabled: !And
+    - !Not [!Condition cTeamLevel]
+    - !Not [!Condition cDatasetLevel]
+    - !Equals [!Ref pLogsForwardingEnabled, true]
+  cSnsEnabled: !And
+    - !Or
+        - !Condition cTeamLevel
+        - !Condition cDatasetLevel
+    - !Equals [!Ref pSnsEnabled, true]
+  cStorageLensEnabled: !And
+    - !Or
+        - !Condition cTeamLevel
+        - !Condition cDatasetLevel
+    - !Equals [!Ref pStorageLensEnabled, true]
+  cInternalBucket: !And
+    - !Condition cCloudtrailEnabled
+    - !Equals [!Ref pExternalTrailBucket, ""]
+  cExternalBucket: !And
+    - !Condition cCloudtrailEnabled
+    - !Not [!Equals [!Ref pExternalTrailBucket, ""]]
+  cHasLogFilePrefix: !Not [!Equals [!Ref pLogFilePrefix, ""]]
+  cIsS3DataEvents: !Equals [!Ref pS3DataEvents, true]
+  cUseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, "sdlf"]]
+
+Resources:
+  ######## CLOUDTRAIL (FOUNDATIONS-LEVEL ONLY) #########
+  rTrailBucket:
+    Type: AWS::S3::Bucket
+    Condition: cInternalBucket
+    Properties:
+      BucketName:
+        !If [
+          cUseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-cloudtrail",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-cloudtrail",
+        ]
+      LoggingConfiguration:
+        DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
+        LogFilePrefix:
+          !If [
+            cUseCustomBucketPrefix,
+            !Ref pCustomBucketPrefix,
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
+          ]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Sub "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rTrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: cInternalBucket
+    Properties:
+      Bucket: !Ref rTrailBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSCloudTrailAclCheck
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}
+          - Sid: AWSCloudTrailWrite
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource:
+              !If [
+                cHasLogFilePrefix,
+                !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/${pLogFilePrefix}/AWSLogs/${AWS::AccountId}/*",
+                !Sub "arn:${AWS::Partition}:s3:::${rTrailBucket}/AWSLogs/${AWS::AccountId}/*",
+              ]
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rTrailBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+
+  rTrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+
+  rTrailLogGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AssumeRole1
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudtrail-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt rTrailLogGroup.Arn
+
+  rTrail:
+    Type: AWS::CloudTrail::Trail
+    Condition: cInternalBucket
+    DependsOn:
+      - rTrailBucketPolicy
+    Properties:
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: false
+      EventSelectors: !If
+        - cIsS3DataEvents
+        -
+          - DataResources:
+            - Type: AWS::S3::Object
+              Values:
+                - !Sub "arn:${AWS::Partition}:s3"
+            IncludeManagementEvents: true
+            ReadWriteType: All
+        - !Ref "AWS::NoValue"
+      KMSKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+      S3BucketName: !Ref rTrailBucket
+      S3KeyPrefix: !Ref pLogFilePrefix
+      EnableLogFileValidation: true
+      CloudWatchLogsLogGroupArn: !GetAtt rTrailLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt rTrailLogGroupRole.Arn
+
+  rExternalTrail:
+    Type: AWS::CloudTrail::Trail
+    Condition: cExternalBucket
+    Properties:
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: true
+      EventSelectors: !If
+        - cIsS3DataEvents
+        -
+          - DataResources:
+            - Type: AWS::S3::Object
+              Values:
+                - !Sub "arn:${AWS::Partition}:s3"
+            IncludeManagementEvents: true
+            ReadWriteType: All
+        - !Ref "AWS::NoValue"
+      KMSKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+      S3BucketName: !Ref pExternalTrailBucket
+      S3KeyPrefix: !Ref pLogFilePrefix
+      EnableLogFileValidation: true
+      CloudWatchLogsLogGroupArn: !GetAtt rTrailLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt rTrailLogGroupRole.Arn
+
+  rTrailBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/S3/CloudTrailBucket
+      Type: String
+      Value: !If [cInternalBucket, !Ref rTrailBucket, !Ref pExternalTrailBucket]
+      Description: Name of the CloudTrail S3 bucket
+
+  ######## CLOUDWATCH LOGS FORWARDING (FOUNDATIONS-LEVEL ONLY) #########
+  rCloudwatchLogsFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: firehose.amazonaws.com
+          Action: "sts:AssumeRole"
+
+  rCloudwatchLogsFirehoseBucket:
+    Type: AWS::S3::Bucket
+    Condition: cLogsForwardingEnabled
+    Properties:
+      BucketName:
+        !If [
+          cUseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-logs",
+          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-logs",
+        ]
+      LoggingConfiguration:
+        DestinationBucketName: "{{resolve:ssm:/SDLF/S3/AccessLogsBucket}}"
+        LogFilePrefix:
+          !If [
+            cUseCustomBucketPrefix,
+            !Sub "${pCustomBucketPrefix}-logs",
+            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-logs",
+          ]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Sub "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      VersioningConfiguration:
+        Status: Enabled
+
+  rCloudwatchLogsFirehoseBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: cLogsForwardingEnabled
+    Properties:
+      Bucket: !Ref rCloudwatchLogsFirehoseBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+          - Principal:
+              AWS: !GetAtt rCloudwatchLogsFirehoseRole.Arn
+            Action:
+              - s3:Put*
+              - s3:Get*
+              - s3:AbortMultipartUpload
+            Effect: Allow
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
+
+  rCloudwatchLogsFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: cLogsForwardingEnabled
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: /aws/kinesisfirehose/sdlf-cwlogs-to-os
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+
+  rCloudwatchLogsFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    Condition: cLogsForwardingEnabled
+    Properties:
+      LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+      LogStreamName: OpenSearchDelivery
+
+  rCloudwatchLogsFirehoseS3LogStream:
+    Type: AWS::Logs::LogStream
+    Condition: cLogsForwardingEnabled
+    Properties:
+      LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+      LogStreamName: S3BackupDelivery
+
+  rCloudwatchLogsFirehosePolicy:
+    Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: EC2 permissions are controlled through the ec2:Vpc and ec2:AuthorizedService conditions
+    Properties:
+      PolicyName: cloudwatchlogs-to-firehose-to-esos
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action:
+            - s3:AbortMultipartUpload
+            - s3:GetBucketLocation
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:ListBucketMultipartUploads
+            - s3:PutObject
+          Resource:
+            - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+            - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
+        - Effect: Allow
+          Action:
+            - kms:GenerateDataKey
+            - kms:Decrypt
+          Resource: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+          Condition:
+            StringEquals:
+              "kms:ViaService": !Sub "s3.${AWS::Region}.amazonaws.com"
+            StringLike:
+              "kms:EncryptionContext:aws:s3:arn":
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+        - Effect: Allow
+          Action:
+            - ec2:DescribeVpcs # W12 exception
+            - ec2:DescribeSubnets # W12 exception
+            - ec2:DescribeSecurityGroups # W12 exception
+            - ec2:DescribeNetworkInterfaces # W12 exception
+            - ec2:CreateNetworkInterface # W12 exception
+            - ec2:DeleteNetworkInterface # W12 exception
+          Resource: "*"
+          Condition:
+            ArnEqualsIfExists:
+              "ec2:Vpc":
+                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - Effect: Allow
+          Action:
+            - ec2:DescribeVpcAttribute
+          Resource:
+            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - Effect: Allow
+          Action:
+            - ec2:CreateNetworkInterfacePermission
+          Resource:
+            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+          Condition:
+            StringEquals:
+              "ec2:AuthorizedService": firehose.amazonaws.com
+            ArnEquals:
+              "ec2:Vpc":
+                - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+        - Effect: Allow
+          Action:
+            - es:DescribeElasticsearchDomain
+            - es:DescribeElasticsearchDomains
+            - es:DescribeElasticsearchDomainConfig
+            - es:ESHttpPost
+            - es:ESHttpPut
+          Resource:
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/*
+        - Effect: Allow
+          Action:
+            - es:ESHttpGet
+          Resource:
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_all/_settings
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_cluster/stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_mapping/kinesis
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_nodes
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_nodes/*/stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/_stats
+            - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_stats
+        - Effect: Allow
+          Action:
+            - logs:PutLogEvents
+            - logs:CreateLogStream
+          Resource:
+            - !GetAtt rCloudwatchLogsFirehoseLogGroup.Arn
+      Roles:
+        - !Ref rCloudwatchLogsFirehoseRole
+
+  rCloudwatchLogsFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Condition: cLogsForwardingEnabled
+    DependsOn: rCloudwatchLogsFirehosePolicy
+    Properties:
+      DeliveryStreamEncryptionConfigurationInput:
+        KeyType: CUSTOMER_MANAGED_CMK
+        KeyARN: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+      DeliveryStreamName: sdlf-cwlogs-to-os
+      DeliveryStreamType: DirectPut
+      AmazonopensearchserviceDestinationConfiguration:
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+          LogStreamName: !Ref rCloudwatchLogsFirehoseLogStream
+        DomainARN: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
+        IndexName: cwl
+        IndexRotationPeriod: OneDay
+        RoleARN: !GetAtt rCloudwatchLogsFirehoseRole.Arn
+        S3BackupMode: AllDocuments
+        S3Configuration:
+          BucketARN: !GetAtt rCloudwatchLogsFirehoseBucket.Arn
+          CloudWatchLoggingOptions:
+            Enabled: true
+            LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
+            LogStreamName: !Ref rCloudwatchLogsFirehoseS3LogStream
+          RoleARN: !GetAtt rCloudwatchLogsFirehoseRole.Arn
+
+  ######## SNS (TEAM-LEVEL OR DATASET-LEVEL) #########
+  rSnsTopic:
+    Type: AWS::SNS::Topic
+    Condition: cSnsEnabled
+    Properties:
+      TopicName: !If
+        - cTeamLevel,
+        - !Sub "sdlf-${pTeamName}-notifications"
+        - !Sub "sdlf-${pTeamName}-${pDataset}-notifications"
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rSnsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Condition: cSnsEnabled
+    Properties:
+      PolicyDocument:
+        Id: !Sub sdlf-${pTeamName}-notifications
+        Version: "2012-10-17"
+        Statement:
+          - Sid: !Sub sdlf-${pTeamName}-notifications
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudwatch.amazonaws.com
+                - events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref rSnsTopic
+      Topics:
+        - !Ref rSnsTopic
+
+  rSnsTopicSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !If
+        - cTeamLevel,
+        - !Sub "/SDLF/SNS/${pTeamName}/Notifications"
+        - !Sub "/SDLF/SNS/${pTeamName}/${pDataset}/Notifications"
+      Type: String
+      Value: !Ref rSnsTopic
+      Description: !If
+        - cTeamLevel,
+        - The ARN of the team-specific SNS Topic
+        - The ARN of the dataset-specific SNS Topic
+
+  ######## S3 STORAGE LENS (TEAM-LEVEL OR DATASET-LEVEL) #########
+  rStorageLensGroup:
+    Type: AWS::S3::StorageLensGroup
+    Condition: cStorageLensEnabled
+    Properties:
+      Filter: !If
+        - cTeamLevel,
+        - MatchAnyPrefix:
+            - !Sub "${pTeamName}/" # raw bucket, athena bucket
+            - !Sub "pre-stage/${pTeamName}/" # stage bucket
+            - !Sub "post-stage/${pTeamName}/" # stage bucket
+        - MatchAnyPrefix:
+            - !Sub "${pTeamName}/${pDataset}/" # raw bucket, athena bucket
+            - !Sub "pre-stage/${pTeamName}/${pDataset}/" # stage bucket
+            - !Sub "post-stage/${pTeamName}/${pDataset}/" # stage bucket
+      Name: !If
+        - cTeamLevel,
+        - !Sub "sdlf-${pTeamName}"
+        - !Sub "sdlf-${pTeamName}-${pDataset}"
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference
