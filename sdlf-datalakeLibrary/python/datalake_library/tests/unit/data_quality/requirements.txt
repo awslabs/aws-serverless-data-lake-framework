@@ -1,1 +1,1 @@
-awswrangler==2.18.0
+awswrangler==3.5.2
