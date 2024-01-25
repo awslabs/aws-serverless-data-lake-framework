@@ -293,7 +293,11 @@ Resources:
               runtime-versions:
                   python: 3.9
               commands:
-                - pip3 install boto3
+                - |-
+                    aws --version # version 1 installed using pip by codebuild
+                    pip3 uninstall -y awscli
+                    aws --version # version 2
+                    pip3 install boto3
             build:
               commands:
                 - temp_role=$(aws sts assume-role --role-arn $LAMBDA_PUBLISHING_ROLE --role-session-name "codebuild-lambda-layer")
