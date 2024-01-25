@@ -1,0 +1,95 @@
+name: Workshop deployment
+
+on:
+  workflow_dispatch: # execution on-demand
+
+env:
+  AWS_REGION : eu-west-1
+
+permissions:
+  id-token: write # permission for OIDC to request token
+  contents: read # permission to read repository content for checkout action
+
+jobs:
+  initial-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup python 3
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.SDLF_CICD_ROLE }}
+      - name: Install preprequisites
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -u awscliv2.zip
+          sudo ./aws/install --update
+          python -m pip install --upgrade pip
+          python -m pip install git-remote-codecommit
+      - name: Deploy SDLF workshop template to CloudFront
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: sdlf-workshop-deployment
+          template: https://sdlf-os-public-artifacts.s3-us-west-2.amazonaws.com/v2/deploying-foundations/template.yaml
+          no-fail-on-empty-changeset: "1"
+      - name: Get CodeBuild build status
+        run: |
+          project=$(aws cloudformation descratusibe-stacks --region ${{ env.AWS_REGION }} --stack-name sdlf-workshop-deployment --query "Stacks[0].Outputs[?OutputKey=='oWorkshopProject'].OutputValue" --output text)
+          build_id=$(aws codebuild list-builds-for-project --region ${{ env.AWS_REGION }} --project-name "$project" --query "ids[0]" --output text)
+          build_status=$(aws codebuild batch-get-builds --region ${{ env.AWS_REGION }} --id "$build_id" --query "builds[0].buildStatus" --output text)
+          while [ "$build_status" == "IN_PROGRESS" ]; do echo "build is in progress..."; sleep 30; build_status=$(aws codebuild batch-get-builds --region ${{ env.AWS_REGION }} --id "$build_id" --query "builds[0].buildStatus" --output text); done
+          if [[ "$build_status" != "SUCCEEDED" ]]; then echo "Initial CodeBuild failed" && exit 1; fi
+      - name: Deploying SDLF foundations & teams
+        run: |
+          git config --global user.name "robot"
+          git config --global user.email "robot@example.com"
+          cd ./sdlf-utils/workshop-examples/10-deployment/sdlf-main
+          git init
+          git remote add origin codecommit::${{ env.AWS_REGION }}://sdlf-main
+          git checkout -b dev
+          git add .
+          git commit --allow-empty -m "Deploying the SDLF Foundations for the dev environment in the datalake data domain"
+          git push -u origin dev -f
+      - name: Get CodePipeline pipelines status
+        run: |
+          main_cicd=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipelines --query "pipelines[?starts_with(name, 'sdlf-cicd-sdlf-repositories-rCloudFormationModulesDevDeploymen-rMainRepositoryPipeline')].name" --output text)
+          main_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$main_cicd" --query "pipelineExecutionSummaries[0].status" --output text)
+          while [ "$main_cicd_status" == "InProgress" ]; do echo "rMain CodePipeline in progress..."; sleep 30; main_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$main_cicd" --query "pipelineExecutionSummaries[0].status" --output text); done
+          domain_cicd=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipelines --query "pipelines[?starts_with(name, 'sdlf-cicd-domain-datalake-dev-rDomainCodePipeline')].name" --output text)
+          if [[ "$main_cicd_status" == "Succeeded" ]]; then echo "rMain CodePipeline successful"; else echo "rMain CodePipeline failed" && exit 1; fi
+          domain_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$domain_cicd" --query "pipelineExecutionSummaries[0].status" --output text)
+          while [ "$domain_cicd_status" == "InProgress" ]; do echo "rDomain CodePipeline in progress..."; sleep 30; domain_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$domain_cicd" --query "pipelineExecutionSummaries[0].status" --output text); done
+          if [[ "$domain_cicd_status" == "Succeeded" ]]; then echo "rDomain CodePipeline successful"; else echo "rDomain CodePipeline failed && exit 1"; fi
+      - name: Deploying SDLF foundations & teams
+        run: |
+          cd ..
+          cd ./sdlf-main-datalake-engineering
+          git init
+          git remote add origin codecommit::${{ env.AWS_REGION }}://sdlf-main-datalake-engineering
+          git checkout -b dev
+          git add .
+          git commit --allow-empty -m "Creating the legislators dataset"
+          git push origin dev -f
+      - name: Get deployment status
+        run: |
+          team_cicd=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipelines --query "pipelines[?starts_with(name, 'sdlf-cicd-teams-datalake-dev-engineering-rTeamCodePipeline')].name" --output text)
+          team_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$team_cicd" --query "pipelineExecutionSummaries[0].status" --output text)
+          while [ "$team_cicd_status" == "InProgress" ]; do echo "rTeam CodePipeline in progress..."; sleep 30; team_cicd_status=$(aws codepipeline --region ${{ env.AWS_REGION }} list-pipeline-executions --pipeline-name "$team_cicd" --query "pipelineExecutionSummaries[0].status" --output text); done
+          if [[ "$team_cicd_status" == "Succeeded" ]]; then echo "rTeam CodePipeline successful"; else echo "rTeam CodePipeline failed" && exit 1; fi
+      - name: Deploy sample data
+        run: |
+          CREDENTIALS=$(aws configure export-credentials)
+          aws configure set aws_access_key_id "$(jq -r ".AccessKeyId" <<< "$CREDENTIALS")" --profile default
+          aws configure set aws_secret_access_key "$(jq -r ".SecretAccessKey" <<< "$CREDENTIALS")" --profile default
+          aws configure set aws_session_token "$(jq -r ".SessionToken" <<< "$CREDENTIALS")" --profile default
+          aws configure set region ${{ env.AWS_REGION }} --profile default
+          cd ../..
+          cd ./legislators/
+          ./deploy.sh
+          job_status=$(aws cloudformation --region ${{ env.AWS_REGION }} describe-stacks --stack-name sdlf-engineering-legislators-glue-job --query "Stacks[0].StackStatus" --output text)
+          if [[ "$job_status" != "CREATE_COMPLETE" ]]; then echo "deployment failed" && exit 1; fi
