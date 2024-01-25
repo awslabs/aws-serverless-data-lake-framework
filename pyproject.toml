@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ["py39", "py310"]
+target-version = ["py311"]
 line-length = 120
 extend-exclude = '''
 (
@@ -14,10 +14,10 @@ ignore = ["PLR0912", "PLR0913", "PLR0915"]
 fixable = ["I001"]
 extend-exclude = ["sdlf-foundations/scripts/deequ", "sdlf-utils"]
 line-length = 120
-target-version = "py39"
+target-version = "py311"
 
 [tool.pylint.main]
-py-version = "3.9"
+py-version = "3.11"
 ignore-paths = ["^/sdlf-foundations/scripts/deequ/", "^/sdlf-utils/"]
 jobs = 0
 

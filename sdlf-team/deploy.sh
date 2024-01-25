@@ -147,13 +147,13 @@ function add_lf_permissions()
       --resource "$LOCATION_JSON"
 }
 if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/raw/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/pre-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/post-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/analytics/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${CENTRAL_BUCKET}/raw/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${CENTRAL_BUCKET}/pre-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${CENTRAL_BUCKET}/post-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${CENTRAL_BUCKET}/analytics/${TEAM_NAME}/"
 else
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${CENTRAL_BUCKET}/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${STAGE_BUCKET}/pre-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${STAGE_BUCKET}/post-stage/${TEAM_NAME}/"
-  add_lf_permissions "$CRAWLER_ARN" "arn:"$AWS_PARTITION":s3:::${ANALYTICS_BUCKET}/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${CENTRAL_BUCKET}/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${STAGE_BUCKET}/pre-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${STAGE_BUCKET}/post-stage/${TEAM_NAME}/"
+  add_lf_permissions "$CRAWLER_ARN" "arn:$AWS_PARTITION:s3:::${ANALYTICS_BUCKET}/${TEAM_NAME}/"
 fi

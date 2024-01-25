@@ -1,8 +1,8 @@
 [
     {
-        "wrangler39": {
-            "url": "https://github.com/aws/aws-sdk-pandas/releases/download/3.5.2/awswrangler-layer-3.5.2-py3.9.zip",
-            "runtimes": ["python3.9"]
+        "wrangler311": {
+            "url": "https://github.com/aws/aws-sdk-pandas/releases/download/3.5.2/awswrangler-layer-3.5.2-py3.11.zip",
+            "runtimes": ["python3.11"]
         }
     }
 ]

@@ -243,7 +243,7 @@ fi
 if "$cflag"
 then
     # Increase SSM Parameter Store throughput to 1,000 requests/second
-    aws ssm update-service-setting --setting-id arn:"$AWS_PARTITION":ssm:"$REGION:$CHILD_ACCOUNT":servicesetting/ssm/parameter-store/high-throughput-enabled --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
+    aws ssm update-service-setting --setting-id "arn:$AWS_PARTITION:ssm:$REGION:$CHILD_ACCOUNT:servicesetting/ssm/parameter-store/high-throughput-enabled" --setting-value true --region "$REGION" --profile "$CHILD_PROFILE"
     DEVOPS_ACCOUNT_KMS=$(aws ssm get-parameter --name /SDLF/KMS/"$ENV"/CICDKeyId --region "$REGION" --profile "$DEVOPS_PROFILE" --query "Parameter.Value" --output text)
     STACK_NAME=sdlf-cicd-child-foundations
     aws cloudformation deploy \

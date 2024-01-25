@@ -758,7 +758,7 @@ Resources:
       EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         Type: LINUX_CONTAINER
       ServiceRole: !Ref rCodeBuildRole
       TimeoutInMinutes: 40
@@ -769,7 +769,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.9
+                  python: 3.11
             build:
               commands:
                 - echo Configuring AWS credentials
@@ -796,7 +796,7 @@ Resources:
       EncryptionKey: !Ref pSharedDevOpsAccountKmsKeyArn
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
           - Name: ENV
@@ -817,7 +817,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.9
+                  python: 3.11
             build:
               commands:
                 - echo Configuring AWS credentials

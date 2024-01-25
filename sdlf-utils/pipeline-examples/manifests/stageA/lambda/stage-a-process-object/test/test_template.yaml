@@ -49,7 +49,7 @@ Resources:
     Properties:
       LayerName: datalake_library
       CompatibleRuntimes:
-        - python3.9
+        - python3.11
       ContentUri: ../../../../dl/common-datalakeLibrary
 
   # NOTE: Please ensure this Logical ID is alphanumeric and contains no symbols!
@@ -69,7 +69,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       MemorySize: 512
       Role: !Sub arn:${AWS::Partition}:iam::509480599834:role/service-role/qs-transform-object-phase-a-role
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 120
       Layers: 
         - !Ref RequestsLayer

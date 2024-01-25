@@ -29,6 +29,7 @@ client = boto3.client("glue")
 dynamo_config = DynamoConfiguration()
 dynamo_interface = DynamoInterface(dynamo_config)
 
+
 def datetimeconverter(o):
     if isinstance(o, dt.datetime):
         return o.__str__()
@@ -40,14 +41,16 @@ class CustomTransform:
 
     def transform_object(self, bucket, keys, team, dataset, pipeline, stage):
         transform_info = dynamo_interface.get_transform_table_item("{}-{}".format(team, dataset))
-        glue_capacity = { "WorkerType": "G.1X", "NumberOfWorkers": 10}
+        glue_capacity = {"WorkerType": "G.1X", "NumberOfWorkers": 10}
         glue_extra_arguments = {}
         stage_entry = "stage_{}".format(stage[-1].lower())
         logger.info(f"Stage is {stage_entry}")
         if stage_entry in transform_info.get(pipeline, {}):
             logger.info(f"Details from DynamoDB: {transform_info[pipeline]}")
             glue_capacity = transform_info[pipeline][stage_entry].get("glue_capacity", glue_capacity)
-            glue_extra_arguments = transform_info[pipeline][stage_entry].get("glue_extra_arguments", glue_extra_arguments)
+            glue_extra_arguments = transform_info[pipeline][stage_entry].get(
+                "glue_extra_arguments", glue_extra_arguments
+            )
         #######################################################
         # We assume a Glue Job has already been created based on
         # customer needs. This function makes an API call to start it
