@@ -1,4 +1,4 @@
-name: Workshop deployment
+name: Workshop Deployment
 
 on:
   workflow_dispatch: # execution on-demand
@@ -39,7 +39,7 @@ jobs:
           no-fail-on-empty-changeset: "1"
       - name: Get CodeBuild build status
         run: |
-          project=$(aws cloudformation descratusibe-stacks --region ${{ env.AWS_REGION }} --stack-name sdlf-workshop-deployment --query "Stacks[0].Outputs[?OutputKey=='oWorkshopProject'].OutputValue" --output text)
+          project=$(aws cloudformation describe-stacks --region ${{ env.AWS_REGION }} --stack-name sdlf-workshop-deployment --query "Stacks[0].Outputs[?OutputKey=='oWorkshopProject'].OutputValue" --output text)
           build_id=$(aws codebuild list-builds-for-project --region ${{ env.AWS_REGION }} --project-name "$project" --query "ids[0]" --output text)
           build_status=$(aws codebuild batch-get-builds --region ${{ env.AWS_REGION }} --id "$build_id" --query "builds[0].buildStatus" --output text)
           while [ "$build_status" == "IN_PROGRESS" ]; do echo "build is in progress..."; sleep 30; build_status=$(aws codebuild batch-get-builds --region ${{ env.AWS_REGION }} --id "$build_id" --query "builds[0].buildStatus" --output text); done
