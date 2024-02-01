@@ -488,6 +488,132 @@ Resources:
       Value: !Ref rArtifactsBucket
       Description: S3 DevOps Artifacts Bucket
 
+  rCodePipelineFirstRunStopperLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rCodePipelineFirstRunStopperLambda}
+      RetentionInDays: 1
+      KmsKeyId: !GetAtt rKMSKey.Arn
+
+  rCodePipelineFirstRunStopperLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      Policies:
+        - PolicyName: sdlf-codepipeline-stopper-lambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:DeleteLogGroup
+                  - logs:TagLogGroup
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:DescribeLogStreams
+                  - logs:CreateLogStream
+                  - logs:DeleteLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-codepipeline-stopper
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-codepipeline-stopper:*
+              - Effect: Allow
+                Action:
+                  - codepipeline:StopPipelineExecution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-*
+
+  rCodePipelineFirstRunStopperLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sdlf-codepipeline-stopper
+      Description: Stops CodePipeline automatic first run
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      KmsKeyArn: !GetAtt rKMSKey.Arn
+      MemorySize: 128
+      Role: !GetAtt rCodePipelineFirstRunStopperLambdaRole.Arn
+      Timeout: 150
+      Code:
+        ZipFile: |
+          import logging
+          import os
+
+          import boto3
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          codepipeline_endpoint_url = "https://codepipeline." + os.getenv("AWS_REGION") + ".amazonaws.com"
+          codepipeline = boto3.client("codepipeline", endpoint_url=codepipeline_endpoint_url)
+
+
+          def lambda_handler(event, context):
+              try:
+                  # extract pipeline name and execution id from the source event
+                  detail = event.get("detail", {})
+                  pipeline = detail.get("pipeline", {})
+                  pipeline_execution = detail.get("execution-id", {})
+
+                  if pipeline and pipeline_execution:
+                      codepipeline.stop_pipeline_execution(pipelineName=pipeline, pipelineExecutionId=pipeline_execution)
+                      logger.info("Stopped pipeline: %s, execution %s", pipeline, pipeline_execution)
+                  else:
+                      logger.info("Pipeline name or execution id not found in the source event")
+              except Exception as e:
+                  message = "Function exception: " + str(e)
+                  logger.info(message)
+                  raise
+
+              return {"statusCode": 200, "body": "Pipeline execution stopped successfully"}
+
+  rPermissionForCodePipelineFirstRunStopperEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref rCodePipelineFirstRunStopperLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt rCodePipelineFirstRunStopperTriggerRule.Arn
+
+  rCodePipelineFirstRunStopperTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        resources:
+          - prefix: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-sdlf-repositories-" # stop rMain CodePipeline
+        detail:
+          state:
+            - STARTED
+          execution-trigger:
+            trigger-type:
+              - CreatePipeline
+      Targets:
+        - Arn: !GetAtt rCodePipelineFirstRunStopperLambda.Arn
+          Id: !Sub sdlf-${rCodePipelineFirstRunStopperLambda}-trigger
+
+
 Outputs:
   # workaround {{resolve:ssm:}} not returning an array that can be used directly in VpcConfig blocks
   oVpcFeatureSecurityGroupIds:
