@@ -164,14 +164,48 @@ devops_account () {
     aws cloudformation package \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories \
         --template-file "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.yaml \
-        --output-template-file "$DIRNAME"/output/packaged-template.yaml \
+        --output-template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-repositories.yaml \
         --region "$REGION" \
         --profile "$DEVOPS_AWS_PROFILE"
     STACK_NAME=sdlf-cicd-sdlf-repositories
     aws cloudformation deploy \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf-cicd-sdlf-repositories \
         --stack-name "$STACK_NAME" \
-        --template-file "$DIRNAME"/output/packaged-template.yaml \
+        --template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-repositories.yaml \
+        --parameter-overrides \
+            pKMSKey=/SDLF/KMS/CICDKeyId \
+        --tags Framework=sdlf \
+        --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+        --region "$REGION" \
+        --profile "$DEVOPS_AWS_PROFILE" || exit 1
+    template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
+    rm -Rf "$DIRNAME"/output
+
+    declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-main")
+    for REPOSITORY in "${REPOSITORIES[@]}"
+    do
+        latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query "branch.commitId" --output text)
+        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit"
+        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit"
+    done
+
+    aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
+    curl -L -O --output-dir "$DIRNAME"/sdlf-cicd/ https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip
+    aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip --body "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
+    rm "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
+
+    mkdir "$DIRNAME"/output
+    aws cloudformation package \
+        --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-pipelines \
+        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-pipelines.yaml \
+        --output-template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-pipelines.yaml \
+        --region "$REGION" \
+        --profile "$DEVOPS_AWS_PROFILE"
+    STACK_NAME=sdlf-cicd-sdlf-pipelines
+    aws cloudformation deploy \
+        --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf-cicd-sdlf-pipelines \
+        --stack-name "$STACK_NAME" \
+        --template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-pipelines.yaml \
         --parameter-overrides \
             pArtifactsBucket=/SDLF/S3/DevOpsArtifactsBucket \
             pKMSKey=/SDLF/KMS/CICDKeyId \
@@ -181,19 +215,6 @@ devops_account () {
         --profile "$DEVOPS_AWS_PROFILE" || exit 1
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
     rm -Rf "$DIRNAME"/output
-
-    declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB")
-    for REPOSITORY in "${REPOSITORIES[@]}"
-    do
-        latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query 'branch.commitId' --output text)
-        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit"
-        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit"
-    done
-
-    aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
-    curl -L -O --output-dir "$DIRNAME"/sdlf-cicd/ https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip
-    aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip --body "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
-    rm "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
 
     exit
 }
