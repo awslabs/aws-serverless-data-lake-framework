@@ -1013,7 +1013,7 @@ Resources:
           CatalogId: !Ref AWS::AccountId
           ResourceType: TABLE
           Expression:
-            - TagKey: !Sub "sdlf:team:${pTeamName}"
+            - TagKey: !Ref rTeamLakeFormationTag
               TagValues:
                 - !Sub ${pTeamName}
       Permissions:
