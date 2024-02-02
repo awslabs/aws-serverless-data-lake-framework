@@ -602,7 +602,8 @@ Resources:
         detail-type:
           - CodePipeline Pipeline Execution State Change
         resources:
-          - prefix: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-sdlf-repositories-" # stop rMain CodePipeline
+          - prefix: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-sdlf-pipelines-" # stop rMain CodePipeline
+          - prefix: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:sdlf-cicd-teams-" # stop rTeam CodePipeline
         detail:
           state:
             - STARTED
