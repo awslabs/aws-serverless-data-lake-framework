@@ -31,7 +31,7 @@ def delete_domain_team_role_stack(team, cloudformation_role):
     return (stack_name, "stack_delete_complete")
 
 
-def delete_team_cicd_stack(domain, environment, team_name, cloudformation_role):
+def delete_team_pipeline_cicd_stack(domain, environment, team_name, cloudformation_role):
     stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
     cloudformation.delete_stack(
         StackName=stack_name,
@@ -40,7 +40,72 @@ def delete_team_cicd_stack(domain, environment, team_name, cloudformation_role):
     return (stack_name, "stack_delete_complete")
 
 
-def create_team_cicd_stack(
+def create_team_repository_cicd_stack(domain, team_name, template_body_url, cloudformation_role):
+    response = {}
+    cloudformation_waiter_type = None
+    stack_name = f"sdlf-cicd-teams-{domain}-{team_name}-repository"
+    try:
+        response = cloudformation.create_stack(
+            StackName=stack_name,
+            TemplateURL=template_body_url,
+            Parameters=[
+                {
+                    "ParameterKey": "pDomain",
+                    "ParameterValue": domain,
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pTeamName",
+                    "ParameterValue": team_name,
+                    "UsePreviousValue": False,
+                },
+            ],
+            Capabilities=[
+                "CAPABILITY_AUTO_EXPAND",
+            ],
+            RoleARN=cloudformation_role,
+            Tags=[
+                {"Key": "Framework", "Value": "sdlf"},
+            ],
+        )
+        cloudformation_waiter_type = "stack_create_complete"
+    except cloudformation.exceptions.AlreadyExistsException:
+        try:
+            response = cloudformation.update_stack(
+                StackName=stack_name,
+                TemplateURL=template_body_url,
+                Parameters=[
+                    {
+                        "ParameterKey": "pDomain",
+                        "ParameterValue": domain,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pTeamName",
+                        "ParameterValue": team_name,
+                        "UsePreviousValue": False,
+                    },
+                ],
+                Capabilities=[
+                    "CAPABILITY_AUTO_EXPAND",
+                ],
+                RoleARN=cloudformation_role,
+                Tags=[
+                    {"Key": "Framework", "Value": "sdlf"},
+                ],
+            )
+            cloudformation_waiter_type = "stack_update_complete"
+        except ClientError as err:
+            if "No updates are to be performed" in err.response["Error"]["Message"]:
+                pass
+            else:
+                raise err
+
+    logger.info("RESPONSE: %s", response)
+    return (stack_name, cloudformation_waiter_type)
+
+
+def create_team_pipeline_cicd_stack(
     domain, environment, team_name, crossaccount_team_role, template_body_url, child_account, cloudformation_role
 ):
     response = {}
@@ -182,22 +247,39 @@ def lambda_handler(event, context):
             zip_ref.extractall(temp_directory)
         logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
 
-        template_cicd_team = os.path.join(temp_directory, "template-cicd-team.yaml")
-        template_cicd_team_key = "template-cicd-sdlf-repositories/template-cicd-team.yaml"
+        template_cicd_team_repository = os.path.join(temp_directory, "template-cicd-team-repository.yaml")
+        template_cicd_team_repository_key = "template-cicd-sdlf-repositories/template-cicd-team-repository.yaml"
         s3.upload_file(
-            Filename=template_cicd_team,
+            Filename=template_cicd_team_repository,
             Bucket=artifacts_bucket,
-            Key=template_cicd_team_key,
+            Key=template_cicd_team_repository_key,
         )
-        template_cicd_team_url = s3.generate_presigned_url(
+        template_cicd_team_repository_url = s3.generate_presigned_url(
             "get_object",
             Params={
                 "Bucket": artifacts_bucket,
-                "Key": template_cicd_team_key,
+                "Key": template_cicd_team_repository_key,
             },
             ExpiresIn=1200,
         )
-        logger.info("template_cicd_team_url: %s", template_cicd_team_url)
+        logger.info("template_cicd_team_repository_url: %s", template_cicd_team_repository_url)
+
+        template_cicd_team_pipeline = os.path.join(temp_directory, "template-cicd-team-pipeline.yaml")
+        template_cicd_team_pipeline_key = "template-cicd-sdlf-repositories/template-cicd-team-pipeline.yaml"
+        s3.upload_file(
+            Filename=template_cicd_team_pipeline,
+            Bucket=artifacts_bucket,
+            Key=template_cicd_team_pipeline_key,
+        )
+        template_cicd_team_pipeline_url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": artifacts_bucket,
+                "Key": template_cicd_team_pipeline_key,
+            },
+            ExpiresIn=1200,
+        )
+        logger.info("template_cicd_team_pipeline_url: %s", template_cicd_team_pipeline_url)
 
         main_artifact_key = main_artifact_location["objectKey"]
         zipped_object = BytesIO(
@@ -287,7 +369,7 @@ def lambda_handler(event, context):
                 crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{legacy_team}"
                 stack_details = delete_domain_team_role_stack(legacy_team, crossaccount_team_role)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
-                stack_details = delete_team_cicd_stack(domain, environment, legacy_team, cloudformation_role)
+                stack_details = delete_team_pipeline_cicd_stack(domain, environment, legacy_team, cloudformation_role)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
 
             cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
@@ -295,18 +377,39 @@ def lambda_handler(event, context):
                 cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
             ###### END CLEANUP OLD TEAMS ######
 
+            # create team repository if it hasn't been created already
+            cloudformation_waiters = {
+                "stack_create_complete": [],
+                "stack_update_complete": [],
+            }
+            for team in teams:
+                stack_details = create_team_repository_cicd_stack(
+                    domain,
+                    team,
+                    template_cicd_team_repository_url,
+                    cloudformation_role,
+                )
+                if stack_details[1]:
+                    cloudformation_waiters[stack_details[1]].append(stack_details[0])
+            cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
+            cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
+            for stack in cloudformation_waiters["stack_create_complete"]:
+                cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+            for stack in cloudformation_waiters["stack_update_complete"]:
+                cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+
             cloudformation_waiters = {
                 "stack_create_complete": [],
                 "stack_update_complete": [],
             }
             for team in teams:
                 crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
-                stack_details = create_team_cicd_stack(
+                stack_details = create_team_pipeline_cicd_stack(
                     domain,
                     environment,
                     team,
                     crossaccount_team_role,
-                    template_cicd_team_url,
+                    template_cicd_team_pipeline_url,
                     child_account,
                     cloudformation_role,
                 )

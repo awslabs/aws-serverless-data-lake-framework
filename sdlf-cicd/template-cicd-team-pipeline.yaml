@@ -97,17 +97,7 @@ Conditions:
   EnableOptionalFeatures: !Or [!Condition EnableLambdaLayerBuilder, !Condition EnableGlueJobDeployer]
 
 Resources:
-  rTeamMainCodeCommit:
-    Type: AWS::CodeCommit::Repository
-    Properties:
-      # Code:
-      #   S3:
-      #     Bucket:
-      #     Key: zip
-      RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
-      RepositoryName: !Sub sdlf-main-${pDomain}-${pTeamName}
-      KmsKeyId: !Ref pKMSKey
-
+  ######## CODEPIPELINE #########
   rTeamMainCodePipelineRole:
     Type: AWS::IAM::Role
     Properties:
@@ -136,7 +126,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
-                  - !GetAtt rTeamMainCodeCommit.Arn
+                  - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
@@ -185,7 +175,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
 
-  ######## CODEPIPELINE #########
   rTeamCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -202,7 +191,7 @@ Resources:
               OutputArtifacts:
                 - Name: TemplateSource
               Configuration:
-                RepositoryName: !GetAtt rTeamMainCodeCommit.Name
+                RepositoryName: !Sub "{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
                 BranchName:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
@@ -622,7 +611,7 @@ Resources:
         detail-type:
           - CodeCommit Repository State Change
         resources:
-          - !GetAtt rTeamMainCodeCommit.Arn
+          - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
         detail:
           event:
             - referenceCreated
