@@ -106,7 +106,13 @@ def create_team_repository_cicd_stack(domain, team_name, template_body_url, clou
 
 
 def create_team_pipeline_cicd_stack(
-    domain, environment, team_name, crossaccount_team_role, template_body_url, child_account, cloudformation_role
+    domain,
+    environment,
+    team_name,
+    crossaccount_team_role,
+    template_body_url,
+    child_account,
+    cloudformation_role,
 ):
     response = {}
     cloudformation_waiter_type = None
@@ -212,7 +218,8 @@ def create_codecommit_approval_rule(team_name, repository):
             approvalRuleTemplateContent='{"Version": "2018-11-08","DestinationReferences": ["refs/heads/main"],"Statements": [{"Type": "Approvers","NumberOfApprovalsNeeded": 1}]}',
         )
         codecommit.associate_approval_rule_template_with_repository(
-            approvalRuleTemplateName=f"{team_name}-approval-to-production", repositoryName=repository
+            approvalRuleTemplateName=f"{team_name}-approval-to-production",
+            repositoryName=repository,
         )
     except codecommit.exceptions.ApprovalRuleTemplateNameAlreadyExistsException:
         pass
@@ -233,21 +240,22 @@ def lambda_handler(event, context):
                 cicd_artifact_location = artifact["location"]["s3Location"]
             if artifact["name"] == "SourceMainArtifact":
                 main_artifact_location = artifact["location"]["s3Location"]
+            if artifact["name"] == "TemplatePackage":
+                package_artifact_location = artifact["location"]["s3Location"]
 
         artifacts_bucket = cicd_artifact_location["bucketName"]
-        cicd_artifact_key = cicd_artifact_location["objectKey"]
+        package_artifact_key = package_artifact_location["objectKey"]
         zipped_object = BytesIO(
             s3.get_object(
                 Bucket=artifacts_bucket,
-                Key=cicd_artifact_key,
+                Key=package_artifact_key,
             )["Body"].read()
         )
         temp_directory = mkdtemp()
         with zipfile.ZipFile(zipped_object, "r") as zip_ref:
             zip_ref.extractall(temp_directory)
-        logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
-
-        template_cicd_team_repository = os.path.join(temp_directory, "template-cicd-team-repository.yaml")
+        logger.info("PACKAGE FILES: %s", os.listdir(temp_directory))
+        template_cicd_team_repository = os.path.join(temp_directory, "packaged-template.yaml")
         template_cicd_team_repository_key = "template-cicd-sdlf-repositories/template-cicd-team-repository.yaml"
         s3.upload_file(
             Filename=template_cicd_team_repository,
@@ -263,6 +271,18 @@ def lambda_handler(event, context):
             ExpiresIn=1200,
         )
         logger.info("template_cicd_team_repository_url: %s", template_cicd_team_repository_url)
+
+        cicd_artifact_key = cicd_artifact_location["objectKey"]
+        zipped_object = BytesIO(
+            s3.get_object(
+                Bucket=artifacts_bucket,
+                Key=cicd_artifact_key,
+            )["Body"].read()
+        )
+        temp_directory = mkdtemp()
+        with zipfile.ZipFile(zipped_object, "r") as zip_ref:
+            zip_ref.extractall(temp_directory)
+        logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
 
         template_cicd_team_pipeline = os.path.join(temp_directory, "template-cicd-team-pipeline.yaml")
         template_cicd_team_pipeline_key = "template-cicd-sdlf-repositories/template-cicd-team-pipeline.yaml"
@@ -339,7 +359,8 @@ def lambda_handler(event, context):
             ###### CLEANUP OLD TEAMS ######
             paginator = cloudformation.get_paginator("list_stacks")
             existing_stacks_pages = paginator.paginate(
-                StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"], PaginationConfig={"MaxItems": 30}
+                StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
+                PaginationConfig={"MaxItems": 30},
             )
             existing_teams = [
                 existing_stack["StackName"].removeprefix(f"sdlf-cicd-teams-{domain}-{environment}-")
@@ -397,6 +418,32 @@ def lambda_handler(event, context):
                 cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
             for stack in cloudformation_waiters["stack_update_complete"]:
                 cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+
+            repository_name = f"sdlf-main-{domain}-{team}"
+            env_branches = ["dev", "test"]
+            for env_branch in env_branches:
+                try:
+                    codecommit.create_branch(
+                        repositoryName=repository_name,
+                        branchName=env_branch,
+                        commitId=codecommit.get_branch(
+                            repositoryName=repository_name,
+                            branchName="main",
+                        )[
+                            "branch"
+                        ]["commitId"],
+                    )
+                    logger.info(
+                        "Branch %s created in repository %s",
+                        env_branch,
+                        repository_name,
+                    )
+                except codecommit.exceptions.BranchNameExistsException:
+                    logger.info(
+                        "Branch %s already created in repository %s",
+                        env_branch,
+                        repository_name,
+                    )
 
             cloudformation_waiters = {
                 "stack_create_complete": [],

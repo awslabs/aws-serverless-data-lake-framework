@@ -20,6 +20,8 @@ Parameters:
     Type: String
   pMainRepositoryTeamLambda:
     Type: String
+  pBuildCloudFormationPackage:
+    Type: String
   pEnvironment:
     Description: Environment name
     Type: String
@@ -91,6 +93,12 @@ Resources:
                   - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryDomainLambda}
                   - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryCrossAccountTeamLambda}
                   - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryTeamLambda}
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudFormationPackage}"
 
   rMainRepositoryPipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -163,6 +171,21 @@ Resources:
         -
           Name: TeamPipeline
           Actions:
+            - Name: PackageTemplate
+              InputArtifacts:
+                - Name: SourceCicdArtifact
+              OutputArtifacts:
+                - Name: TemplatePackage
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudFormationPackage
+                EnvironmentVariables: >-
+                  [{"name":"TEMPLATE", "value":"template-cicd-team-repository.yaml", "type":"PLAINTEXT"}]
+              RunOrder: 1
             - Name: CreateTeamCodePipeline
               ActionTypeId:
                 Category: Invoke
@@ -172,10 +195,11 @@ Resources:
               InputArtifacts:
                 - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
+                - Name: TemplatePackage
               Configuration:
                 FunctionName: !Ref pMainRepositoryTeamLambda
                 UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-              RunOrder: 1
+              RunOrder: 2
       ArtifactStore:
         Type: S3
         EncryptionKey:
