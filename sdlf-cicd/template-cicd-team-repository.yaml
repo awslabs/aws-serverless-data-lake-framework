@@ -17,11 +17,15 @@ Parameters:
 Resources:
   rTeamMainCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
     Properties:
-      # Code:
-      #   S3:
-      #     Bucket:
-      #     Key: zip
+      Code:
+        BranchName: main
+        S3: ./README.md
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
       RepositoryName: !Sub sdlf-main-${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey

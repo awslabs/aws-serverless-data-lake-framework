@@ -65,6 +65,7 @@ Resources:
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
         pMainRepositoryCrossAccountTeamLambda: !Ref rMainRepositoryCrossAccountTeamLambda
         pMainRepositoryTeamLambda: !Ref rMainRepositoryTeamLambda
+        pBuildCloudFormationPackage: !Ref rCloudFormationPackageCodeBuildProject
         pEnvironment: dev
 
   rCloudFormationModulesTestDeploymentPipelines:
@@ -82,6 +83,7 @@ Resources:
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
         pMainRepositoryCrossAccountTeamLambda: !Ref rMainRepositoryCrossAccountTeamLambda
         pMainRepositoryTeamLambda: !Ref rMainRepositoryTeamLambda
+        pBuildCloudFormationPackage: !Ref rCloudFormationPackageCodeBuildProject
         pEnvironment: test
 
   rCloudFormationModulesProdDeploymentPipelines:
@@ -99,6 +101,7 @@ Resources:
         pMainRepositoryDomainLambda: !Ref rMainRepositoryDomainLambda
         pMainRepositoryCrossAccountTeamLambda: !Ref rMainRepositoryCrossAccountTeamLambda
         pMainRepositoryTeamLambda: !Ref rMainRepositoryTeamLambda
+        pBuildCloudFormationPackage: !Ref rCloudFormationPackageCodeBuildProject
         pEnvironment: prod
 
   rStagesRepositoriesLambdaRole:
@@ -304,6 +307,12 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+              - Action:
+                  - codecommit:GetBranch
+                  - codecommit:CreateBranch
+                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-main-*
                 Sid: CodeCommitRead
               - Action:
                   - codecommit:CreateApprovalRuleTemplate # W11 exception
@@ -397,6 +406,7 @@ Resources:
                   - codecommit:UntagResource
                   - codecommit:UpdateRepositoryEncryptionKey
                   - codecommit:PutRepositoryTriggers
+                  - codecommit:CreateCommit
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-main-*
               - Effect: Allow  
@@ -408,6 +418,11 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !Ref pKMSKey
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/codebuild/*
               - Effect: Allow
                 Action:
                   - iam:PassRole
