@@ -199,7 +199,7 @@ Resources:
           - id: F76
             reason: Full access is allowed to Key admin and some AWS services
     Properties:
-      Description: Foundations KMS Key
+      Description: SDLF Foundations KMS Key
       EnableKeyRotation: True
       KeyPolicy:
         Version: 2012-10-17
@@ -301,6 +301,8 @@ Resources:
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
     Properties:
       AliasName: alias/sdlf-kms-key
       TargetKeyId: !Ref rKMSKey

@@ -60,7 +60,7 @@ Resources:
           ignore_checks:
             - I3042
     Properties:
-      Description: KMS key for encryption of CodePipeline artifacts
+      Description: SDLF KMS key for encryption of CodePipeline artifacts
       Enabled: true
       EnableKeyRotation: true
       KeyPolicy:
@@ -190,6 +190,8 @@ Resources:
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
     Properties:
       AliasName: alias/sdlf-cicd-kms-key
       TargetKeyId: !Ref rKMSKey
