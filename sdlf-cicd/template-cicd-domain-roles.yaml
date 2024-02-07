@@ -344,6 +344,13 @@ Resources:
                       - lakeformation.amazonaws.com
                       - events.amazonaws.com
               - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain # nested stacks
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService":
+                      - cloudformation.amazonaws.com
+              - Effect: Allow
                 Action:
                   - iam:DeleteRole
                   - iam:DeleteRolePolicy
