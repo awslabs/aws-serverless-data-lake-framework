@@ -97,7 +97,7 @@ class DynamoInterface:
 
     def update_object_metadata_catalog(self, item):
         item["id"] = self.build_id(item["bucket"], item["key"])
-        item["timestamp"] = int(round(dt.datetime.now(dt.timezone.utc).timestamp() * 1000, 0))
+        item["timestamp"] = int(round(dt.datetime.now(dt.UTC).timestamp() * 1000, 0))
         return self.put_item_in_object_metadata_table(item)
 
     def put_item_in_object_metadata_table(self, item):
@@ -106,7 +106,7 @@ class DynamoInterface:
     def batch_update_object_metadata_catalog(self, items):
         for item in items:
             item["id"] = self.build_id(item["bucket"], item["key"])
-            item["timestamp"] = int(round(dt.datetime.now(dt.timezone.utc).timestamp() * 1000, 0))
+            item["timestamp"] = int(round(dt.datetime.now(dt.UTC).timestamp() * 1000, 0))
 
         return self.batch_put_item_in_object_metadata_table(items)
 
@@ -195,7 +195,7 @@ class DynamoInterface:
 
     def update_manifests_control_table_stagea(self, ddb_key, status, s3_key=None):
         if status == "STARTED":
-            starttime_time = dt.datetime.now(dt.timezone.utc)
+            starttime_time = dt.datetime.now(dt.UTC)
             starttime = str(starttime_time)
             starttimestamp = int(starttime_time.timestamp())
             expr_names = {
@@ -226,7 +226,7 @@ class DynamoInterface:
             return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "COMPLETED":
-            endtime_time = dt.datetime.now(dt.timezone.utc)
+            endtime_time = dt.datetime.now(dt.UTC)
             endtime = str(endtime_time)
             endtimestamp = int(endtime_time.timestamp())
             s3_prefix = s3_key
@@ -244,7 +244,7 @@ class DynamoInterface:
             return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "FAILED":
-            endtime_time = dt.datetime.now(dt.timezone.utc)
+            endtime_time = dt.datetime.now(dt.UTC)
             endtime = str(endtime_time)
             endtimestamp = int(endtime_time.timestamp())
             expr_names = {
@@ -265,7 +265,7 @@ class DynamoInterface:
 
     def update_manifests_control_table_stageb(self, ddb_key, status, s3_key=None, comment=None):
         if status == "STARTED":
-            starttime_time = dt.datetime.now(dt.timezone.utc)
+            starttime_time = dt.datetime.now(dt.UTC)
             starttime = str(starttime_time)
             starttimestamp = int(starttime_time.timestamp())
             expr_names = {
@@ -285,7 +285,7 @@ class DynamoInterface:
             return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "COMPLETED":
-            endtime_time = dt.datetime.now(dt.timezone.utc)
+            endtime_time = dt.datetime.now(dt.UTC)
             endtime = str(endtime_time)
             endtimestamp = int(endtime_time.timestamp())
             expr_names = {
@@ -301,7 +301,7 @@ class DynamoInterface:
             return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
         elif status == "FAILED":
-            endtime_time = dt.datetime.now(dt.timezone.utc)
+            endtime_time = dt.datetime.now(dt.UTC)
             endtime = str(endtime_time)
             endtimestamp = int(endtime_time.timestamp())
             expr_names = {

@@ -93,7 +93,7 @@ class ArtifactAPI:
         throw_if_false(self.client.is_pipeline_set(), "Pipeline execution is not yet assigned")
         throw_if_none(artifact, "Artifact is not defined")
 
-        current_time = datetime.datetime.now(datetime.timezone.utc)
+        current_time = datetime.datetime.now(datetime.UTC)
         utc_time_iso = get_timestamp_iso(current_time)
         local_date_iso = get_local_date()
 
