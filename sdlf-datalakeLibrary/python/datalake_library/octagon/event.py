@@ -42,7 +42,7 @@ class EventAPI:
         # Put to DDB
 
         item = {}
-        current_time = datetime.datetime.utcnow()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
         local_date_iso = get_local_date()
         utc_time_iso = get_timestamp_iso(current_time)
         # Add extra fields
