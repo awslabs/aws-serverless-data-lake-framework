@@ -19,7 +19,7 @@ schemas_table = "octagon-DataSchemas-{}".format(os.getenv("ENV"))
 
 
 def get_current_time():
-    return datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    return datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
 def grant_table_permissions(iam_arn, database, table, permissions):

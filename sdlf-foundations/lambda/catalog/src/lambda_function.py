@@ -22,7 +22,7 @@ def parse_s3_event(s3_event):
         "key": unquote_plus(s3_event["s3"]["object"]["key"]),
         "size": s3_event["s3"]["object"]["size"],
         "last_modified_date": s3_event["eventTime"].split(".")[0] + "+00:00",
-        "timestamp": int(round(datetime.now(datetime.timezone.utc).timestamp() * 1000, 0)),
+        "timestamp": int(round(datetime.now(datetime.UTC).timestamp() * 1000, 0)),
     }
 
 

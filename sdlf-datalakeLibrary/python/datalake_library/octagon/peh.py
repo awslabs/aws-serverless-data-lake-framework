@@ -49,7 +49,7 @@ class PipelineExecutionHistoryAPI:
             return None
 
         peh_id = str(uuid.uuid4())
-        current_time = datetime.datetime.now(datetime.timezone.utc)
+        current_time = datetime.datetime.now(datetime.UTC)
         utc_time_iso = get_timestamp_iso(current_time)
         local_date_iso = get_local_date()
 
@@ -108,7 +108,7 @@ class PipelineExecutionHistoryAPI:
         version = peh_rec["version"]
         start_time = peh_rec["start_timestamp"]
 
-        current_time = datetime.datetime.now(datetime.timezone.utc)
+        current_time = datetime.datetime.now(datetime.UTC)
         utc_time_iso = get_timestamp_iso(current_time)
         local_date_iso = get_local_date()
 
