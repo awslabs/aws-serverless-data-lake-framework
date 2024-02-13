@@ -10,8 +10,8 @@ def get_duration_sec(start_timestamp_str, end_timestamp_str):
     return (end_ts - start_ts).total_seconds()
 
 
-# datetime.datetime.utcnow()
-def get_timestamp_iso(current_time=datetime.datetime.utcnow()):
+# datetime.datetime.now(datetime.timezone.utc)
+def get_timestamp_iso(current_time=datetime.datetime.now(datetime.timezone.utc)):
     return current_time.isoformat()[:-3] + "Z"
 
 

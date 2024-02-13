@@ -128,7 +128,7 @@ Resources:
                     repositoryName = repository_name,
                     beforeCommitId = source_commit,
                     afterCommitId = destination_commit,
-                    content = '**Validation Build started at {}. Please wait until validation results received.**'.format(datetime.datetime.utcnow().time())
+                    content = '**Validation Build started at {}. Please wait until validation results received.**'.format(datetime.datetime.now(datetime.timezone.utc).time())
                   )
 
   rPullRequestLambdaLogGroup:
