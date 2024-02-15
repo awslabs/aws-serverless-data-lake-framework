@@ -369,6 +369,13 @@ Resources:
                   - states.amazonaws.com
                   - glue.amazonaws.com
           - Effect: Allow
+            Action: iam:PassRole
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName} # nested stacks
+            Condition:
+              StringEquals:
+                "iam:PassedToService":
+                  - cloudformation.amazonaws.com
+          - Effect: Allow
             Action:
               - iam:ListRoles # W13 exception
               - iam:ListPolicies # W13 exception
