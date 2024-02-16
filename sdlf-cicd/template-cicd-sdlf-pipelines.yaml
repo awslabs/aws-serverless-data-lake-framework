@@ -316,6 +316,7 @@ Resources:
                 Sid: CodeCommitRead
               - Action:
                   - codecommit:CreateApprovalRuleTemplate # W11 exception
+                  - codecommit:DeleteApprovalRuleTemplate # W11 exception
                 Effect: Allow
                 Resource:
                   - "*"

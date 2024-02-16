@@ -20,22 +20,22 @@ cloudformation_endpoint_url = "https://cloudformation." + os.getenv("AWS_REGION"
 cloudformation = boto3.client("cloudformation", endpoint_url=cloudformation_endpoint_url)
 kms_endpoint_url = "https://kms." + os.getenv("AWS_REGION") + ".amazonaws.com"
 kms = boto3.client("kms", endpoint_url=kms_endpoint_url)
+sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
+sts = boto3.client("sts", endpoint_url=sts_endpoint_url)
 
 
-def delete_domain_team_role_stack(team, cloudformation_role):
+def delete_domain_team_role_stack(cloudformation, team):
     stack_name = f"sdlf-cicd-team-role-{team}"
     cloudformation.delete_stack(
         StackName=stack_name,
-        RoleARN=cloudformation_role,
     )
     return (stack_name, "stack_delete_complete")
 
 
-def delete_team_pipeline_cicd_stack(domain, environment, team_name, cloudformation_role):
+def delete_team_pipeline_cicd_stack(domain, environment, team_name):
     stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
     cloudformation.delete_stack(
         StackName=stack_name,
-        RoleARN=cloudformation_role,
     )
     return (stack_name, "stack_delete_complete")
 
@@ -225,6 +225,36 @@ def create_codecommit_approval_rule(team_name, repository):
         pass
 
 
+def prepare_cloudformation_template(artifacts_bucket, artifact_key, template_name, template_key):
+    zipped_object = BytesIO(
+        s3.get_object(
+            Bucket=artifacts_bucket,
+            Key=artifact_key,
+        )["Body"].read()
+    )
+    temp_directory = mkdtemp()
+    with zipfile.ZipFile(zipped_object, "r") as zip_ref:
+        zip_ref.extractall(temp_directory)
+    logger.info("ARTIFACT FILES: %s", os.listdir(temp_directory))
+    template = os.path.join(temp_directory, template_name)
+    template_key = "template-cicd-sdlf-repositories/" + template_key
+    s3.upload_file(
+        Filename=template,
+        Bucket=artifacts_bucket,
+        Key=template_key,
+    )
+    template_url = s3.generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": artifacts_bucket,
+            "Key": template_key,
+        },
+        ExpiresIn=1200,
+    )
+    logger.info("template_url: %s", template_url)
+    return template_url
+
+
 def lambda_handler(event, context):
     try:
         branch = event["CodePipeline.job"]["data"]["actionConfiguration"]["configuration"]["UserParameters"]
@@ -245,61 +275,13 @@ def lambda_handler(event, context):
 
         artifacts_bucket = cicd_artifact_location["bucketName"]
         package_artifact_key = package_artifact_location["objectKey"]
-        zipped_object = BytesIO(
-            s3.get_object(
-                Bucket=artifacts_bucket,
-                Key=package_artifact_key,
-            )["Body"].read()
-        )
-        temp_directory = mkdtemp()
-        with zipfile.ZipFile(zipped_object, "r") as zip_ref:
-            zip_ref.extractall(temp_directory)
-        logger.info("PACKAGE FILES: %s", os.listdir(temp_directory))
-        template_cicd_team_repository = os.path.join(temp_directory, "packaged-template.yaml")
-        template_cicd_team_repository_key = "template-cicd-sdlf-repositories/template-cicd-team-repository.yaml"
-        s3.upload_file(
-            Filename=template_cicd_team_repository,
-            Bucket=artifacts_bucket,
-            Key=template_cicd_team_repository_key,
-        )
-        template_cicd_team_repository_url = s3.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": artifacts_bucket,
-                "Key": template_cicd_team_repository_key,
-            },
-            ExpiresIn=1200,
-        )
-        logger.info("template_cicd_team_repository_url: %s", template_cicd_team_repository_url)
-
         cicd_artifact_key = cicd_artifact_location["objectKey"]
-        zipped_object = BytesIO(
-            s3.get_object(
-                Bucket=artifacts_bucket,
-                Key=cicd_artifact_key,
-            )["Body"].read()
+        template_cicd_team_repository_url = prepare_cloudformation_template(
+            artifacts_bucket, package_artifact_key, "packaged-template.yaml", "template-cicd-team-repository.yaml"
         )
-        temp_directory = mkdtemp()
-        with zipfile.ZipFile(zipped_object, "r") as zip_ref:
-            zip_ref.extractall(temp_directory)
-        logger.info("REPOSITORY FILES: %s", os.listdir(temp_directory))
-
-        template_cicd_team_pipeline = os.path.join(temp_directory, "template-cicd-team-pipeline.yaml")
-        template_cicd_team_pipeline_key = "template-cicd-sdlf-repositories/template-cicd-team-pipeline.yaml"
-        s3.upload_file(
-            Filename=template_cicd_team_pipeline,
-            Bucket=artifacts_bucket,
-            Key=template_cicd_team_pipeline_key,
+        template_cicd_team_pipeline_url = prepare_cloudformation_template(
+            artifacts_bucket, cicd_artifact_key, "template-cicd-team-pipeline.yaml", "template-cicd-team-pipeline.yaml"
         )
-        template_cicd_team_pipeline_url = s3.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": artifacts_bucket,
-                "Key": template_cicd_team_pipeline_key,
-            },
-            ExpiresIn=1200,
-        )
-        logger.info("template_cicd_team_pipeline_url: %s", template_cicd_team_pipeline_url)
 
         main_artifact_key = main_artifact_location["objectKey"]
         zipped_object = BytesIO(
@@ -322,22 +304,21 @@ def lambda_handler(event, context):
         ]
         logger.info("DATA DOMAIN FILES: %s", domain_files)
 
-        domains = []
-        # for each domain, find all the team names and create a CICD stack per team that will be used to deploy team resources in the child account
+        domains = {}
+        ###### GET LIST OF TEAMS ######
         for domain_file in domain_files:
             domain = domain_file.split("-")[1]
-            domains.append(f"{domain}-{environment}")
-
-            child_account = ""
-            teams = []
+            domains[domain] = {"child_account": "", "teams": []}
             with open(os.path.join(temp_directory, domain_file), "r", encoding="utf-8") as template_domain:
                 while line := template_domain.readline():
                     if "pChildAccountId:" in line:
-                        child_account = line.split(":", 1)[-1].strip()
-                        if "AWS::AccountId" in child_account:  # same account setup, usually for workshops/demo
-                            child_account = context.invoked_function_arn.split(":")[4]
+                        domains[domain]["child_account"] = line.split(":", 1)[-1].strip()
+                        if (
+                            "AWS::AccountId" in domains[domain]["child_account"]
+                        ):  # same account setup, usually for workshops/demo
+                            domains[domain]["child_account"] = context.invoked_function_arn.split(":")[4]
                     elif "pTeamName:" in line:
-                        teams.append(line.split(":", 1)[-1].strip())
+                        domains[domain]["teams"].append(line.split(":", 1)[-1].strip())
                     elif "TemplateURL:" in line:  # teams can be declared in nested stacks
                         with open(
                             os.path.join(temp_directory, line.split(":", 1)[-1].strip()),
@@ -346,17 +327,17 @@ def lambda_handler(event, context):
                         ) as nested_stack:
                             while nested_stack_line := nested_stack.readline():
                                 if "pChildAccountId:" in nested_stack_line:
-                                    child_account = nested_stack_line.split(":", 1)[-1].strip()
+                                    domains[domain]["child_account"] = nested_stack_line.split(":", 1)[-1].strip()
                                     if (
-                                        "AWS::AccountId" in child_account
+                                        "AWS::AccountId" in domains[domain]["child_account"]
                                     ):  # same account setup, usually for workshops/demo
-                                        child_account = context.invoked_function_arn.split(":")[4]
+                                        domains[domain]["child_account"] = context.invoked_function_arn.split(":")[4]
                                 elif "pTeamName:" in nested_stack_line:
-                                    teams.append(nested_stack_line.split(":", 1)[-1].strip())
-            logger.info("pChildAccountId: %s", child_account)
-            logger.info("DATA DOMAIN (%s) TEAMS: %s", domain, teams)
+                                    domains[domain]["teams"].append(nested_stack_line.split(":", 1)[-1].strip())
+        logger.info("DATA DOMAIN DETAILS: %s", domains)
 
-            ###### CLEANUP OLD TEAMS ######
+        ###### CLEANUP OLD TEAMS ######
+        for domain, domain_details in domains.items():
             paginator = cloudformation.get_paginator("list_stacks")
             existing_stacks_pages = paginator.paginate(
                 StackStatusFilter=["CREATE_COMPLETE", "UPDATE_COMPLETE"],
@@ -370,7 +351,7 @@ def lambda_handler(event, context):
             ]
 
             # remove stacks for teams that are no longer in git
-            legacy_teams = list(set(existing_teams) - set(teams))
+            legacy_teams = list(set(existing_teams) - set(domain_details["teams"]))
             logger.info("LEGACY TEAMS: %s", legacy_teams)
             cloudformation_waiters = {
                 "stack_delete_complete": [],
@@ -379,18 +360,43 @@ def lambda_handler(event, context):
             # revoke grants for teams that will be removed
             for legacy_team in legacy_teams:
                 grants = kms.list_grants(KeyId=devops_kms_key)["Grants"]
+                grant_id = None
                 for grant in grants:
                     if grant["GranteePrincipal"].endswith(f":role/sdlf-cicd-team-{legacy_team}"):
                         grant_id = grant["GrantId"]
                         break
-                kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant_id)
+                if grant_id:
+                    kms.revoke_grant(KeyId=devops_kms_key, GrantId=grant_id)
                 codecommit.delete_approval_rule_template(
                     approvalRuleTemplateName=f"{domain}-{legacy_team}-approval-to-production"
                 )
-                crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{legacy_team}"
-                stack_details = delete_domain_team_role_stack(legacy_team, crossaccount_team_role)
+                stack_details = delete_team_pipeline_cicd_stack(domain, environment, legacy_team)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
-                stack_details = delete_team_pipeline_cicd_stack(domain, environment, legacy_team, cloudformation_role)
+
+            cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
+            for stack in cloudformation_waiters["stack_delete_complete"]:
+                cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
+
+            # assume role in child account to be able to delete a cloudformation stack
+            crossaccount_pipeline_role = (
+                f"arn:{partition}:iam::{domain_details['child_account']}:role/sdlf-cicd-devops-crossaccount-pipeline"
+            )
+            crossaccount_role_session = sts.assume_role(
+                RoleArn=crossaccount_pipeline_role, RoleSessionName="CrossAccountTeamLambda"
+            )
+            crossaccount_cloudformation = boto3.client(
+                "cloudformation",
+                aws_access_key_id=crossaccount_role_session["Credentials"]["AccessKeyId"],
+                aws_secret_access_key=crossaccount_role_session["Credentials"]["SecretAccessKey"],
+                aws_session_token=crossaccount_role_session["Credentials"]["SessionToken"],
+                endpoint_url=cloudformation_endpoint_url,
+            )
+            cloudformation_waiters = {
+                "stack_delete_complete": [],
+            }
+            for legacy_team in legacy_teams:
+                # from this assumed role, delete a cloudformation stack
+                stack_details = delete_domain_team_role_stack(crossaccount_cloudformation, legacy_team)
                 cloudformation_waiters[stack_details[1]].append(stack_details[0])
 
             cloudformation_waiter = cloudformation.get_waiter("stack_delete_complete")
@@ -398,12 +404,14 @@ def lambda_handler(event, context):
                 cloudformation_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
             ###### END CLEANUP OLD TEAMS ######
 
+        ###### CREATE STACKS FOR TEAMS ######
+        for domain, domain_details in domains.items():
             # create team repository if it hasn't been created already
             cloudformation_waiters = {
                 "stack_create_complete": [],
                 "stack_update_complete": [],
             }
-            for team in teams:
+            for team in domain_details["teams"]:
                 stack_details = create_team_repository_cicd_stack(
                     domain,
                     team,
@@ -419,45 +427,49 @@ def lambda_handler(event, context):
             for stack in cloudformation_waiters["stack_update_complete"]:
                 cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
-            repository_name = f"sdlf-main-{domain}-{team}"
-            env_branches = ["dev", "test"]
-            for env_branch in env_branches:
-                try:
-                    codecommit.create_branch(
-                        repositoryName=repository_name,
-                        branchName=env_branch,
-                        commitId=codecommit.get_branch(
+            for team in domain_details["teams"]:
+                repository_name = f"sdlf-main-{domain}-{team}"
+                env_branches = ["dev", "test"]
+                for env_branch in env_branches:
+                    try:
+                        codecommit.create_branch(
                             repositoryName=repository_name,
-                            branchName="main",
-                        )[
-                            "branch"
-                        ]["commitId"],
-                    )
-                    logger.info(
-                        "Branch %s created in repository %s",
-                        env_branch,
-                        repository_name,
-                    )
-                except codecommit.exceptions.BranchNameExistsException:
-                    logger.info(
-                        "Branch %s already created in repository %s",
-                        env_branch,
-                        repository_name,
-                    )
+                            branchName=env_branch,
+                            commitId=codecommit.get_branch(
+                                repositoryName=repository_name,
+                                branchName="main",
+                            )[
+                                "branch"
+                            ]["commitId"],
+                        )
+                        logger.info(
+                            "Branch %s created in repository %s",
+                            env_branch,
+                            repository_name,
+                        )
+                    except codecommit.exceptions.BranchNameExistsException:
+                        logger.info(
+                            "Branch %s already created in repository %s",
+                            env_branch,
+                            repository_name,
+                        )
 
+            # and create a CICD stack per team that will be used to deploy team resources in the child account
             cloudformation_waiters = {
                 "stack_create_complete": [],
                 "stack_update_complete": [],
             }
-            for team in teams:
-                crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
+            for team in domain_details["teams"]:
+                crossaccount_team_role = (
+                    f"arn:{partition}:iam::{domain_details['child_account']}:role/sdlf-cicd-team-{team}"
+                )
                 stack_details = create_team_pipeline_cicd_stack(
                     domain,
                     environment,
                     team,
                     crossaccount_team_role,
                     template_cicd_team_pipeline_url,
-                    child_account,
+                    domain_details["child_account"],
                     cloudformation_role,
                 )
                 if stack_details[1]:
