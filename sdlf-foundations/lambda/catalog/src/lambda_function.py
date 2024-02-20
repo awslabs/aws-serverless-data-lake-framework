@@ -68,10 +68,7 @@ def lambda_handler(event, context):
             else:
                 item = parse_s3_event(message)
                 item["id"] = f"s3://{item['bucket']}/{item['key']}"
-                if os.environ["NUM_BUCKETS"] == "1":
-                    item["stage"] = item["key"].split("/")[0]
-                else:
-                    item["stage"] = item["bucket"].split("-")[-1]
+                item["stage"] = item["bucket"].split("-")[-1]
                 put_item(catalog_table, item, "id")
 
     except Exception as e:

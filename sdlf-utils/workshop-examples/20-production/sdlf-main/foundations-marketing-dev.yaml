@@ -15,4 +15,3 @@ Resources:
             pOrg: forecourt
             pDomain: marketing
             pEnvironment: dev
-            pNumBuckets: 3

@@ -273,7 +273,6 @@ Resources:
                   - s3:GetObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
 
@@ -314,9 +313,7 @@ Resources:
                   - s3:PutObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/raw/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
               - Effect: Allow
@@ -375,7 +372,6 @@ Resources:
                   - s3:GetObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
 

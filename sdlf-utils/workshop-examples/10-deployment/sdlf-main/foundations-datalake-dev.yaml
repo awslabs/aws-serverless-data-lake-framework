@@ -15,4 +15,3 @@ Resources:
             pOrg: forecourt
             pDomain: datalake
             pEnvironment: dev
-            pNumBuckets: 3
