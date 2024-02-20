@@ -25,12 +25,6 @@ Parameters:
   pEnvironment:
     Description: Environment name
     Type: String
-  pNumBuckets:
-    Description: Number of data lake buckets (3 or 1)
-    Default: "3"
-    Type: String
-    AllowedValues: ["3", "1"]
-    ConstraintDescription: Must specify 3 or 1
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -75,8 +69,6 @@ Parameters:
     Default: ""
 
 Conditions:
-  CreateMultipleBuckets: !Equals [!Ref pNumBuckets, "3"]
-  CreateSingleBucket: !Equals [!Ref pNumBuckets, "1"]
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
@@ -343,11 +335,10 @@ Resources:
             reason: Access logs bucket should not have logging enabled https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-s3logs",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-s3logs"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs"
       LifecycleConfiguration:
         Rules:
           - Id: InfrequentAccess
@@ -390,11 +381,10 @@ Resources:
             Condition:
               ArnLike:
                 "aws:SourceArn":
-                  !If [
-                    UseCustomBucketPrefix,
-                    !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*",
-                    !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*",
-                  ]
+                  !If
+                    - UseCustomBucketPrefix
+                    - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*"
+                    - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*"
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
 
@@ -424,21 +414,12 @@ Resources:
               - s3:PutObjectVersionTagging
               - s3:Abort*
             Resource:
-              !If [
-                CreateMultipleBuckets,
-                [
-                  !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}",
-                  !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}",
-                  !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}",
-                  !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}/*",
-                  !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}/*",
-                  !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*",
-                ],
-                [
-                  !Sub "arn:${AWS::Partition}:s3:::${rCentralBucket}",
-                  !Sub "arn:${AWS::Partition}:s3:::${rCentralBucket}/*",
-                ]
-              ]
+              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}/*"
+              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}/*"
+              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*"
           - Effect: Allow
             Action:
               - kms:Encrypt*
@@ -459,19 +440,17 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-artifacts",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-artifacts"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-artifacts",
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts",
-          ]
+          !If
+            - UseCustomBucketPrefix
+            - !Sub "${pCustomBucketPrefix}-artifacts"
+            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -503,89 +482,22 @@ Resources:
             Principal: "*"
 
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
-  rCentralBucket:
-    Type: AWS::S3::Bucket
-    Condition: CreateSingleBucket
-    DependsOn: rQueueCatalogPolicy
-    Properties:
-      BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Ref pCustomBucketPrefix,
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
-        ]
-      LoggingConfiguration:
-        DestinationBucketName: !Ref rS3AccessLogsBucket
-        LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Ref pCustomBucketPrefix,
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
-          ]
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - BucketKeyEnabled: True
-            ServerSideEncryptionByDefault:
-              KMSMasterKeyID: !Ref rKMSKey
-              SSEAlgorithm: aws:kms
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: True
-        BlockPublicPolicy: True
-        IgnorePublicAcls: True
-        RestrictPublicBuckets: True
-      VersioningConfiguration:
-        Status: Enabled
-      NotificationConfiguration:
-        EventBridgeConfiguration:
-          EventBridgeEnabled: true
-
-  rCentralBucketPolicy:
-    Condition: CreateSingleBucket
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref rCentralBucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: AllowSSLRequestsOnly
-            Action: s3:*
-            Effect: Deny
-            Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}/*
-              - !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}
-            Condition:
-              Bool:
-                aws:SecureTransport: False
-            Principal: "*"
-
-  rCentralBucketLakeFormationS3Registration:
-    Type: AWS::LakeFormation::Resource
-    Condition: CreateSingleBucket
-    DependsOn: rLakeFormationDataAccessRolePolicy
-    Properties:
-      ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rCentralBucket}/
-      RoleArn: !GetAtt rLakeFormationDataAccessRole.Arn
-      UseServiceLinkedRole: False
-
   rRawBucket:
     Type: AWS::S3::Bucket
-    Condition: CreateMultipleBuckets
     DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-raw",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-raw"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-raw",
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
-          ]
+          !If
+            - UseCustomBucketPrefix
+            - !Sub "${pCustomBucketPrefix}-raw"
+            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -605,7 +517,6 @@ Resources:
 
   rRawBucketPolicy:
     Type: AWS::S3::BucketPolicy
-    Condition: CreateMultipleBuckets
     Properties:
       Bucket: !Ref rRawBucket
       PolicyDocument:
@@ -624,7 +535,6 @@ Resources:
 
   rRawBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
     DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rRawBucket}/
@@ -633,23 +543,20 @@ Resources:
 
   rStageBucket:
     Type: AWS::S3::Bucket
-    Condition: CreateMultipleBuckets
     DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-stage",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-stage"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-stage",
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
-          ]
+          !If
+            - UseCustomBucketPrefix
+            - !Sub "${pCustomBucketPrefix}-stage"
+            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -669,7 +576,6 @@ Resources:
 
   rStageBucketPolicy:
     Type: AWS::S3::BucketPolicy
-    Condition: CreateMultipleBuckets
     Properties:
       Bucket: !Ref rStageBucket
       PolicyDocument:
@@ -688,7 +594,6 @@ Resources:
 
   rStageBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
     DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rStageBucket}/
@@ -697,23 +602,20 @@ Resources:
 
   rAnalyticsBucket:
     Type: AWS::S3::Bucket
-    Condition: CreateMultipleBuckets
     DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-analytics",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-analytics"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-analytics",
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
-          ]
+          !If
+            - UseCustomBucketPrefix
+            - !Sub "${pCustomBucketPrefix}-analytics"
+            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -733,7 +635,6 @@ Resources:
 
   rAnalyticsBucketPolicy:
     Type: AWS::S3::BucketPolicy
-    Condition: CreateMultipleBuckets
     Properties:
       Bucket: !Ref rAnalyticsBucket
       PolicyDocument:
@@ -752,7 +653,6 @@ Resources:
 
   rAnalyticsBucketLakeFormationS3Registration:
     Type: AWS::LakeFormation::Resource
-    Condition: CreateMultipleBuckets
     DependsOn: rLakeFormationDataAccessRolePolicy
     Properties:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/
@@ -763,19 +663,17 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
-        !If [
-          UseCustomBucketPrefix,
-          !Sub "${pCustomBucketPrefix}-athena",
-          !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
-        ]
+        !If
+          - UseCustomBucketPrefix
+          - !Sub "${pCustomBucketPrefix}-athena"
+          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
-          !If [
-            UseCustomBucketPrefix,
-            !Sub "${pCustomBucketPrefix}-athena",
-            !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena",
-          ]
+          !If
+            - UseCustomBucketPrefix
+            - !Sub "${pCustomBucketPrefix}-athena"
+            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -846,7 +744,6 @@ Resources:
       Environment:
         Variables:
           ENV: !Ref pEnvironment
-          NUM_BUCKETS: !Ref pNumBuckets
       Description: Catalogs S3 Put and Delete to ObjectMetaDataCatalog
       MemorySize: 256
       Timeout: 60
@@ -889,28 +786,15 @@ Resources:
             Resource: !GetAtt rQueueCatalog.Arn
             Condition:
               ArnEquals:
-                aws:SourceArn:
-                  !If [
-                    UseCustomBucketPrefix,
-                    !If [
-                      CreateMultipleBuckets,
-                      [
-                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-raw",
-                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-stage",
-                        !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-analytics",
-                      ],
-                      !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}",
-                    ],
-                    !If [
-                      CreateMultipleBuckets,
-                      [
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw",
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage",
-                        !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics",
-                      ],
-                      !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}",
-                    ],
-                  ]
+                "aws:SourceArn":
+                  !If
+                    - UseCustomBucketPrefix
+                    - - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-raw"
+                      - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-stage"
+                      - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-analytics"
+                    - - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
+                      - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
+                      - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
       Queues:
@@ -997,17 +881,9 @@ Resources:
           - Object Deleted
         detail:
           bucket:
-            !If [
-              CreateMultipleBuckets,
-              [
-                !Ref rRawBucket,
-                !Ref rStageBucket,
-                !Ref rAnalyticsBucket,
-              ],
-              [
-                !Ref rCentralBucket,
-              ]
-            ]
+            - !Ref rRawBucket
+            - !Ref rStageBucket
+            - !Ref rAnalyticsBucket
       Targets:
         - Arn: !GetAtt rQueueCatalog.Arn
           RetryPolicy:
@@ -1025,27 +901,33 @@ Resources:
       Type: String
       Value: !Ref rArtifactsBucket
       Description: Name of the Artifacts S3 bucket
-  rS3CentralBucketSsm:
+  rS3CentralBucketSsm: # kept for backward compatibility
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/S3/CentralBucket
       Type: String
-      Value: !If [CreateMultipleBuckets, !Ref rRawBucket, !Ref rCentralBucket]
+      Value: !Ref rRawBucket
       Description: Name of the Central S3 bucket
+  rS3RawBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/S3/RawBucket
+      Type: String
+      Value: !Ref rRawBucket
+      Description: Name of the Raw S3 bucket
   rS3StageBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/S3/StageBucket
       Type: String
-      Value: !If [CreateMultipleBuckets, !Ref rStageBucket, !Ref rCentralBucket]
+      Value: !Ref rStageBucket
       Description: Name of the Stage S3 bucket
   rS3AnalyticsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/S3/AnalyticsBucket
       Type: String
-      Value:
-        !If [CreateMultipleBuckets, !Ref rAnalyticsBucket, !Ref rCentralBucket]
+      Value: !Ref rAnalyticsBucket
       Description: Name of the Analytics S3 bucket
   rS3AthenaBucketSsm:
     Type: AWS::SSM::Parameter

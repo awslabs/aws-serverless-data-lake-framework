@@ -93,7 +93,6 @@ Parameters:
     Default: ""
 
 Conditions:
-  CreateMultipleBuckets: !Not [!Equals [!Ref pCentralBucket, !Ref pAnalyticsBucket]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -382,20 +381,11 @@ Resources:
               - s3:PutObject
             Resource:
               - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pTeamName}/*
-              - !If [
-                  CreateMultipleBuckets,
-                  !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*",
-                  !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/raw/${pTeamName}/*",
-                ]
+              - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
-              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
-              - !If [
-                  CreateMultipleBuckets,
-                  !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/*",
-                  !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/analytics/${pTeamName}/*",
-                ]
+              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/*
           - Sid: AllowFullCodeCommitOnTeamRepositories
             Effect: Allow
             Action:
@@ -610,13 +600,10 @@ Resources:
                   - s3:PutObjectVersion
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/raw/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/analytics/${pTeamName}/*
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -928,12 +915,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource:
-            !If [
-              CreateMultipleBuckets,
-              !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/",
-              !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/raw/${pTeamName}/",
-            ]
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/
 
   rStagePreTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
@@ -944,12 +926,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource:
-            !If [
-              CreateMultipleBuckets,
-              !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/",
-              !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/pre-stage/${pTeamName}/",
-            ]
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/
 
   rStagePostTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
@@ -960,12 +937,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource:
-            !If [
-              CreateMultipleBuckets,
-              !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/",
-              !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/post-stage/${pTeamName}/",
-            ]
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/
 
   rAnalyticsTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
@@ -976,12 +948,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource:
-            !If [
-              CreateMultipleBuckets,
-              !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/",
-              !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}/analytics/${pTeamName}/",
-            ]
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/
 
   rTeamLakeFormationTag:
     Type: AWS::LakeFormation::Tag

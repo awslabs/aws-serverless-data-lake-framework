@@ -15,4 +15,3 @@ Resources:
             pOrg: forecourt
             pDomain: proserve
             pEnvironment: dev
-            pNumBuckets: 3

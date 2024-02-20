@@ -288,10 +288,8 @@ Resources:
                   - s3:GetObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/post-stage/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/analytics/${pTeamName}/*
 
   # Error Handling Lambda Role
   rRoleLambdaExecutionErrorStep:
