@@ -245,7 +245,7 @@ Resources:
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           SubnetIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
         - !Ref "AWS::NoValue"
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 300
       Environment:
         Variables:
@@ -520,7 +520,7 @@ Resources:
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           SubnetIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
         - !Ref "AWS::NoValue"
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 450
       Environment:
         Variables:
@@ -540,7 +540,7 @@ Resources:
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           SubnetIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
         - !Ref "AWS::NoValue"
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 450
       Environment:
         Variables:
@@ -563,7 +563,7 @@ Resources:
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           SubnetIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
         - !Ref "AWS::NoValue"
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 450
       Environment:
         Variables:
@@ -818,7 +818,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.11
+                python: 3.12
             build:
               commands:
                 - ls && echo "-----> making artifacts directory"

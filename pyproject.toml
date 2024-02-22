@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ["py311"]
+target-version = ["py312"]
 line-length = 120
 extend-exclude = '''
 (
@@ -13,10 +13,10 @@ ignore = ["PLR0912", "PLR0913", "PLR0915"]
 fixable = ["I001"]
 extend-exclude = ["sdlf-cicd/sam-translate.py"]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 
 [tool.pylint.main]
-py-version = "3.11"
+py-version = "3.12"
 ignore-paths = ["^/sdlf-cicd/sam-translate.py"]
 jobs = 0
 

@@ -159,7 +159,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.11
+                python: 3.12
               commands:
                 - |-
                     pip3 uninstall -y aws-sam-cli
@@ -264,7 +264,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                python: 3.11
+                python: 3.12
               commands:
                 - |-
                     pip3 uninstall -y aws-sam-cli
