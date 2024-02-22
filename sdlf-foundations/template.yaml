@@ -82,7 +82,7 @@ Conditions:
 
 Globals:
   Function:
-    Runtime: python3.11
+    Runtime: python3.12
     Handler: lambda_function.lambda_handler
     KmsKeyArn: !GetAtt rKMSKey.Arn
     VpcConfig: !If

@@ -110,7 +110,7 @@ Resources:
       Role: !GetAtt rPullRequestLambdaRole.Arn
       TracingConfig:
         Mode: Active
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 10
       Code:
         ZipFile: |
@@ -202,7 +202,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.11
+                  python: 3.12
             pre_build:
               on-failure: ABORT
               commands:
@@ -361,7 +361,7 @@ Resources:
       Role: !GetAtt rCodeBuildResultFunctionLambdaRole.Arn
       TracingConfig:
         Mode: Active
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 10
       Code:
         ZipFile: |

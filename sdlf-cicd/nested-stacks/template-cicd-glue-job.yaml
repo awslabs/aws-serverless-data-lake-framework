@@ -143,7 +143,7 @@ Resources:
           phases:
             install:
               runtime-versions:
-                  python: 3.11
+                  python: 3.12
               commands:
                 - |-
                     aws --version # version 1 installed using pip by codebuild

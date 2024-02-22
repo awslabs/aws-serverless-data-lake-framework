@@ -545,7 +545,7 @@ Resources:
     Properties:
       FunctionName: sdlf-codepipeline-stopper
       Description: Stops CodePipeline automatic first run
-      Runtime: python3.11
+      Runtime: python3.12
       Handler: index.lambda_handler
       KmsKeyArn: !GetAtt rKMSKey.Arn
       MemorySize: 128
