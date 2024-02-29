@@ -438,9 +438,7 @@ def lambda_handler(event, context):
                             commitId=codecommit.get_branch(
                                 repositoryName=repository_name,
                                 branchName="main",
-                            )[
-                                "branch"
-                            ]["commitId"],
+                            )["branch"]["commitId"],
                         )
                         logger.info(
                             "Branch %s created in repository %s",
