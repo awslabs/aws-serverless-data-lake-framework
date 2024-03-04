@@ -280,7 +280,9 @@ Resources:
           - Effect: Allow
             Action:
               - lambda:GetLayerVersion
-            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-* # there are sdlf-wide layers (datalake-lib-layer)
+            Resource: 
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-* # there are sdlf-wide layers (datalake-lib-layer)
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-* # allow managed AWS SDK for Pandas layer
           - Effect: Allow
             Action:
               - lambda:CreateFunction
