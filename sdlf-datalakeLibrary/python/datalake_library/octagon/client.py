@@ -1,8 +1,8 @@
+import importlib.resources
 import logging
 import os
 
 import boto3
-import pkg_resources
 
 from .artifact import Artifact, ArtifactAPI
 from .config import ConfigParser
@@ -17,9 +17,9 @@ class OctagonClient:
         self.logger = logging.getLogger(__name__)
         self.region = "us-east-1"
         self.profile = "default"
-        self.configuration_file = pkg_resources.resource_filename(__name__, "octagon-configuration.json")
+        self.configuration_file = importlib.resources.files(__name__) / "octagon-configuration.json"
         self.configuration_instance = "dev"
-        self.metadata_file = pkg_resources.resource_filename(__name__, "octagon-metadata.json")
+        self.metadata_file = importlib.resources.files(__name__) / "octagon-metadata.json"
         self.initialized = False
         self.run_in_fargate = False
         self.run_in_lambda = False

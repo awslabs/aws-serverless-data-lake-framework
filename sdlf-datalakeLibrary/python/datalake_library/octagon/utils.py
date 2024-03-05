@@ -4,15 +4,15 @@ import uuid
 
 
 def get_duration_sec(start_timestamp_str, end_timestamp_str):
-    ts_format = "%Y-%m-%dT%H:%M:%S.%f"
-    start_ts = datetime.datetime.strptime(start_timestamp_str[:-1], ts_format)
-    end_ts = datetime.datetime.strptime(end_timestamp_str[:-1], ts_format)
+    ts_format = "%Y-%m-%dT%H:%M:%S.%f%z"
+    start_ts = datetime.datetime.strptime(start_timestamp_str, ts_format)
+    end_ts = datetime.datetime.strptime(end_timestamp_str, ts_format)
     return (end_ts - start_ts).total_seconds()
 
 
 # datetime.datetime.now(datetime.UTC)
 def get_timestamp_iso(current_time=datetime.datetime.now(datetime.UTC)):
-    return current_time.isoformat()[:-3] + "Z"
+    return current_time.isoformat()
 
 
 # Return local date ISO formatted
