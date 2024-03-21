@@ -20,6 +20,10 @@ usage () { echo "
     devops-account -d -p -- Deploys SDLF DevOps/CICD/Tooling resources
         -d -- Comma-delimited list of AWS account ids where SDLF data domains are deployed
         -p -- Name of the AWS profile to use where SDLF DevOps/CICD/Tooling will reside
+        -g -- Set to true to deploy optional Glue Job Deployer feature 
+        -l -- Set to true to deploy optional Lambda Layer Builder feature
+        -m -- Set to true to deploy optional monitoring feature
+        -v -- Set to true to enable VPC
 
     Examples
 
@@ -52,13 +56,17 @@ crossaccount_cicd_roles () {
     pflag=false
     rflag=false
     dflag=false
-    options=':p:r:d:'
+    mflag=false
+    vflag=false
+    options=':p:r:d:v:m:'
     while getopts "$options" option
     do
         case "$option" in
             p  ) pflag=true; DOMAIN_AWS_PROFILE=${OPTARG};;
             r  ) rflag=true; REGION=${OPTARG};;
             d  ) dflag=true; DEVOPS_ACCOUNT=${OPTARG};;
+            m  ) mflag=true; MONITORING=${OPTARG};;
+            v  ) vflag=true; VPC_ENABLED=${OPTARG};;
             \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
             :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
             *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
@@ -80,6 +88,16 @@ crossaccount_cicd_roles () {
         echo "-d must be specified when using the crossaccount-cicd-roles command" >&2
         exit 1
     fi
+    if ! "$mflag"
+    then
+        echo "-m not specified, set to false by default" >&2
+        MONITORING="false"
+    fi
+    if ! "$vflag"
+    then
+        echo "-v not specified, set to false by default" >&2
+        VPC_ENABLED="false"
+    fi
 
     echo "Deploying SDLF DevOps/Tooling roles in data domain accounts" >&2
 
@@ -97,6 +115,8 @@ crossaccount_cicd_roles () {
             pDevOpsAccountId="$DEVOPS_ACCOUNT" \
             pDevOpsArtifactsBucket="$DEVOPS_ARTIFACTS_BUCKET" \
             pDevOpsKMSKey="$DEVOPS_KMS_KEY_ALIAS" \
+            pEnableMonitoring="$MONITORING" \
+            pEnableVpc="$VPC_ENABLED" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
@@ -111,13 +131,21 @@ devops_account () {
     pflag=false
     rflag=false
     dflag=false
-    options=':p:r:d:'
+    gflag=false
+    lflag=false
+    mflag=false
+    vflag=false
+    options=':p:r:d:g:l:m:v:'
     while getopts "$options" option
     do
         case "$option" in
             p  ) pflag=true; DEVOPS_AWS_PROFILE=${OPTARG};;
             r  ) rflag=true; REGION=${OPTARG};;
             d  ) dflag=true; DOMAIN_ACCOUNTS=${OPTARG};;
+            g  ) gflag=true; GLUE_JOB_DEPLOYER=${OPTARG};;
+            l  ) lflag=true; LAMBDA_LAYER=${OPTARG};;
+            m  ) mflag=true; MONITORING=${OPTARG};;
+            v  ) vflag=true; VPC_ENABLED=${OPTARG};;
             \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
             :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
             *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
@@ -139,7 +167,26 @@ devops_account () {
         echo "-d must be specified when using the devops-account command" >&2
         exit 1
     fi
-
+    if ! "$gflag"
+    then
+        echo "-g not specified, set to false by default" >&2
+        GLUE_JOB_DEPLOYER="false"
+    fi
+    if ! "$lflag"
+    then
+        echo "-l not specified, set to false by default" >&2
+        LAMBDA_LAYER="false"
+    fi
+    if ! "$mflag"
+    then
+        echo "-m not specified, set to false by default" >&2
+        MONITORING="false"
+    fi
+    if ! "$vflag"
+    then
+        echo "-v not specified, set to false by default" >&2
+        VPC_ENABLED="false"
+    fi
     echo "Deploying SDLF DevOps/Tooling (components repositories, CICD pipelines)" >&2
 
     # Increase SSM Parameter Store throughput to 1,000 requests/second
@@ -153,6 +200,10 @@ devops_account () {
         --template-file "$DIRNAME"/sdlf-cicd/template-cicd-prerequisites.yaml \
         --parameter-overrides \
             pDomainAccounts="$DOMAIN_ACCOUNTS" \
+            pEnableGlueJobDeployer="$GLUE_JOB_DEPLOYER" \
+            pEnableLambdaLayerBuilder="$LAMBDA_LAYER" \
+            pEnableMonitoring="$MONITORING" \
+            pEnableVpc="$VPC_ENABLED" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
