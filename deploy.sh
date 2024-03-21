@@ -233,6 +233,9 @@ devops_account () {
     rm -Rf "$DIRNAME"/output
 
     declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-main")
+    if [ "$MONITORING" = "true" ]; then
+        REPOSITORIES+=("sdlf-monitoring")
+    fi
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
         latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query "branch.commitId" --output text)
