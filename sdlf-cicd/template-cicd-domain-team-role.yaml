@@ -203,7 +203,7 @@ Resources:
                 Condition:
                   "ForAnyValue:StringLike":
                     "kms:ResourceAliases":
-                      - !Sub alias/sdlf-${pTeamName}-kms-infra-key
+                      - !Sub alias/sdlf2-${pTeamName}-kms-infra-key
 
   rTeamCloudFormationPolicy:
     Type: AWS::IAM::ManagedPolicy

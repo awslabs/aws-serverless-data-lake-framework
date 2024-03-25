@@ -298,7 +298,7 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      AliasName: alias/sdlf-kms-key
+      AliasName: alias/sdlf2-kms-key
       TargetKeyId: !Ref rKMSKey
 
   ######## SSM #########
@@ -433,8 +433,8 @@ Resources:
             Condition:
               "ForAnyValue:StringLike":
                 "kms:ResourceAliases":
-                  - alias/sdlf-kms-key
-                  - alias/sdlf-*-kms-data-key
+                  - alias/sdlf2-kms-key
+                  - alias/sdlf2-*-kms-data-key
       Roles:
         - !Ref rLakeFormationDataAccessRole
 

@@ -201,7 +201,7 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      AliasName: alias/sdlf-cicd-kms-key
+      AliasName: alias/sdlf2-cicd-kms-key
       TargetKeyId: !Ref rKMSKey
 
   rKMSKeySsm:

@@ -171,7 +171,7 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      AliasName: !Sub alias/sdlf-${pTeamName}-kms-infra-key
+      AliasName: !Sub alias/sdlf2-${pTeamName}-kms-infra-key
       TargetKeyId: !Ref rKMSInfraKey
 
   rKMSDataKey:
@@ -208,7 +208,7 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      AliasName: !Sub alias/sdlf-${pTeamName}-kms-data-key
+      AliasName: !Sub alias/sdlf2-${pTeamName}-kms-data-key
       TargetKeyId: !Ref rKMSDataKey
 
   rEventBus:
