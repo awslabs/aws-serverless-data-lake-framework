@@ -32,7 +32,7 @@ then
 fi
 if ! "$tflag"
 then
-    echo "-p not specified, using default..." >&2
+    echo "-t not specified, using default value: engineering..." >&2
     TEAM_NAME="engineering"
 fi
 echo $TEAM_NAME
