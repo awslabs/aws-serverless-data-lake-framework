@@ -263,6 +263,7 @@ def lambda_handler(event, context):
         logger.info("ENVIRONMENT: %s", environment)
         partition = os.getenv("AWS_PARTITION")
         devops_kms_key = os.getenv("DEVOPS_KMS_KEY")
+        main_repository_prefix = os.getenv("MAIN_REPOSITORY_PREFIX")
         cloudformation_role = os.getenv("CLOUDFORMATION_ROLE")
 
         for artifact in event["CodePipeline.job"]["data"]["inputArtifacts"]:
@@ -428,7 +429,7 @@ def lambda_handler(event, context):
                 cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
             for team in domain_details["teams"]:
-                repository_name = f"sdlf-main-{domain}-{team}"
+                repository_name = f"{main_repository_prefix}-{domain}-{team}"
                 env_branches = ["dev", "test"]
                 for env_branch in env_branches:
                     try:
