@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: datalake data domain, dev environment
+Description: lake data domain, dev environment
 
 Parameters:
     pPipelineReference:
@@ -12,7 +12,7 @@ Resources:
         DeletionPolicy: Delete
         UpdateReplacePolicy: Delete
         Properties:
-            TemplateURL: ./foundations-datalake-dev.yaml
+            TemplateURL: ./foundations-lake-dev.yaml
             Parameters:
                 pPipelineReference: !Ref pPipelineReference
 
@@ -22,7 +22,7 @@ Resources:
         DeletionPolicy: Delete
         UpdateReplacePolicy: Delete
         Properties:
-            TemplateURL: ./team-datalake-engineering-dev.yaml
+            TemplateURL: ./team-lake-engineering-dev.yaml
             Parameters:
                 pPipelineReference: !Ref pPipelineReference
             Tags:

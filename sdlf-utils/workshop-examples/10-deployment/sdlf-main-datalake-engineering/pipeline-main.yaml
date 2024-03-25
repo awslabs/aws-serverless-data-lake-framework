@@ -45,7 +45,7 @@ Resources:
                 "detail-type": ["Step Functions Execution Status Change"],
                 "detail": {
                     "status": ["SUCCEEDED"],
-                    "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-engineering-main-sm-a"]
+                    "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-engineering-main-sm-A"]
                 }
                 }
             pSchedule: "cron(*/5 * * * ? *)"

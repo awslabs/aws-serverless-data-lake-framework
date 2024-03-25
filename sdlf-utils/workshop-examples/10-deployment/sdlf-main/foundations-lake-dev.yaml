@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: SDLF Foundations in datalake domain, dev environment
+Description: SDLF Foundations in lake domain, dev environment
 
 Parameters:
     pPipelineReference:
@@ -13,5 +13,5 @@ Resources:
             pPipelineReference: !Ref pPipelineReference
             pChildAccountId: !Ref "AWS::AccountId"
             pOrg: forecourt
-            pDomain: datalake
+            pDomain: lake
             pEnvironment: dev

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Engineering SDLF Team in datalake domain, dev environment
+Description: Engineering SDLF Team in lake domain, dev environment
 
 Parameters:
     pPipelineReference:
