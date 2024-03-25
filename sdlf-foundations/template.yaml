@@ -118,7 +118,7 @@ Resources:
                   - logs:PutLogEvents
                   - logs:AssociateKmsKey
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-glue-replication
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf2-glue-replication
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/glue/*
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:sdlf-*
@@ -712,7 +712,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName: sdlf-catalog-queue
+      QueueName: sdlf2-catalog-queue
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt rDeadLetterQueueCatalog.Arn
         maxReceiveCount: 1
@@ -725,7 +725,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName: sdlf-catalog-dlq
+      QueueName: sdlf2-catalog-dlq
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 60
       KmsMasterKeyId: !GetAtt rKMSKey.Arn
@@ -742,7 +742,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./lambda/catalog/src
-      FunctionName: sdlf-catalog
+      FunctionName: sdlf2-catalog
       Environment:
         Variables:
           ENV: !Ref pEnvironment
@@ -755,7 +755,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./lambda/catalog-redrive/src
-      FunctionName: sdlf-catalog-redrive
+      FunctionName: sdlf2-catalog-redrive
       Environment:
         Variables:
           QUEUE: !GetAtt rQueueCatalog.QueueName
@@ -827,7 +827,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-catalog*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf2-catalog*
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
@@ -1480,7 +1480,7 @@ Resources:
   rLambdaReplicate:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: sdlf-glue-replication
+      FunctionName: sdlf2-glue-replication
       Description: Replicates Glue Catalog Metadata and Data Quality to Octagon Schemas Table
       CodeUri: ./lambda/replicate/src
       Environment:
