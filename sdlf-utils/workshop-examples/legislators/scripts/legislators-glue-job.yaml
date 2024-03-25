@@ -9,7 +9,7 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/ArtifactsBucket
+    Default: /SDLF2/S3/ArtifactsBucket
   pTeamName:
     Description: The team name
     Type: String
@@ -17,7 +17,7 @@ Parameters:
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Default: /SDLF2/VPC/Enabled
 
 Conditions:
   RunInVpc: !Equals [!Ref pEnableVpc, true]
@@ -54,9 +54,9 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId:1}}"
-                  - "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId:1}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/DataKeyId:1}}"
+                  - "{{resolve:ssm:/SDLF2/KMS/KeyArn:1}}"
 
   rGlueJob:
     Type: AWS::Glue::Job

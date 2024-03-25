@@ -10,11 +10,11 @@ Parameters:
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pOrg}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pDomain}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -26,7 +26,7 @@ Parameters:
   pEnv:
     Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pEnv}}"
   pStageName:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
@@ -46,7 +46,7 @@ Parameters:
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/StageBucket}}"
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -71,7 +71,7 @@ Parameters:
         1827,
         3653,
       ]
-  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # the ideal would be to fetch ssm:/SDLF2/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
   # {{resolve:}} being evaluated later than the Conditions block, options are limited.
@@ -98,8 +98,8 @@ Globals:
     Runtime: python3.12
     Handler: lambda_function.lambda_handler
     Layers:
-      - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
-    KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      - "{{resolve:ssm:/SDLF2/Lambda/LatestDatalakeLibraryLayer}}"
+    KmsKeyArn: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
     VpcConfig: !If
       - RunInVpc
       - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
@@ -142,7 +142,7 @@ Resources:
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/*
           - Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -166,14 +166,14 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+              - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   # Routing Step Role
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -217,7 +217,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -239,7 +239,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Glue/*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Glue/*
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
@@ -255,7 +255,7 @@ Resources:
             reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -288,7 +288,7 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/CrawlerRoleArn}}"
                 Condition:
                   StringEquals:
                     "iam:PassedToService":
@@ -360,7 +360,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   rLambdaRedriveStep:
     Type: AWS::Serverless::Function
@@ -389,7 +389,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   rLambdaStep1:
     Type: AWS::Serverless::Function
@@ -413,7 +413,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   ######## STEP FUNCTIONS #########
   rStateMachine:
@@ -423,7 +423,7 @@ Resources:
       DefinitionUri: ./state-machine/data-quality.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
-        dataQualityRole: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+        dataQualityRole: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/CrawlerRoleArn}}"
         s3DataQualityResults: !Sub "s3://${pStageBucket}/post-stage/${pTeamName}/"
       Role: !GetAtt rStatesExecutionRole.Arn
 
@@ -431,7 +431,7 @@ Resources:
   rStateMachineSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/SM/${pTeamName}/${pPipeline}${pStageName}SM
+      Name: !Sub /SDLF2/SM/${pTeamName}/${pPipeline}${pStageName}SM
       Type: String
       Value: !Ref rStateMachine
       Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} State Machine"

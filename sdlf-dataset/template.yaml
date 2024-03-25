@@ -8,11 +8,11 @@ Parameters:
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pOrg}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pDomain}}"
   pDatasetName:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -20,11 +20,11 @@ Parameters:
   pEnvironment:
     Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pEnv}}"
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/StageBucket}}"
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -72,8 +72,8 @@ Resources:
   rGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
-      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
-      CrawlerSecurityConfiguration: !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
+      Role: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/CrawlerRoleArn}}"
+      CrawlerSecurityConfiguration: !Sub "{{resolve:ssm:/SDLF2/Glue/${pTeamName}/SecurityConfigurationId}}"
       DatabaseName: !Ref rGlueDataCatalog
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
       Targets:
@@ -84,7 +84,7 @@ Resources:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
-        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/CrawlerRoleArn}}"
       Permissions:
         - CREATE_TABLE
         - ALTER
@@ -97,7 +97,7 @@ Resources:
   rGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog
+      Name: !Sub /SDLF2/Glue/${pTeamName}/${pDatasetName}/DataCatalog
       Type: String
       Value: !Ref rGlueDataCatalog
       Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
@@ -113,7 +113,7 @@ Resources:
   rDatasetSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Datasets/${pTeamName}/${pDatasetName}
+      Name: !Sub /SDLF2/Datasets/${pTeamName}/${pDatasetName}
       Type: String
       Value: !Ref pPipelineDetails # bit of a hack for datasets lambda
       Description: !Sub "Placeholder ${pTeamName} ${pDatasetName}"

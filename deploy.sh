@@ -159,7 +159,7 @@ devops_account () {
         --profile "$DEVOPS_AWS_PROFILE" || exit 1
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
-    ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
+    ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF2/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
     mkdir "$DIRNAME"/output
     aws cloudformation package \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories \
@@ -173,7 +173,7 @@ devops_account () {
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-repositories.yaml \
         --parameter-overrides \
-            pKMSKey=/SDLF/KMS/CICDKeyId \
+            pKMSKey=/SDLF2/KMS/CICDKeyId \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
@@ -207,8 +207,8 @@ devops_account () {
         --stack-name "$STACK_NAME" \
         --template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-pipelines.yaml \
         --parameter-overrides \
-            pArtifactsBucket=/SDLF/S3/DevOpsArtifactsBucket \
-            pKMSKey=/SDLF/KMS/CICDKeyId \
+            pArtifactsBucket=/SDLF2/S3/DevOpsArtifactsBucket \
+            pKMSKey=/SDLF2/KMS/CICDKeyId \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \

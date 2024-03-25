@@ -5,17 +5,17 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/DevOpsArtifactsBucket
+    Default: /SDLF2/S3/DevOpsArtifactsBucket
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/CicdCodeCommit
+    Default: /SDLF2/CodeCommit/CicdCodeCommit
   pMainRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/MainCodeCommit
+    Default: /SDLF2/CodeCommit/MainCodeCommit
   pMainRepositoriesPrefix:
     Type: String
     Default: sdlf2-main-
@@ -30,15 +30,15 @@ Parameters:
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Default: /SDLF2/VPC/Enabled
   pEnableLambdaLayerBuilder:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/LambdaLayerBuilder/Enabled
+    Default: /SDLF2/LambdaLayerBuilder/Enabled
   pEnableGlueJobDeployer:
     Description: Add Glue job deployer infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/GlueJobDeployer/Enabled
+    Default: /SDLF2/GlueJobDeployer/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
@@ -185,9 +185,9 @@ Resources:
                 Action:
                   - ssm:GetParameters
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/DevOpsArtifactsBucket
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/CICDKeyId
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/BuildCloudformationModuleStage
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/S3/DevOpsArtifactsBucket
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/CICDKeyId
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CodeBuild/BuildCloudformationModuleStage
               - Effect: Allow
                 Action:
                   - iam:GetRole
@@ -330,7 +330,7 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParametersByPath
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Misc/*
               - Effect: Allow
                 Action:
                   - s3:PutObject
@@ -488,15 +488,15 @@ Resources:
                   - ssm:AddTagsToResource
                   - ssm:DeleteParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/DevOpsArtifactsBucket
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/CICDKeyId
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodePipeline/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeBuild/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/LambdaLayerBuilder/Enabled
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GlueJobDeployer/Enabled
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/Enabled
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Misc/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/S3/DevOpsArtifactsBucket
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/CICDKeyId
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CodePipeline/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CodeBuild/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/LambdaLayerBuilder/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/GlueJobDeployer/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Monitoring/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CodeCommit/*
               - Effect: Allow
                 Action:
                   - codepipeline:GetPipelineState
@@ -643,7 +643,7 @@ Resources:
                   Condition:
                     ArnEqualsIfExists:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
               - !If
                 - RunInVpc
@@ -657,7 +657,7 @@ Resources:
                       "ec2:AuthorizedService": codebuild.amazonaws.com
                     ArnEquals:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
 
   rCloudFormationPackageCodeBuildProject:
@@ -671,7 +671,7 @@ Resources:
         - RunInVpc
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
-          VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+          VpcId: "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
@@ -771,7 +771,7 @@ Resources:
                   Condition:
                     ArnEqualsIfExists:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
               - !If
                 - RunInVpc
@@ -785,7 +785,7 @@ Resources:
                       "ec2:AuthorizedService": codebuild.amazonaws.com
                     ArnEquals:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
 
 
@@ -801,7 +801,7 @@ Resources:
         - RunInVpc
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
-          VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+          VpcId: "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
         EnvironmentVariables:
@@ -862,14 +862,14 @@ Resources:
   rBuildDeployDatalakeLibraryLayerSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeBuild/BuildDeployDatalakeLibraryLayer
+      Name: /SDLF2/CodeBuild/BuildDeployDatalakeLibraryLayer
       Type: String
       Value: !Ref rBuildDeployDatalakeLibraryLayer
       Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
   rBuildCloudFormationPackageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeBuild/BuildCloudFormationPackage
+      Name: /SDLF2/CodeBuild/BuildCloudFormationPackage
       Type: String
       Value: !Ref rCloudFormationPackageCodeBuildProject
       Description: CodeBuild job that packages a CloudFormation template

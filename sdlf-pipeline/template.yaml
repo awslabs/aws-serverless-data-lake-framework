@@ -9,15 +9,15 @@ Parameters:
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pOrg}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pDomain}}"
   pEnv:
     Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pEnv}}"
   pTeamName:
     Description: The name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -57,7 +57,7 @@ Resources:
       Name: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
       Description: !Sub Send events to ${pStageName} queue
       EventPattern: !Ref pEventPattern
-      EventBusName: !Sub "{{resolve:ssm:/SDLF/EventBridge/${pTeamName}/EventBusName}}"
+      EventBusName: !Sub "{{resolve:ssm:/SDLF2/EventBridge/${pTeamName}/EventBusName}}"
       State: ENABLED
       Targets:
         - Id: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
@@ -79,7 +79,7 @@ Resources:
         maxReceiveCount: 1
       VisibilityTimeout: 60
       MessageRetentionPeriod: 604800
-      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   rDeadLetterQueueRoutingStep:
     Type: AWS::SQS::Queue
@@ -90,7 +90,7 @@ Resources:
       FifoQueue: True
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 60
-      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      KmsMasterKeyId: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   rQueuePolicyEventsStageRule:
     Type: AWS::SQS::QueuePolicy
@@ -124,7 +124,7 @@ Resources:
     Condition: ScheduleBased
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -149,15 +149,15 @@ Resources:
                 Action:
                   - kms:Decrypt
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
 
   rPostStateSchedule:
     Type: AWS::Scheduler::Schedule
     Condition: ScheduleBased
     Properties:
       Description: !Sub Trigger ${pStageName} Routing Lambda on a specified schedule
-      GroupName: !Sub "{{resolve:ssm:/SDLF/EventBridge/${pTeamName}/ScheduleGroupName}}"
-      KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+      GroupName: !Sub "{{resolve:ssm:/SDLF2/EventBridge/${pTeamName}/ScheduleGroupName}}"
+      KmsKeyArn: !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
       Name: !Sub sdlf-${pTeamName}-${pPipelineName}-schedule-rule-${pStageName}
       ScheduleExpression: !Ref pSchedule
       FlexibleTimeWindow:
@@ -177,7 +177,7 @@ Resources:
   rQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
+      Name: !Sub /SDLF2/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
       Type: String
       Value: !GetAtt rQueueRoutingStep.QueueName
       Description: !Sub "Name of the ${pStageName} ${pTeamName} ${pPipelineName} Queue"
@@ -185,7 +185,7 @@ Resources:
   rDeadLetterQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
+      Name: !Sub /SDLF2/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
       Type: String
       Value: !GetAtt rDeadLetterQueueRoutingStep.QueueName
       Description: !Sub "Name of the ${pStageName} ${pTeamName} ${pPipelineName} DLQ"
@@ -193,7 +193,7 @@ Resources:
   rPipelineStageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Pipelines/${pTeamName}/${pPipelineName}/${pStageName}
+      Name: !Sub /SDLF2/Pipelines/${pTeamName}/${pPipelineName}/${pStageName}
       Type: String
       Value: placeholder
       Description: !Sub "Placeholder ${pTeamName} ${pPipelineName} ${pStageName}"

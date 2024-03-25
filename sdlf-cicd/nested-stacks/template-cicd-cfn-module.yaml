@@ -5,11 +5,11 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/DevOpsArtifactsBucket
+    Default: /SDLF2/S3/DevOpsArtifactsBucket
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pStagesRepositoriesPrefix:
     Description: Prefix of the repositories containing SDLF stages
     Type: String
@@ -17,7 +17,7 @@ Parameters:
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Default: /SDLF2/VPC/Enabled
 
 Conditions:
   RunInVpc: !Equals [!Ref pEnableVpc, true]
@@ -93,7 +93,7 @@ Resources:
                   Condition:
                     ArnEqualsIfExists:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
               - !If
                 - RunInVpc
@@ -107,7 +107,7 @@ Resources:
                       "ec2:AuthorizedService": codebuild.amazonaws.com
                     ArnEquals:
                       "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
         - PolicyName: sdlf-cicd-build-stages-cfn-modules
           PolicyDocument:
@@ -141,7 +141,7 @@ Resources:
         - RunInVpc
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
-          VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+          VpcId: "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
         EnvironmentVariables:
@@ -202,7 +202,7 @@ Resources:
                     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
                     # compare hashes to avoid creating a new module version when there is no change
-                    if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
+                    if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF2/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
                       echo "Current module version commit id: $CURRENT_MODULE"
                       echo "New module version commit id: $NEW_MODULE"
                       if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
@@ -246,7 +246,7 @@ Resources:
         - RunInVpc
         - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
           Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
-          VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+          VpcId: "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
         EnvironmentVariables:
@@ -332,7 +332,7 @@ Resources:
                       NEW_MODULE=$(git rev-parse --verify --end-of-options HEAD)
                       MODULE_NAME=${!STAGE_REPOSITORY##*-}
                       # compare hashes to avoid creating a new module version when there is no change
-                      if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
+                      if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF2/CFN/$DOMAIN_NAME-$TEAM_NAME-$MODULE_NAME-MODULE" --query "Parameter.Value" --output text); then
                         echo "Current module version commit id: $CURRENT_MODULE"
                         echo "New module version commit id: $NEW_MODULE"
                         if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
@@ -369,7 +369,7 @@ Resources:
   rBuildCloudformationModuleStageSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeBuild/BuildCloudformationModuleStage
+      Name: /SDLF2/CodeBuild/BuildCloudformationModuleStage
       Type: String
       Value: !Ref rBuildCloudformationModuleStage
       Description: Name of the CodeBuild job that build a CloudFormation module from a SAM template
@@ -377,7 +377,7 @@ Resources:
   rBuildCloudformationStagesModulesSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeBuild/BuildCloudformationStagesModules
+      Name: /SDLF2/CodeBuild/BuildCloudformationStagesModules
       Type: String
       Value: !Ref rBuildCloudformationStagesModules
       Description: Name of the CodeBuild job that build CloudFormation modules from a SAM template for SDLF stages

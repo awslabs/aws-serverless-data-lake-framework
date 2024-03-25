@@ -49,7 +49,7 @@ def lambda_handler(event, context):
 
         paginator = ssm.get_paginator("get_parameters_by_path")
         datasets_pages = paginator.paginate(
-            Path=f"/SDLF/Datasets/{team_name}",
+            Path=f"/SDLF2/Datasets/{team_name}",
             PaginationConfig={"MaxItems": 30},
         )
 

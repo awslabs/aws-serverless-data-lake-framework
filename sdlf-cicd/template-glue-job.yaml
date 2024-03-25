@@ -9,7 +9,7 @@ Parameters:
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pDomain
+    Default: /SDLF2/Misc/pDomain
   pEnvironment:
     Description: Environment name
     Type: String
@@ -27,7 +27,7 @@ Parameters:
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Default: /SDLF2/VPC/Enabled
 
 Conditions:
   GlueJobsNotEmpty: !Not
@@ -41,7 +41,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -69,9 +69,9 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
-                  - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/InfraKeyId}}"
+                  - !Sub "{{resolve:ssm:/SDLF2/KMS/${pTeamName}/DataKeyId}}"
+                  - "{{resolve:ssm:/SDLF2/KMS/KeyArn}}"
 
   rGlueConnection:
     Type: AWS::Glue::Connection
@@ -127,7 +127,7 @@ Resources:
         MaxCapacity: 2.0
         GlueVersion: "4.0"
         Name: !Sub sdlf-${pTeamName}-${GlueJobName}
-        SecurityConfiguration: !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
+        SecurityConfiguration: !Sub "{{resolve:ssm:/SDLF2/Glue/${pTeamName}/SecurityConfigurationId}}"
         Role: !Ref rGlueRole
         Connections: !If
           - RunInVpc

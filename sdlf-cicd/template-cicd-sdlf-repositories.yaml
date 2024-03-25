@@ -5,7 +5,7 @@ Parameters:
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pCicdRepository:
     Type: String
     Default: sdlf2-cicd
@@ -42,7 +42,7 @@ Parameters:
   pEnableMonitoring:
     Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Monitoring/Enabled
+    Default: /SDLF2/Monitoring/Enabled
 
 Conditions:
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
@@ -203,7 +203,7 @@ Resources:
   rCicdCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/CicdCodeCommit
+      Name: /SDLF2/CodeCommit/CicdCodeCommit
       Type: String
       Value: !GetAtt rCicdCodeCommit.Name
       Description: Name of the Cicd repository
@@ -211,7 +211,7 @@ Resources:
   rFoundationsCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/FoundationsCodeCommit
+      Name: /SDLF2/CodeCommit/FoundationsCodeCommit
       Type: String
       Value: !GetAtt rFoundationsCodeCommit.Name
       Description: Name of the Foundations repository
@@ -219,7 +219,7 @@ Resources:
   rTeamCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/TeamCodeCommit
+      Name: /SDLF2/CodeCommit/TeamCodeCommit
       Type: String
       Value: !GetAtt rTeamCodeCommit.Name
       Description: Name of the Team repository
@@ -227,7 +227,7 @@ Resources:
   rPipelineCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/PipelineCodeCommit
+      Name: /SDLF2/CodeCommit/PipelineCodeCommit
       Type: String
       Value: !GetAtt rPipelineCodeCommit.Name
       Description: Name of the Pipeline repository
@@ -235,7 +235,7 @@ Resources:
   rDatasetCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/DatasetCodeCommit
+      Name: /SDLF2/CodeCommit/DatasetCodeCommit
       Type: String
       Value: !GetAtt rDatasetCodeCommit.Name
       Description: Name of the Dataset repository
@@ -243,7 +243,7 @@ Resources:
   rStageACodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/StageACodeCommit
+      Name: /SDLF2/CodeCommit/StageACodeCommit
       Type: String
       Value: !GetAtt rStageACodeCommit.Name
       Description: Name of the StageA repository
@@ -251,7 +251,7 @@ Resources:
   rStageBCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/StageBCodeCommit
+      Name: /SDLF2/CodeCommit/StageBCodeCommit
       Type: String
       Value: !GetAtt rStageBCodeCommit.Name
       Description: Name of the StageB repository
@@ -259,7 +259,7 @@ Resources:
   rDatalakeLibraryCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/DatalakeLibraryCodeCommit
+      Name: /SDLF2/CodeCommit/DatalakeLibraryCodeCommit
       Type: String
       Value: !GetAtt rDatalakeLibraryCodeCommit.Name
       Description: Name of the DatalakeLibrary repository
@@ -267,7 +267,7 @@ Resources:
   rUtilsCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/UtilsCodeCommit
+      Name: /SDLF2/CodeCommit/UtilsCodeCommit
       Type: String
       Value: !Ref pUtilsRepository
       Description: Name of the Utils repository
@@ -275,7 +275,7 @@ Resources:
   rMainCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/CodeCommit/MainCodeCommit
+      Name: /SDLF2/CodeCommit/MainCodeCommit
       Type: String
       Value: !GetAtt rMainCodeCommit.Name
       Description: Name of the main repository
@@ -284,7 +284,7 @@ Resources:
     Type: AWS::SSM::Parameter
     Condition: EnableMonitoring
     Properties:
-      Name: /SDLF/CodeCommit/MonitoringCodeCommit
+      Name: /SDLF2/CodeCommit/MonitoringCodeCommit
       Type: String
       Value: !GetAtt rMonitoringCodeCommit.Name
       Description: Name of the monitoring repository

@@ -5,11 +5,11 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/DevOpsArtifactsBucket
+    Default: /SDLF2/S3/DevOpsArtifactsBucket
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
     Type: String
@@ -33,46 +33,46 @@ Parameters:
   pBuildDeployDatalakeLibraryLayer:
     Description: Name of the CodeBuild job that packages the Datalake Libs into a Lambda Layer
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildDeployDatalakeLibraryLayer
+    Default: /SDLF2/CodeBuild/BuildDeployDatalakeLibraryLayer
   pBuildCloudformationModuleStage:
     Description: CodeBuild job that build a CloudFormation module from a SAM template
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
+    Default: /SDLF2/CodeBuild/BuildCloudformationModuleStage
   pBuildCloudformationStagesModules:
     Description: CodeBuild job that build CloudFormation modules from a SAM template for SDLF stages
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildCloudformationStagesModules
+    Default: /SDLF2/CodeBuild/BuildCloudformationStagesModules
   pBuildCloudFormationPackage:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildCloudFormationPackage
+    Default: /SDLF2/CodeBuild/BuildCloudFormationPackage
   pEnableLambdaLayerBuilder:
     Description: Add Lambda layer builder infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/LambdaLayerBuilder/Enabled
+    Default: /SDLF2/LambdaLayerBuilder/Enabled
   pEnableGlueJobDeployer:
     Description: Add Glue job deployer infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/GlueJobDeployer/Enabled
+    Default: /SDLF2/GlueJobDeployer/Enabled
   pCicdRepository:
     Description: Name of the Cicd repository
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/CicdCodeCommit
+    Default: /SDLF2/CodeCommit/CicdCodeCommit
   pDatalakeLibraryRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/DatalakeLibraryCodeCommit
+    Default: /SDLF2/CodeCommit/DatalakeLibraryCodeCommit
   pPipelineRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/PipelineCodeCommit
+    Default: /SDLF2/CodeCommit/PipelineCodeCommit
   pStageARepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/StageACodeCommit
+    Default: /SDLF2/CodeCommit/StageACodeCommit
   pStageBRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/StageBCodeCommit
+    Default: /SDLF2/CodeCommit/StageBCodeCommit
   pDatasetRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/DatasetCodeCommit
+    Default: /SDLF2/CodeCommit/DatasetCodeCommit
   pSdlfModuleDomain:
     Type: String
     Default: awslabs
@@ -126,7 +126,7 @@ Resources:
                   - codecommit:GetUploadArchiveStatus
                   - codecommit:CancelUploadArchive
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                  - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF2/CodeCommit/${pTeamName}/MainCodeCommit}}"
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
@@ -160,11 +160,11 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildDeployDatalakeLibraryLayer}"
                   - !If
                     - EnableLambdaLayerBuilder
-                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF2/CodeBuild/BuildLambdaLayersPackage}}"
                     - !Ref AWS::NoValue
                   - !If
                     - EnableGlueJobDeployer
-                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
+                    - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/{{resolve:ssm:/SDLF2/CodeBuild/PrepareGlueJobPackage}}"
                     - !Ref AWS::NoValue
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
@@ -191,7 +191,7 @@ Resources:
               OutputArtifacts:
                 - Name: TemplateSource
               Configuration:
-                RepositoryName: !Sub "{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                RepositoryName: !Sub "{{resolve:ssm:/SDLF2/CodeCommit/${pTeamName}/MainCodeCommit}}"
                 BranchName:
                   !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                 PollForSourceChanges: false
@@ -296,7 +296,7 @@ Resources:
                     Version: "1"
                     Provider: CodeBuild
                   Configuration:
-                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/BuildLambdaLayersPackage}}"
+                    ProjectName: "{{resolve:ssm:/SDLF2/CodeBuild/BuildLambdaLayersPackage}}"
                     EnvironmentVariables: !Sub >-
                       [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
@@ -315,7 +315,7 @@ Resources:
                     Version: "1"
                     Provider: CodeBuild
                   Configuration:
-                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
+                    ProjectName: "{{resolve:ssm:/SDLF2/CodeBuild/PrepareGlueJobPackage}}"
                     EnvironmentVariables: !Sub >-
                       [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
@@ -611,7 +611,7 @@ Resources:
         detail-type:
           - CodeCommit Repository State Change
         resources:
-          - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+          - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF2/CodeCommit/${pTeamName}/MainCodeCommit}}"
         detail:
           event:
             - referenceCreated

@@ -38,7 +38,7 @@ Resources:
     Type: AWS::SSM::Parameter
     Condition: MultiAccountSetup
     Properties:
-      Name: /SDLF/VPC/Enabled
+      Name: /SDLF2/VPC/Enabled
       Type: String
       Value: !Ref pEnableVpc
       Description: Deploy SDLF resources in a VPC
@@ -93,7 +93,7 @@ Resources:
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CFN/*
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -205,7 +205,7 @@ Resources:
                   - ssm:RemoveTagsFromResource
                   - ssm:DeleteParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/CFN/*
         - PolicyName: sdlf-lambdalayers-codepipeline
           PolicyDocument:
             Version: "2012-10-17"
@@ -232,7 +232,7 @@ Resources:
                   - ssm:RemoveTagsFromResource
                   - ssm:DeleteParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/LatestDatalakeLibraryLayer
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Lambda/LatestDatalakeLibraryLayer
 
   rDomainCloudFormationRole:
     Type: AWS::IAM::Role
@@ -396,7 +396,7 @@ Resources:
                   - RunInVpc
                   - StringEquals:
                       "lambda:VpcIds":
-                        - "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                        - "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
                   - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
@@ -559,7 +559,7 @@ Resources:
                   - ssm:ListTagsForResource
                   - ssm:PutParameter
                   - ssm:RemoveTagsFromResource
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/*
               - Effect: Allow
                 Action:
                   - lakeformation:DeregisterResource # W11 exception
@@ -706,8 +706,8 @@ Resources:
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
               Resource:
-                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
-                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/*
+                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Misc/*
+                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/VPC/*
             - Effect: Allow
               Action:
                 - iam:GetRole
@@ -750,7 +750,7 @@ Outputs:
     Description: List of security group ids that will be attached to Lambda functions and CodeBuild projects
     Value: !If
       - RunInVpc
-      - "{{resolve:ssm:/SDLF/VPC/SecurityGroupIds}}"
+      - "{{resolve:ssm:/SDLF2/VPC/SecurityGroupIds}}"
       - "-"
     Export:
       Name: !Join ["-", [!Ref "AWS::StackName", "vpc-security-groups"]]
@@ -759,7 +759,7 @@ Outputs:
     Description: List of subnet ids that will be attached to Lambda functions and CodeBuild projects
     Value: !If
       - RunInVpc
-      - "{{resolve:ssm:/SDLF/VPC/SubnetIds}}"
+      - "{{resolve:ssm:/SDLF2/VPC/SubnetIds}}"
       - "-"
     Export:
       Name: !Join ["-", [!Ref "AWS::StackName", "vpc-subnets"]]

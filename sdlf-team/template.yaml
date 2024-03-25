@@ -9,31 +9,31 @@ Parameters:
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pOrg}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pDomain}}"
   pAnalyticsBucket:
     Description: The analytics bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/AnalyticsBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/AnalyticsBucket}}"
   pCentralBucket:
     Description: The central bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/CentralBucket}}"
   pAthenaBucket:
     Description: S3 Athena bucket
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/AthenaBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/AthenaBucket}}"
   pEnvironment:
     Description: Environment name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+    Default: "{{resolve:ssm:/SDLF2/Misc/pEnv}}"
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/ArtifactsBucket}}"
 #  pSNSNotificationsEmail:
 #    Description: Email address for SNS notifications
 #    Type: String
@@ -41,14 +41,14 @@ Parameters:
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+    Default: "{{resolve:ssm:/SDLF2/S3/StageBucket}}"
   pTeamName:
     Description: Name of the team (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,12}"
   pLakeFormationDataAccessRole:
     Type: String
-    Default: "{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn}}"
+    Default: "{{resolve:ssm:/SDLF2/IAM/LakeFormationDataAccessRoleArn}}"
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -73,7 +73,7 @@ Parameters:
         1827,
         3653,
       ]
-  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # the ideal would be to fetch ssm:/SDLF2/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
   # {{resolve:}} being evaluated later than the Conditions block, options are limited.
@@ -303,14 +303,14 @@ Resources:
   rKMSInfraKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
+      Name: !Sub /SDLF2/KMS/${pTeamName}/InfraKeyId
       Type: String
       Value: !GetAtt rKMSInfraKey.Arn
       Description: !Sub Arn of the ${pTeamName} KMS infrastructure key
   rKMSDataKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
+      Name: !Sub /SDLF2/KMS/${pTeamName}/DataKeyId
       Type: String
       Value: !GetAtt rKMSDataKey.Arn
       Description: !Sub Arn of the ${pTeamName} KMS data key
@@ -318,7 +318,7 @@ Resources:
   rEventBusSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/EventBridge/${pTeamName}/EventBusName
+      Name: !Sub /SDLF2/EventBridge/${pTeamName}/EventBusName
       Type: String
       Value: !Ref rEventBus
       Description: !Sub Name of the ${pTeamName} event bus
@@ -326,7 +326,7 @@ Resources:
   rScheduleGroupSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/EventBridge/${pTeamName}/ScheduleGroupName
+      Name: !Sub /SDLF2/EventBridge/${pTeamName}/ScheduleGroupName
       Type: String
       Value: !Ref rScheduleGroup
       Description: !Sub Name of the ${pTeamName} schedule group
@@ -334,7 +334,7 @@ Resources:
   rGlueSecurityConfigurationSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pTeamName}/SecurityConfigurationId
+      Name: !Sub /SDLF2/Glue/${pTeamName}/SecurityConfigurationId
       Type: String
       Value: !Sub sdlf-${pTeamName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       Description: !Sub Name of the ${pTeamName} Glue security configuration
@@ -431,7 +431,7 @@ Resources:
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/*
           - Sid: AllowOctagonDynamoAccess
             Effect: Allow
             Action:
@@ -542,7 +542,7 @@ Resources:
               Condition:
                 ArnEqualsIfExists:
                   "ec2:Vpc":
-                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF2/VPC/VpcId}}"
             - !Ref "AWS::NoValue"
 
   rDatalakeCrawlerRole:
@@ -615,7 +615,7 @@ Resources:
                 Resource:
                   - !GetAtt rKMSInfraKey.Arn
                   - !GetAtt rKMSDataKey.Arn
-                  - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                  - "{{resolve:ssm:/SDLF2/KMS/KeyArn}}"
               - Effect: Allow
                 Action:
                   - lakeformation:GetDataAccess # W11 exception
@@ -633,14 +633,14 @@ Resources:
   rTeamIAMManagedPolicySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
+      Name: !Sub /SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary
       Type: String
       Value: !Ref rTeamIAMManagedPolicy
       Description: The permissions boundary IAM Managed policy for the team
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/IAM/${pTeamName}/CrawlerRoleArn
+      Name: !Sub /SDLF2/IAM/${pTeamName}/CrawlerRoleArn
       Type: String
       Value: !GetAtt rDatalakeCrawlerRole.Arn
       Description: The ARN of the Crawler role
@@ -736,8 +736,8 @@ Resources:
                 Action:
                   - ssm:GetParametersByPath
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Pipelines/${pTeamName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Datasets/${pTeamName}
 
   rDatasetsDynamodbLambda:
     Type: AWS::Serverless::Function
@@ -849,8 +849,8 @@ Resources:
                 Action:
                   - ssm:GetParametersByPath
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Pipelines/${pTeamName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Datasets/${pTeamName}
 
   rPipelinesDynamodbLambda:
     Type: AWS::Serverless::Function
@@ -900,7 +900,7 @@ Resources:
   rSNSTopicSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/SNS/${pTeamName}/Notifications
+      Name: !Sub /SDLF2/SNS/${pTeamName}/Notifications
       Type: String
       Value: !Ref rSNSTopic
       Description: The ARN of the team-specific SNS Topic
@@ -1013,7 +1013,7 @@ Resources:
   rAthenaWorkgroupSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Athena/${pTeamName}/WorkgroupName
+      Name: !Sub /SDLF2/Athena/${pTeamName}/WorkgroupName
       Type: String
       Value: !Ref rAthenaWorkgroup
       Description: The name of the Athena workgroup

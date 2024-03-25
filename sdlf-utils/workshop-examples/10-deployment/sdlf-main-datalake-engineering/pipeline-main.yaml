@@ -21,7 +21,7 @@ Resources:
                 "detail-type": ["Object Created"],
                 "detail": {
                     "bucket": {
-                    "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
+                    "name": ["{{resolve:ssm:/SDLF2/S3/CentralBucket}}"]
                     },
                     "object": {
                     "key": [{ "prefix": "engineering/legislators/" }]
@@ -34,7 +34,7 @@ Resources:
         Type: awslabs::sdlf::stageB::MODULE
         Properties:
             pPipelineReference: !Ref pPipelineReference
-            pDatasetBucket: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+            pDatasetBucket: "{{resolve:ssm:/SDLF2/S3/StageBucket}}"
             pStageName: B
             pPipeline: main
             pTeamName: engineering

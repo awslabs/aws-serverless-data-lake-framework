@@ -53,8 +53,8 @@ Resources:
         Name:
           !If [
             DatalakeLibraryLayer,
-            !Sub "/SDLF/Lambda/Latest${LayerName}Layer",
-            !Sub "/SDLF/Lambda/${pTeamName}/Latest${LayerName}Layer"
+            !Sub "/SDLF2/Lambda/Latest${LayerName}Layer",
+            !Sub "/SDLF2/Lambda/${pTeamName}/Latest${LayerName}Layer"
           ]
         Type: String
         Value: !Ref

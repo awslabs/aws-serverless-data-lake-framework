@@ -39,7 +39,7 @@ echo $TEAM_NAME
 REGION=$(aws configure get region --profile "$PROFILE")
 if ! "$sflag"
 then
-    S3_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
+    S3_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF2/S3/ArtifactsBucket --query "Parameter.Value" --output text)
 fi
 
 echo "Checking if bucket exists ..."
@@ -54,7 +54,7 @@ if ! aws s3 ls "$S3_BUCKET" --profile "$PROFILE"; then
   fi
 fi
 
-ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
+ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF2/S3/ArtifactsBucket --query "Parameter.Value" --output text)
 aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" --profile "$PROFILE"
 
 mkdir "$DIRNAME"/output
@@ -63,9 +63,9 @@ function send_legislators()
 {
   ORIGIN="$DIRNAME/data/"
   
-  CENTRAL_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/CentralBucket --query "Parameter.Value" --output text)
-  STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/StageBucket --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/KMS/$TEAM_NAME/DataKeyId --query "Parameter.Value" --output text)
+  CENTRAL_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF2/S3/CentralBucket --query "Parameter.Value" --output text)
+  STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF2/S3/StageBucket --query "Parameter.Value" --output text)
+  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF2/KMS/$TEAM_NAME/DataKeyId --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$CENTRAL_BUCKET/
   COUNT=0

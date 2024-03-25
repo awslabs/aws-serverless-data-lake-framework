@@ -51,7 +51,7 @@ def lambda_handler(event, context):
 
         paginator = ssm.get_paginator("get_parameters_by_path")
         stages_pages = paginator.paginate(
-            Path=f"/SDLF/Pipelines/{team_name}",
+            Path=f"/SDLF2/Pipelines/{team_name}",
             Recursive=True,
             PaginationConfig={"MaxItems": 30},
         )

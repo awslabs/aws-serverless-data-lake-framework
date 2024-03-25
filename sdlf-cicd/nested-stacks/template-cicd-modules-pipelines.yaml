@@ -5,11 +5,11 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/DevOpsArtifactsBucket
+    Default: /SDLF2/S3/DevOpsArtifactsBucket
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pCicdRepository:
     Type: String
   pMainRepository:
@@ -255,7 +255,7 @@ Resources:
   rMainRepositoryPipelineSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodePipeline/MainRepository${pEnvironment}Pipeline
+      Name: !Sub /SDLF2/CodePipeline/MainRepository${pEnvironment}Pipeline
       Type: String
       Value: !Ref rMainRepositoryPipeline
       Description: !Sub CodePipeline that triggers on sdlf-main ${pEnvironment} changes

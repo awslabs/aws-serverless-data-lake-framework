@@ -21,7 +21,7 @@ def get_glue_transform_details(bucket, team, dataset, env, pipeline, stage):
 
     transform_info = dynamo_interface.get_transform_table_item(f"{team}-{dataset}")
 
-    glue_database = ssm.get_parameter(Name=f"/SDLF/Glue/{team}/{dataset}/DataCatalog")["Parameter"]["Value"]
+    glue_database = ssm.get_parameter(Name=f"/SDLF2/Glue/{team}/{dataset}/DataCatalog")["Parameter"]["Value"]
     glue_capacity = {"NumberOfWorkers": 5}
     wait_time = 45
 

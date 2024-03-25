@@ -5,14 +5,14 @@ Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/S3/DevOpsArtifactsBucket
+    Default: /SDLF2/S3/DevOpsArtifactsBucket
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pMainRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/MainCodeCommit
+    Default: /SDLF2/CodeCommit/MainCodeCommit
   pChildAccountId:
     Description: Child AWS account ID
     Type: String
@@ -29,24 +29,24 @@ Parameters:
   pBuildCloudformationModuleStage:
     Description: CodeBuild job that build a CloudFormation module from a SAM template
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildCloudformationModuleStage
+    Default: /SDLF2/CodeBuild/BuildCloudformationModuleStage
   pBuildCloudFormationPackage:
     Description: CodeBuild job that packages a CloudFormation template
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeBuild/BuildCloudFormationPackage
+    Default: /SDLF2/CodeBuild/BuildCloudFormationPackage
   pEnableMonitoring:
     Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Monitoring/Enabled
+    Default: /SDLF2/Monitoring/Enabled
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/CicdCodeCommit
+    Default: /SDLF2/CodeCommit/CicdCodeCommit
   pFoundationsRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/FoundationsCodeCommit
+    Default: /SDLF2/CodeCommit/FoundationsCodeCommit
   pTeamRepository:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/CodeCommit/TeamCodeCommit
+    Default: /SDLF2/CodeCommit/TeamCodeCommit
   pSdlfModuleDomain:
     Type: String
     Default: awslabs
@@ -103,7 +103,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
                   - !If
                       - EnableMonitoring
-                      - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                      - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF2/CodeCommit/MonitoringCodeCommit}}"
                       - !Ref AWS::NoValue
               - Effect: Allow
                 Action:
@@ -212,7 +212,7 @@ Resources:
                   OutputArtifacts:
                     - Name: SourceMonitoringArtifact
                   Configuration:
-                    RepositoryName: "{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                    RepositoryName: "{{resolve:ssm:/SDLF2/CodeCommit/MonitoringCodeCommit}}"
                     BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                     PollForSourceChanges: false
                   RunOrder: 1
@@ -358,7 +358,7 @@ Resources:
         detail-type:
           - CodePipeline Pipeline Execution State Change
         resources:
-          - !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodePipeline/MainRepository${pEnvironment}Pipeline}}"
+          - !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF2/CodePipeline/MainRepository${pEnvironment}Pipeline}}"
         detail:
           state:
             - SUCCEEDED
@@ -370,7 +370,7 @@ Resources:
   rChildAccountIdSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Misc/Domains/${pDomain}/${pEnvironment}/AccountId
+      Name: !Sub /SDLF2/Misc/Domains/${pDomain}/${pEnvironment}/AccountId
       Type: String
       Value: !Ref pChildAccountId
       Description: !Sub ${pDomain} ${pEnvironment} environment Child Account Id

@@ -23,12 +23,12 @@ Conditions:
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
-  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
+  # when enabling VPC support, /SDLF2/VPC/VpcId, /SDLF2/VPC/SecurityGroupIds and /SDLF2/VPC/SubnetIds are required too (see Outputs section)
   # both for the devops account and child accounts.
   rVpcFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/VPC/Enabled
+      Name: /SDLF2/VPC/Enabled
       Type: String
       Value: !Ref pEnableVpc
       Description: Deploy SDLF resources in a VPC
@@ -36,7 +36,7 @@ Resources:
   rBuildLambdaLayersFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/LambdaLayerBuilder/Enabled
+      Name: /SDLF2/LambdaLayerBuilder/Enabled
       Type: String
       Value: false
       Description: Add Lambda layer builder infrastructure and pipeline stages
@@ -44,7 +44,7 @@ Resources:
   rGlueJobDeployerFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GlueJobDeployer/Enabled
+      Name: /SDLF2/GlueJobDeployer/Enabled
       Type: String
       Value: false
       Description: Add Glue job deployer infrastructure and pipeline stages
@@ -52,7 +52,7 @@ Resources:
   rMonitoringFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Monitoring/Enabled
+      Name: /SDLF2/Monitoring/Enabled
       Type: String
       Value: false
       Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
@@ -207,7 +207,7 @@ Resources:
   rKMSKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/KMS/CICDKeyId
+      Name: /SDLF2/KMS/CICDKeyId
       Type: String
       Value: !GetAtt rKMSKey.Arn
       Description: CICD KMS key
@@ -483,7 +483,7 @@ Resources:
   rArtifactsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/DevOpsArtifactsBucket
+      Name: /SDLF2/S3/DevOpsArtifactsBucket
       Type: String
       Value: !Ref rArtifactsBucket
       Description: S3 DevOps Artifacts Bucket
@@ -622,7 +622,7 @@ Outputs:
     Description: List of security group ids that will be attached to Lambda functions and CodeBuild projects
     Value: !If
       - RunInVpc
-      - "{{resolve:ssm:/SDLF/VPC/SecurityGroupIds}}"
+      - "{{resolve:ssm:/SDLF2/VPC/SecurityGroupIds}}"
       - "-"
     Export:
       Name: !Join ["-", [!Ref "AWS::StackName", "vpc-security-groups"]]
@@ -631,7 +631,7 @@ Outputs:
     Description: List of subnet ids that will be attached to Lambda functions and CodeBuild projects
     Value: !If
       - RunInVpc
-      - "{{resolve:ssm:/SDLF/VPC/SubnetIds}}"
+      - "{{resolve:ssm:/SDLF2/VPC/SubnetIds}}"
       - "-"
     Export:
       Name: !Join ["-", [!Ref "AWS::StackName", "vpc-subnets"]]

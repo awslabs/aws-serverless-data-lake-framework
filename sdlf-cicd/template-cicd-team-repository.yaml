@@ -5,7 +5,7 @@ Parameters:
   pKMSKey:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/KMS/CICDKeyId
+    Default: /SDLF2/KMS/CICDKeyId
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
     Type: String
@@ -36,7 +36,7 @@ Resources:
   rTeamMainCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeCommit/${pTeamName}/MainCodeCommit
+      Name: !Sub /SDLF2/CodeCommit/${pTeamName}/MainCodeCommit
       Type: String
       Value: !GetAtt rTeamMainCodeCommit.Name
       Description: !Sub Name of the ${pDomain} ${pTeamName} main repository

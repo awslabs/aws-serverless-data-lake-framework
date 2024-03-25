@@ -38,7 +38,7 @@ Resources:
     Type: AWS::SSM::Parameter
     DependsOn: rCloudFormationModuleDefaultVersion
     Properties:
-      Name: !Sub /SDLF/CFN/${pDomain}-${pTeamName}-${pModuleName}-MODULE
+      Name: !Sub /SDLF2/CFN/${pDomain}-${pTeamName}-${pModuleName}-MODULE
       Type: String
       Value: !Ref pModuleGitRef
       Description: Git reference (commit id) with the sources of this module version

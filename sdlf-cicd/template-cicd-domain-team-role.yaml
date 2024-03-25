@@ -27,7 +27,7 @@ Parameters:
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Default: /SDLF2/VPC/Enabled
 
 Conditions:
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
@@ -148,12 +148,12 @@ Resources:
                   - ssm:DeleteParameters
                   - ssm:PutParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/${pTeamName}/InfraKeyId
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/${pTeamName}/DataKeyId
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/SNS/${pTeamName}/Notifications
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/${pTeamName}/ScheduleGroupName
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/${pTeamName}/CrawlerRoleArn
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/IAM/${pTeamName}/TeamPermissionsBoundary
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/${pTeamName}/InfraKeyId
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/${pTeamName}/DataKeyId
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/SNS/${pTeamName}/Notifications
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/EventBridge/${pTeamName}/ScheduleGroupName
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/IAM/${pTeamName}/CrawlerRoleArn
               - Sid: ReadOnlyAccessSsm
                 Effect: Allow
                 Action:
@@ -164,9 +164,9 @@ Resources:
                   - ssm:GetParametersByPath
                   - ssm:ListTagsForResource
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/LatestDatalakeLibraryLayer
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Misc/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/S3/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Lambda/LatestDatalakeLibraryLayer
               - Effect: Allow
                 Action:
                   - ssm:AddTagsToResource
@@ -181,16 +181,16 @@ Resources:
                   - ssm:DeleteParameters
                   - ssm:PutParameter
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Pipelines/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Datasets/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/SQS/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/SNS/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/SM/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Glue/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Pipelines/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Datasets/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Lambda/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/SQS/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/SNS/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/EventBridge/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/SM/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Glue/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/IAM/${pTeamName}/*
               - Effect: Allow
                 Action:
                   - kms:CreateGrant
@@ -292,7 +292,7 @@ Resources:
               - RunInVpc
               - StringEquals:
                   "lambda:VpcIds":
-                    - "{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                    - "{{resolve:ssm:/SDLF2/VPC/VpcId}}"
               - !Ref "AWS::NoValue"
           - Effect: Allow
             Action:
@@ -494,8 +494,8 @@ Resources:
               - ssm:GetParameters
               - ssm:GetParametersByPath
             Resource:
-              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/KMS/KeyArn
-              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/*
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/KMS/KeyArn
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/VPC/*
           - Effect: Allow
             Action:
               - iam:AttachRolePolicy

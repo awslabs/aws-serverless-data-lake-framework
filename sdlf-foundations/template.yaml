@@ -49,7 +49,7 @@ Parameters:
         1827,
         3653,
       ]
-  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # the ideal would be to fetch ssm:/SDLF2/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
   # {{resolve:}} being evaluated later than the Conditions block, options are limited.
@@ -142,8 +142,8 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/IAM/DataLakeAdminRoleArn
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Dynamo/DataSchemas
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/IAM/DataLakeAdminRoleArn
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/Dynamo/DataSchemas
 
   ######## LAKE FORMATION #########
   rDataLakeSettings:
@@ -305,7 +305,7 @@ Resources:
   rKMSKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/KMS/KeyArn
+      Name: /SDLF2/KMS/KeyArn
       Type: String
       Value: !GetAtt rKMSKey.Arn
       Description: Arn of the KMS key
@@ -313,7 +313,7 @@ Resources:
   rLakeFormationDataAccessRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/IAM/LakeFormationDataAccessRoleArn
+      Name: /SDLF2/IAM/LakeFormationDataAccessRoleArn
       Type: String
       Value: !GetAtt rLakeFormationDataAccessRole.Arn
       Description: Lake Formation Data Access Role
@@ -321,7 +321,7 @@ Resources:
   rLakeFormationDataAccessRoleNameSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/IAM/LakeFormationDataAccessRole
+      Name: /SDLF2/IAM/LakeFormationDataAccessRole
       Type: String
       Value: !Ref rLakeFormationDataAccessRole
       Description: Lake Formation Data Access Role
@@ -870,7 +870,7 @@ Resources:
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/*
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF2/EventBridge/*
 
   rS3ObjectTriggerRule:
     Type: AWS::Events::Rule
@@ -900,42 +900,42 @@ Resources:
   rS3ArtifactBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/ArtifactsBucket
+      Name: /SDLF2/S3/ArtifactsBucket
       Type: String
       Value: !Ref rArtifactsBucket
       Description: Name of the Artifacts S3 bucket
   rS3CentralBucketSsm: # kept for backward compatibility
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/CentralBucket
+      Name: /SDLF2/S3/CentralBucket
       Type: String
       Value: !Ref rRawBucket
       Description: Name of the Central S3 bucket
   rS3RawBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/RawBucket
+      Name: /SDLF2/S3/RawBucket
       Type: String
       Value: !Ref rRawBucket
       Description: Name of the Raw S3 bucket
   rS3StageBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/StageBucket
+      Name: /SDLF2/S3/StageBucket
       Type: String
       Value: !Ref rStageBucket
       Description: Name of the Stage S3 bucket
   rS3AnalyticsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/AnalyticsBucket
+      Name: /SDLF2/S3/AnalyticsBucket
       Type: String
       Value: !Ref rAnalyticsBucket
       Description: Name of the Analytics S3 bucket
   rS3AthenaBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/AthenaBucket
+      Name: /SDLF2/S3/AthenaBucket
       Type: String
       Value: !Ref rAthenaBucket
       Description: Name of the Athena results S3 bucket
@@ -1435,42 +1435,42 @@ Resources:
   rDynamoObjectMetadataSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/ObjectCatalog
+      Name: /SDLF2/Dynamo/ObjectCatalog
       Type: String
       Value: !Ref rDynamoOctagonObjectMetadata
       Description: Name of the DynamoDB used to store metadata
   rDynamoTransformMappingSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/TransformMapping
+      Name: /SDLF2/Dynamo/TransformMapping
       Type: String
       Value: !Ref rDynamoOctagonDatasets
       Description: Name of the DynamoDB used to store mappings to transformation
   rDynamoPipelinesSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/Pipelines
+      Name: /SDLF2/Dynamo/Pipelines
       Type: String
       Value: !Ref rDynamoOctagonPipelines
       Description: Name of the DynamoDB used to store pipelines metadata
   rDynamoTeamMetadataSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/TeamMetadata
+      Name: /SDLF2/Dynamo/TeamMetadata
       Type: String
       Value: !Ref rDynamoOctagonTeams
       Description: Name of the DynamoDB used to store teams metadata
   rDynamoDataSchemasSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/DataSchemas
+      Name: /SDLF2/Dynamo/DataSchemas
       Type: String
       Value: !Ref rDynamoOctagonSchemas
       Description: Name of the DynamoDB used to store data schemas
   rDynamoManifestsSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Dynamo/Manifests
+      Name: /SDLF2/Dynamo/Manifests
       Type: String
       Value: !Ref rDynamoOctagonManifests
       Description: Name of the DynamoDB used to store manifest process metadata
@@ -1527,7 +1527,7 @@ Resources:
   rOrganizationSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/Misc/pOrg
+      Name: /SDLF2/Misc/pOrg
       Type: String
       Value: !Ref pOrg
       Description: Name of the Organization owning the datalake
@@ -1535,28 +1535,28 @@ Resources:
   rDomainSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Misc/pDomain
+      Name: !Sub /SDLF2/Misc/pDomain
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
   rEnvironmentSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Misc/pEnv
+      Name: !Sub /SDLF2/Misc/pEnv
       Type: String
       Value: !Ref pEnvironment
       Description: Environment name
   rDataLakeAdminRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/IAM/DataLakeAdminRoleArn
+      Name: /SDLF2/IAM/DataLakeAdminRoleArn
       Type: String
       Value: !GetAtt rDataLakeAdminRole.Arn
       Description: Lake Formation Data Lake Admin Role
   rS3AccessLogsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/S3/AccessLogsBucket
+      Name: /SDLF2/S3/AccessLogsBucket
       Type: String
       Value: !Ref rS3AccessLogsBucket
       Description: S3 Access Logs Bucket
