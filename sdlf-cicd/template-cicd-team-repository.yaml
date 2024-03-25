@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: CICD resources to handle deployment of a new team (repository)
 
 Parameters:
@@ -13,13 +13,22 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/GitPlatform
   pMainRepositoriesPrefix:
     Type: String
     Default: sdlf-main-
 
+Conditions:
+  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+
 Resources:
   rTeamMainCodeCommit:
     Type: AWS::CodeCommit::Repository
+    Condition: CodeCommitNoGitLab
     Metadata:
       cfn-lint:
         config:
@@ -33,10 +42,25 @@ Resources:
       RepositoryName: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey
 
+  rTeamMainGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Condition: GitLabNoCodeCommit
+    Properties:
+      Name: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
+#      Path: !Ref pSdlfGitLabGroup
+
   rTeamMainCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/CodeCommit/${pTeamName}/MainCodeCommit
+      Name: !Sub /SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}
       Type: String
-      Value: !GetAtt rTeamMainCodeCommit.Name
+      Value: !If
+        - CodeCommitNoGitLab
+        - !GetAtt rTeamMainCodeCommit.Name
+        - !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName} # !GetAtt rTeamMainGitLab.Name
       Description: !Sub Name of the ${pDomain} ${pTeamName} main repository

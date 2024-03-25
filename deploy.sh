@@ -168,10 +168,18 @@ devops_account () {
     fi
     if "$fflag"
     then
+        GIT_PLATFORM=CodeCommit
+        GITLAB=false
         GLUE_JOB_DEPLOYER=false
         LAMBDA_LAYER_BUILDER=false
         MONITORING=false
         VPC=false
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "gitlab"
+        then
+            GIT_PLATFORM=GitLab
+            GITLAB=true
+            echo "Optional feature: GitLab"
+        fi
         if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "gluejobdeployer"
         then
             GLUE_JOB_DEPLOYER=true
@@ -194,6 +202,8 @@ devops_account () {
         fi
     else
         echo "-f not specified, set all features to false by default" >&2
+        GIT_PLATFORM=CodeCommit
+        GITLAB=false
         GLUE_JOB_DEPLOYER=false
         LAMBDA_LAYER_BUILDER=false
         MONITORING=false
@@ -212,6 +222,8 @@ devops_account () {
         --template-file "$DIRNAME"/sdlf-cicd/template-cicd-prerequisites.yaml \
         --parameter-overrides \
             pDomainAccounts="$DOMAIN_ACCOUNTS" \
+            pGitPlatform="$GIT_PLATFORM" \
+            pEnableGitlab="$GITLAB" \
             pEnableGlueJobDeployer="$GLUE_JOB_DEPLOYER" \
             pEnableLambdaLayerBuilder="$LAMBDA_LAYER_BUILDER" \
             pEnableMonitoring="$MONITORING" \
@@ -223,10 +235,11 @@ devops_account () {
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
     ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
+    REPOSITORIES_TEMPLATE_FILE=$(test "$GITLAB" = true && echo "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.gitlab.yaml || echo "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.yaml)
     mkdir "$DIRNAME"/output
     aws cloudformation package \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories \
-        --template-file "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.yaml \
+        --template-file "$REPOSITORIES_TEMPLATE_FILE" \
         --output-template-file "$DIRNAME"/output/packaged-template-cicd-sdlf-repositories.yaml \
         --region "$REGION" \
         --profile "$DEVOPS_AWS_PROFILE"
@@ -251,9 +264,34 @@ devops_account () {
     fi
     for REPOSITORY in "${REPOSITORIES[@]}"
     do
-        latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query "branch.commitId" --output text)
-        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit"
-        aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit"
+        if "$GITLAB"
+        then
+            GITLAB_URL=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/Url --query "Parameter.Value" --output text)
+            GITLAB_ACCESSTOKEN=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/AccessToken --query "Parameter.Value" --output text)
+            GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}sdlf/$REPOSITORY.git"
+
+            if [ "$REPOSITORY" = "sdlf-main" ]
+            then
+                mkdir sdlf-main
+                cp sdlf-cicd/README.md sdlf-main/
+            fi
+            pushd "$REPOSITORY" || exit
+            if [ ! -d .git ] # if .git exists, deploy.sh has likely been run before - do not try to push the base repositories
+            then
+                git init
+                git remote add origin "$GITLAB_REPOSITORY_URL" || exit 1
+                git add .
+                git commit -m "initial commit"
+                git push origin main || exit 1
+                git push origin main:dev
+                git push origin main:test
+            fi
+            popd || exit
+        else
+            latest_commit=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit get-branch --repository-name "$REPOSITORY" --branch-name main --query "branch.commitId" --output text)
+            aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name dev --commit-id "$latest_commit"
+            aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" codecommit create-branch --repository-name "$REPOSITORY" --branch-name test --commit-id "$latest_commit"
+        fi
     done
 
     aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
@@ -276,6 +314,8 @@ devops_account () {
         --parameter-overrides \
             pArtifactsBucket=/SDLF/S3/DevOpsArtifactsBucket \
             pKMSKey=/SDLF/KMS/CICDKeyId \
+            pCicdRepository="/SDLF/$GIT_PLATFORM/Cicd$GIT_PLATFORM" \
+            pMainRepository="/SDLF/$GIT_PLATFORM/Main$GIT_PLATFORM" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \

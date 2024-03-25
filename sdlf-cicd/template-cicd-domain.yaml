@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: CICD resources to handle deployment of a new domain
 
 Parameters:
@@ -10,6 +10,10 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/GitPlatform
   pMainRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/MainCodeCommit
@@ -66,6 +70,8 @@ Mappings:
       branch: main
 
 Conditions:
+  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
@@ -74,7 +80,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -85,26 +91,58 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-maincodepipelinesource
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
-              - Effect: Allow
-                Action:
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GitPull
-                  - codecommit:GetRepository
-                  - codecommit:UploadArchive
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:CancelUploadArchive
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
-                  - !If
+              - !If
+                - CodeCommitNoGitLab
+                - Effect: Allow
+                  Action:
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GitPull
+                    - codecommit:GetRepository
+                    - codecommit:UploadArchive
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:CancelUploadArchive
+                  Resource:
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pFoundationsRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pTeamRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                    - !If
                       - EnableMonitoring
                       - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
                       - !Ref AWS::NoValue
+                - !Ref "AWS::NoValue"
+              - !If
+                - GitLabNoCodeCommit
+                - Effect: Allow
+                  Action:
+                    - codeconnections:UseConnection
+                    - codestar-connections:UseConnection
+                  Resource:
+                    - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  Condition:
+                    "ForAllValues:StringLikeIfExists":
+                      "codeconnections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !If
+                          - EnableMonitoring
+                          - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                          - !Ref AWS::NoValue
+                      "codestar-connections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !If
+                          - EnableMonitoring
+                          - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                          - !Ref AWS::NoValue
+                - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -130,7 +168,7 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${pBuildCloudformationModuleStage}"
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: sts:AssumeRole
@@ -142,81 +180,153 @@ Resources:
     Properties:
       RoleArn: !GetAtt rDomainCodePipelineRole.Arn
       Stages:
-        - Name: Source
-          Actions:
-            - Name: sdlf-main
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Provider: CodeCommit
-                Version: "1"
-              Namespace: SourceVariables
-              OutputArtifacts:
-                - Name: TemplateSource
-              Configuration:
-                RepositoryName: !Ref pMainRepository
-                BranchName:
-                  !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceCicd
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceCicdArtifact
-              Configuration:
-                RepositoryName: !Ref pCicdRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceFoundations
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceFoundationsArtifact
-              Configuration:
-                RepositoryName: !Ref pFoundationsRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceTeam
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceTeamArtifact
-              Configuration:
-                RepositoryName: !Ref pTeamRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            - !If
-                - EnableMonitoring
-                - Name: SourceMonitoring
-                  ActionTypeId:
-                    Category: Source
-                    Owner: AWS
-                    Version: "1"
-                    Provider: CodeCommit
-                  OutputArtifacts:
-                    - Name: SourceMonitoringArtifact
-                  Configuration:
-                    RepositoryName: "{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
-                    BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                    PollForSourceChanges: false
-                  RunOrder: 1
-                - !Ref AWS::NoValue
+        - Name: Sources
+          Actions: !If
+            - CodeCommitNoGitLab
+            - - Name: sdlf-main
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                Namespace: SourceVariables
+                OutputArtifacts:
+                  - Name: TemplateSource
+                Configuration:
+                  RepositoryName: !Ref pMainRepository
+                  BranchName:
+                    !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  RepositoryName: !Ref pCicdRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceFoundations
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceFoundationsArtifact
+                Configuration:
+                  RepositoryName: !Ref pFoundationsRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceTeam
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceTeamArtifact
+                Configuration:
+                  RepositoryName: !Ref pTeamRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - !If
+                  - EnableMonitoring
+                  - Name: SourceMonitoring
+                    ActionTypeId:
+                      Category: Source
+                      Owner: AWS
+                      Provider: CodeCommit
+                      Version: "1"
+                    OutputArtifacts:
+                      - Name: SourceMonitoringArtifact
+                    Configuration:
+                      RepositoryName: "{{resolve:ssm:/SDLF/CodeCommit/MonitoringCodeCommit}}"
+                      BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                      PollForSourceChanges: false
+                    RunOrder: 1
+                  - !Ref AWS::NoValue
+            - - Name: sdlf-main
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                Namespace: SourceVariables
+                OutputArtifacts:
+                  - Name: TemplateSource
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceFoundations
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceFoundationsArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceTeam
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceTeamArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - !If
+                  - EnableMonitoring
+                  - Name: SourceMonitoring
+                    ActionTypeId:
+                      Category: Source
+                      Owner: AWS
+                      Provider: CodeStarSourceConnection
+                      Version: "1"
+                    OutputArtifacts:
+                      - Name: SourceMonitoringArtifact
+                    Configuration:
+                      ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                      FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                      BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                      OutputArtifactFormat: CODE_ZIP
+                    RunOrder: 1
+                  - !Ref AWS::NoValue
         - Name: BuildTemplate
           Actions:
             -
@@ -227,8 +337,8 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
                 Provider: CodeBuild
+                Version: "1"
               Configuration:
                 PrimarySource: SourceFoundationsArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
@@ -247,8 +357,8 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
                 Provider: CodeBuild
+                Version: "1"
               Configuration:
                 PrimarySource: SourceTeamArtifact
                 ProjectName: !Ref pBuildCloudformationModuleStage
@@ -268,8 +378,8 @@ Resources:
                   ActionTypeId:
                     Category: Build
                     Owner: AWS
-                    Version: "1"
                     Provider: CodeBuild
+                    Version: "1"
                   Configuration:
                     PrimarySource: SourceMonitoringArtifact
                     ProjectName: !Ref pBuildCloudformationModuleStage
@@ -289,8 +399,8 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
                 Provider: CodeBuild
+                Version: "1"
               Configuration:
                 ProjectName: !Ref pBuildCloudFormationPackage
                 EnvironmentVariables: !Sub >-
@@ -331,7 +441,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -341,7 +451,7 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-trigger-rule
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: codepipeline:StartPipelineExecution

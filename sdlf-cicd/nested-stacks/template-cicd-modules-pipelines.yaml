@@ -26,6 +26,10 @@ Parameters:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: String
+    AllowedValues: [CodeCommit, GitLab]
 
 Mappings:
   pCodeCommitBranch:
@@ -35,6 +39,10 @@ Mappings:
       branch: test
     prod:
       branch: main
+
+Conditions:
+  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
 
 Resources:
   rMainRepositoryCodePipelineRole:
@@ -54,18 +62,38 @@ Resources:
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              - Effect: Allow
-                Action:
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GitPull
-                  - codecommit:GetRepository
-                  - codecommit:UploadArchive
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:CancelUploadArchive
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+              - !If
+                - CodeCommitNoGitLab
+                - Effect: Allow
+                  Action:
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GitPull
+                    - codecommit:GetRepository
+                    - codecommit:UploadArchive
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:CancelUploadArchive
+                  Resource:
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+                - !Ref "AWS::NoValue"
+              - !If
+                - GitLabNoCodeCommit
+                - Effect: Allow
+                  Action:
+                    - codeconnections:UseConnection
+                    - codestar-connections:UseConnection
+                  Resource:
+                    - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  Condition:
+                    "ForAllValues:StringLikeIfExists":
+                      "codeconnections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                      "codestar-connections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -105,37 +133,63 @@ Resources:
     Properties:
       RoleArn: !GetAtt rMainRepositoryCodePipelineRole.Arn
       Stages:
-        -
-          Name: Sources
-          Actions:
-            -
-              Name: SourceMain
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceMainArtifact
-              Configuration:
-                RepositoryName: !Ref pMainRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceCicd
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceCicdArtifact
-              Configuration:
-                RepositoryName: !Ref pCicdRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
+        - Name: Sources
+          Actions: !If
+            - CodeCommitNoGitLab
+            - - Name: SourceMain
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeCommit
+                OutputArtifacts:
+                  - Name: SourceMainArtifact
+                Configuration:
+                  RepositoryName: !Ref pMainRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeCommit
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  RepositoryName: !Ref pCicdRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+            - - Name: SourceMain
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeStarSourceConnection
+                OutputArtifacts:
+                  - Name: SourceMainArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Version: "1"
+                  Provider: CodeStarSourceConnection
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
         -
           Name: MainRepositoryParser
           Actions:
@@ -207,6 +261,7 @@ Resources:
 
   rMainRepositoryCodeCommitTriggerRole:
     Type: AWS::IAM::Role
+    Condition: CodeCommitNoGitLab
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -228,6 +283,7 @@ Resources:
 
   rMainRepositoryCodePipelineTriggerRule:
     Type: AWS::Events::Rule
+    Condition: CodeCommitNoGitLab
     Properties:
       EventPattern:
         source:

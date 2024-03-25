@@ -10,6 +10,10 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/GitPlatform
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/CicdCodeCommit
@@ -63,6 +67,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
       Parameters:
+        pGitPlatform: !Ref pGitPlatform
         pCicdRepository: !Ref pCicdRepository
         pMainRepository: !Ref pMainRepository
         pMainRepositoryParserLambda: !Ref rMainRepositoryParserLambda
@@ -81,6 +86,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
       Parameters:
+        pGitPlatform: !Ref pGitPlatform
         pCicdRepository: !Ref pCicdRepository
         pMainRepository: !Ref pMainRepository
         pMainRepositoryParserLambda: !Ref rMainRepositoryParserLambda
@@ -99,6 +105,7 @@ Resources:
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-modules-pipelines.yaml
       Parameters:
+        pGitPlatform: !Ref pGitPlatform
         pCicdRepository: !Ref pCicdRepository
         pMainRepository: !Ref pMainRepository
         pMainRepositoryParserLambda: !Ref rMainRepositoryParserLambda
@@ -306,7 +313,7 @@ Resources:
                   - codecommit:GetFile
                   - codecommit:GetFolder
                   - codecommit:AssociateApprovalRuleTemplateWithRepository
-                Effect: Allow
+                Effect: Allow # TODO if codecommit?
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepository}
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
@@ -401,7 +408,7 @@ Resources:
                 Action:
                   - codecommit:ListRepositories # W11 exception
                 Resource: "*"
-              - Effect: Allow
+              - Effect: Allow # TODO if codecommit?
                 Action:
                   - codecommit:GetRepository
                   - codecommit:CreateRepository
@@ -498,6 +505,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GlueJobDeployer/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GitLab/*
               - Effect: Allow
                 Action:
                   - codepipeline:GetPipelineState

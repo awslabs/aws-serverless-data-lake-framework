@@ -26,6 +26,8 @@ kms = boto3.client("kms", endpoint_url=kms_endpoint_url)
 sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
 sts = boto3.client("sts", endpoint_url=sts_endpoint_url)
 
+git_platform = ssm.get_parameter(Name="/SDLF/Misc/GitPlatform")["Parameter"]["Value"]
+
 
 def delete_cicd_stack(stack, cloudformation_role):
     cloudformation.delete_stack(
@@ -59,6 +61,26 @@ def create_domain_cicd_stack(domain, environment, template_body_url, child_accou
                     "ParameterValue": environment,
                     "UsePreviousValue": False,
                 },
+                {
+                    "ParameterKey": "pMainRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Main{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pCicdRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pFoundationsRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Foundations{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pTeamRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Team{git_platform}",
+                    "UsePreviousValue": False,
+                },
             ],
             Capabilities=[
                 "CAPABILITY_NAMED_IAM",
@@ -89,6 +111,26 @@ def create_domain_cicd_stack(domain, environment, template_body_url, child_accou
                     {
                         "ParameterKey": "pEnvironment",
                         "ParameterValue": environment,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pMainRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Main{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pCicdRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pFoundationsRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Foundations{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pTeamRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Team{git_platform}",
                         "UsePreviousValue": False,
                     },
                 ],
@@ -227,6 +269,36 @@ def create_team_pipeline_cicd_stack(
                     "ParameterValue": crossaccount_team_role,
                     "UsePreviousValue": False,
                 },
+                {
+                    "ParameterKey": "pCicdRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pDatalakeLibraryRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/DatalakeLibrary{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pPipelineRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Pipeline{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pStageARepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/StageA{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pStageBRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pDatasetRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",
+                    "UsePreviousValue": False,
+                },
             ],
             Capabilities=[
                 "CAPABILITY_NAMED_IAM",
@@ -267,6 +339,36 @@ def create_team_pipeline_cicd_stack(
                     {
                         "ParameterKey": "pCrossAccountTeamRole",
                         "ParameterValue": crossaccount_team_role,
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pCicdRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pDatalakeLibraryRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/DatalakeLibrary{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pPipelineRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Pipeline{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pStageARepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageA{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pStageBRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pDatasetRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",
                         "UsePreviousValue": False,
                     },
                 ],
@@ -504,30 +606,31 @@ def lambda_handler(event, context):
             for stack in cloudformation_waiters["stack_update_complete"]:
                 cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
-            for team in domain_details["teams"]:
-                repository_name = f"{main_repository_prefix}{domain}-{team}"
-                env_branches = ["dev", "test"]
-                for env_branch in env_branches:
-                    try:
-                        codecommit.create_branch(
-                            repositoryName=repository_name,
-                            branchName=env_branch,
-                            commitId=codecommit.get_branch(
+            if git_platform == "CodeCommit":
+                for team in domain_details["teams"]:
+                    repository_name = f"{main_repository_prefix}{domain}-{team}"
+                    env_branches = ["dev", "test"]
+                    for env_branch in env_branches:
+                        try:
+                            codecommit.create_branch(
                                 repositoryName=repository_name,
-                                branchName="main",
-                            )["branch"]["commitId"],
-                        )
-                        logger.info(
-                            "Branch %s created in repository %s",
-                            env_branch,
-                            repository_name,
-                        )
-                    except codecommit.exceptions.BranchNameExistsException:
-                        logger.info(
-                            "Branch %s already created in repository %s",
-                            env_branch,
-                            repository_name,
-                        )
+                                branchName=env_branch,
+                                commitId=codecommit.get_branch(
+                                    repositoryName=repository_name,
+                                    branchName="main",
+                                )["branch"]["commitId"],
+                            )
+                            logger.info(
+                                "Branch %s created in repository %s",
+                                env_branch,
+                                repository_name,
+                            )
+                        except codecommit.exceptions.BranchNameExistsException:
+                            logger.info(
+                                "Branch %s already created in repository %s",
+                                env_branch,
+                                repository_name,
+                            )
 
             # and create a CICD stack per team that will be used to deploy team resources in the child account
             cloudformation_waiters = {
