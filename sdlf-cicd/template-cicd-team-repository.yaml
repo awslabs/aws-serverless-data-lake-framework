@@ -13,6 +13,9 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
+  pMainRepositoriesPrefix:
+    Type: String
+    Default: sdlf-main-
 
 Resources:
   rTeamMainCodeCommit:
@@ -27,7 +30,7 @@ Resources:
         BranchName: main
         S3: ./README.md
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
-      RepositoryName: !Sub sdlf-main-${pDomain}-${pTeamName}
+      RepositoryName: !Sub ${pMainRepositoriesPrefix}-${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey
 
   rTeamMainCodeCommitSsm:
