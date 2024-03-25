@@ -15,7 +15,7 @@ Parameters:
     Type: String
   pMainRepositoriesPrefix:
     Type: String
-    Default: sdlf-main-
+    Default: sdlf2-main-
 
 Resources:
   rTeamMainCodeCommit:

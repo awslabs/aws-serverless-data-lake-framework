@@ -8,37 +8,37 @@ Parameters:
     Default: /SDLF/KMS/CICDKeyId
   pCicdRepository:
     Type: String
-    Default: sdlf-cicd
+    Default: sdlf2-cicd
   pFoundationsRepository:
     Type: String
-    Default: sdlf-foundations
+    Default: sdlf2-foundations
   pTeamRepository:
     Type: String
-    Default: sdlf-team
+    Default: sdlf2-team
   pPipelineRepository:
     Type: String
-    Default: sdlf-pipeline
+    Default: sdlf2-pipeline
   pDatasetRepository:
     Type: String
-    Default: sdlf-dataset
+    Default: sdlf2-dataset
   pStageARepository:
     Type: String
-    Default: sdlf-stageA
+    Default: sdlf2-stageA
   pStageBRepository:
     Type: String
-    Default: sdlf-stageB
+    Default: sdlf2-stageB
   pDatalakeLibraryRepository:
     Type: String
-    Default: sdlf-datalakeLibrary
+    Default: sdlf2-datalakeLibrary
   pUtilsRepository:
     Type: String
-    Default: sdlf-utils
+    Default: sdlf2-utils
   pMainRepository:
     Type: String
-    Default: sdlf-main
+    Default: sdlf2-main
   pMonitoringRepository:
     Type: String
-    Default: sdlf-monitoring
+    Default: sdlf2-monitoring
   pEnableMonitoring:
     Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
     Type: AWS::SSM::Parameter::Value<String>

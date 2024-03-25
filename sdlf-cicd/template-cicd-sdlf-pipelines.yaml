@@ -18,10 +18,10 @@ Parameters:
     Default: /SDLF/CodeCommit/MainCodeCommit
   pMainRepositoriesPrefix:
     Type: String
-    Default: sdlf-main-
+    Default: sdlf2-main-
   pStagesRepositoriesPrefix:
     Type: String
-    Default: sdlf-stage-
+    Default: sdlf2-stage-
   pDatalakeLibsLambdaLayerName:
     Description: Name to give the Lambda Layer containing the Datalake Library.
     Type: String
