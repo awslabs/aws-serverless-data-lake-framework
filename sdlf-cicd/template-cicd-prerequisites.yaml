@@ -9,6 +9,15 @@ Parameters:
   pDomainAccounts:
     Description: List of AWS account ids bootstrapped with SDLF domain roles
     Type: CommaDelimitedList
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: String
+    AllowedValues: [CodeCommit, GitLab]
+    Default: CodeCommit
+  pEnableGitlab:
+    Description: Use GitLab instead of CodeCommit for SDLF repositories
+    Type: String
+    Default: false
   pEnableGlueJobDeployer:
     Description: Enable Glue Job Deployer optional feature
     Type: String
@@ -35,6 +44,24 @@ Conditions:
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
+  # when enabling Gitlab support, /SDLF/GitLab/Url and /SDLF/GitLab/AccessToken are required too (as secure strings)
+  # then enable GitLab::Projects::Project third-party resource type in CloudFormation Registry
+  rGitlabFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/Enabled
+      Type: String
+      Value: !Ref pEnableGitlab
+      Description: Create repositories on GitLab instead of CodeCommit
+
+  rGitPlatformSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Misc/GitPlatform
+      Type: String
+      Value: !Ref pGitPlatform
+      Description: Platform used to host git repositories
+
   rGlueJobDeployerFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:

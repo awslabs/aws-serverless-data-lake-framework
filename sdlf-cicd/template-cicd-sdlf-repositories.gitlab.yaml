@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Multi-environment CICD team repos resources in shared DevOps account
+
+Parameters:
+  pKMSKey:
+    Description: The KMS key used by CodeBuild and CodePipeline
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/KMS/CICDKeyId
+  pSdlfGitLabGroup:
+    Type: String
+    Default: sdlf
+  pCicdRepository:
+    Type: String
+    Default: sdlf-cicd
+  pFoundationsRepository:
+    Type: String
+    Default: sdlf-foundations
+  pTeamRepository:
+    Type: String
+    Default: sdlf-team
+  pPipelineRepository:
+    Type: String
+    Default: sdlf-pipeline
+  pDatasetRepository:
+    Type: String
+    Default: sdlf-dataset
+  pStageARepository:
+    Type: String
+    Default: sdlf-stageA
+  pStageBRepository:
+    Type: String
+    Default: sdlf-stageB
+  pDatalakeLibraryRepository:
+    Type: String
+    Default: sdlf-datalakeLibrary
+  pUtilsRepository:
+    Type: String
+    Default: sdlf-utils
+  pMainRepository:
+    Type: String
+    Default: sdlf-main
+  pMonitoringRepository:
+    Type: String
+    Default: sdlf-monitoring
+  pEnableMonitoring:
+    Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Monitoring/Enabled
+
+Conditions:
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
+
+Resources:
+  ######## GITLAB #########
+  # rSdlfGitLabGroup:
+  #   Type: GitLab::Groups::Group
+  #   Properties:
+  #     Name: SDLF
+  #     Path: !Ref pSdlfGitLabGroup
+
+  rCicdGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pCicdRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rFoundationsGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pFoundationsRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rTeamGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pTeamRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rPipelineGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pPipelineRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rDatasetGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pDatasetRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rStageAGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pStageARepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rStageBGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pStageBRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rDatalakeLibraryGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pDatalakeLibraryRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rMainGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Properties:
+      Name: !Ref pMainRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rMonitoringGitLab:
+    Type: GitLab::Projects::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Condition: EnableMonitoring
+    Properties:
+      Name: !Ref pMonitoringRepository
+#      Path: !Ref pSdlfGitLabGroup
+
+  rSdlfGitLabGroupSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/SdlfGitLabGroup
+      Type: String
+      Value: !Ref pSdlfGitLabGroup # !GetAtt rSdlfGitLabGroup.Name
+      Description: Name of the GitLab group for SDLF default repositories
+
+  rCicdGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/CicdGitLab
+      Type: String
+      Value: !Ref pCicdRepository # !GetAtt rCicdGitLab.Name
+      Description: Name of the Cicd repository
+
+  rFoundationsGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/FoundationsGitLab
+      Type: String
+      Value: !Ref pFoundationsRepository # !GetAtt rFoundationsGitLab.Name
+      Description: Name of the Foundations repository
+
+  rTeamGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/TeamGitLab
+      Type: String
+      Value: !Ref pTeamRepository # !GetAtt rTeamGitLab.Name
+      Description: Name of the Team repository
+
+  rPipelineGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/PipelineGitLab
+      Type: String
+      Value: !Ref pPipelineRepository # !GetAtt rPipelineGitLab.Name
+      Description: Name of the Pipeline repository
+
+  rDatasetGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/DatasetGitLab
+      Type: String
+      Value: !Ref pDatasetRepository # !GetAtt rDatasetGitLab.Name
+      Description: Name of the Dataset repository
+
+  rStageAGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/StageAGitLab
+      Type: String
+      Value: !Ref pStageARepository # !GetAtt rStageAGitLab.Name
+      Description: Name of the StageA repository
+
+  rStageBGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/StageBGitLab
+      Type: String
+      Value: !Ref pStageBRepository # !GetAtt rStageBGitLab.Name
+      Description: Name of the StageB repository
+
+  rDatalakeLibraryGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/DatalakeLibraryGitLab
+      Type: String
+      Value: !Ref pDatalakeLibraryRepository # !GetAtt rDatalakeLibraryGitLab.Name
+      Description: Name of the DatalakeLibrary repository
+
+  rUtilsGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/UtilsGitLab
+      Type: String
+      Value: !Ref pUtilsRepository
+      Description: Name of the Utils repository
+
+  rMainGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/MainGitLab
+      Type: String
+      Value: !Ref pMainRepository # !GetAtt rMainGitLab.Name
+      Description: Name of the main repository
+
+  rMonitoringGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Condition: EnableMonitoring
+    Properties:
+      Name: /SDLF/GitLab/MonitoringGitLab
+      Type: String
+      Value: !Ref pMonitoringRepository # !GetAtt rMonitoringGitLab.Name
+      Description: Name of the monitoring repository
+
+Outputs:
+  # workaround {{resolve:ssm:}} not returning an array that can be used directly in VpcConfig blocks
+  oKmsKey:
+    Description: CICD KMS Key
+    Value: !Ref pKMSKey

@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: CICD resources to handle deployment of a new team
 
 Parameters:
@@ -54,6 +54,10 @@ Parameters:
     Description: Add Glue job deployer infrastructure and pipeline stages
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/GlueJobDeployer/Enabled
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/GitPlatform
   pCicdRepository:
     Description: Name of the Cicd repository
     Type: AWS::SSM::Parameter::Value<String>
@@ -92,6 +96,8 @@ Mappings:
       branch: main
 
 Conditions:
+  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
   EnableOptionalFeatures: !Or [!Condition EnableLambdaLayerBuilder, !Condition EnableGlueJobDeployer]
@@ -103,7 +109,7 @@ Resources:
     Properties:
       Description: Role assumed by CodePipeline to fetch CloudFormation templates from the team main repository
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -114,25 +120,55 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
-              - Effect: Allow
-                Action:
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GitPull
-                  - codecommit:GetRepository
-                  - codecommit:UploadArchive
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:CancelUploadArchive
-                Resource:
-                  - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageARepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageBRepository}
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
+              - !If
+                - CodeCommitNoGitLab
+                - Effect: Allow
+                  Action:
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GitPull
+                    - codecommit:GetRepository
+                    - codecommit:UploadArchive
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:CancelUploadArchive
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageARepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageBRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
+                - !Ref "AWS::NoValue"
+              - !If
+                - GitLabNoCodeCommit
+                - Effect: Allow
+                  Action:
+                    - codeconnections:UseConnection
+                    - codestar-connections:UseConnection
+                  Resource:
+                    - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  Condition:
+                    "ForAllValues:StringLikeIfExists":
+                      "codeconnections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                      "codestar-connections:FullRepositoryId":
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
                   - s3:Get*
@@ -168,7 +204,7 @@ Resources:
                     - !Ref AWS::NoValue
         - PolicyName: sdlf-cicd-cloudformation
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: sts:AssumeRole
@@ -181,105 +217,197 @@ Resources:
       RoleArn: !GetAtt rTeamMainCodePipelineRole.Arn
       Stages:
         - Name: Sources
-          Actions:
-            - Name: Source
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Provider: CodeCommit
-                Version: "1"
-              OutputArtifacts:
-                - Name: TemplateSource
-              Configuration:
-                RepositoryName: !Sub "{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
-                BranchName:
-                  !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceCicd
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Provider: CodeCommit
-                Version: "1"
-              OutputArtifacts:
-                - Name: SourceCicdArtifact
-              Configuration:
-                RepositoryName: !Ref pCicdRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceDatalakeLibrary
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceDatalakeLibraryArtifact
-              Configuration:
-                RepositoryName: !Ref pDatalakeLibraryRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourcePipeline
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourcePipelineArtifact
-              Configuration:
-                RepositoryName: !Ref pPipelineRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceStageA
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceStageAArtifact
-              Configuration:
-                RepositoryName: !Ref pStageARepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceStageB
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceStageBArtifact
-              Configuration:
-                RepositoryName: !Ref pStageBRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
-            -
-              Name: SourceDataset
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: "1"
-                Provider: CodeCommit
-              OutputArtifacts:
-                - Name: SourceDatasetArtifact
-              Configuration:
-                RepositoryName: !Ref pDatasetRepository
-                BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
-                PollForSourceChanges: false
-              RunOrder: 1
+          Actions: !If
+            - CodeCommitNoGitLab
+            - - Name: Source
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: TemplateSource
+                Configuration:
+                  RepositoryName: !Sub "{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  RepositoryName: !Ref pCicdRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceDatalakeLibrary
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceDatalakeLibraryArtifact
+                Configuration:
+                  RepositoryName: !Ref pDatalakeLibraryRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourcePipeline
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourcePipelineArtifact
+                Configuration:
+                  RepositoryName: !Ref pPipelineRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceStageA
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageAArtifact
+                Configuration:
+                  RepositoryName: !Ref pStageARepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceStageB
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageBArtifact
+                Configuration:
+                  RepositoryName: !Ref pStageBRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceDataset
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceDatasetArtifact
+                Configuration:
+                  RepositoryName: !Ref pDatasetRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+            - - Name: Source
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: TemplateSource
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceCicd
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceCicdArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceDatalakeLibrary
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceDatalakeLibraryArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourcePipeline
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourcePipelineArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceStageA
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageAArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceStageB
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageBArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceDataset
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceDatasetArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
         - !If
           - EnableOptionalFeatures
           - Name: BuildOptionalFeatures
@@ -602,9 +730,10 @@ Resources:
 
   rTeamMainCodeCommitTriggerRole:
     Type: AWS::IAM::Role
+    Condition: CodeCommitNoGitLab
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -614,7 +743,7 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-trigger-rule
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: codepipeline:StartPipelineExecution
@@ -623,6 +752,7 @@ Resources:
 
   rTeamMainCodeCommitTriggerRule:
     Type: AWS::Events::Rule
+    Condition: CodeCommitNoGitLab
     Properties:
       State: ENABLED
       EventPattern:
