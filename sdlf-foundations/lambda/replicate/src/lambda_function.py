@@ -15,7 +15,7 @@ ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
 ssm = boto3.client("ssm", endpoint_url=ssm_endpoint_url)
 lf_endpoint_url = "https://lakeformation." + os.getenv("AWS_REGION") + ".amazonaws.com"
 lf = boto3.client("lakeformation", endpoint_url=lf_endpoint_url)
-schemas_table = "octagon-DataSchemas-{}".format(os.getenv("ENV"))
+schemas_table = ssm.get_parameter(Name="/SDLF/Dynamo/DataSchemas")["Parameter"]["Value"]
 
 
 def get_current_time():
