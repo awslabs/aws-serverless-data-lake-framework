@@ -177,7 +177,7 @@ Resources:
               - dynamodb:Scan
               - dynamodb:UpdateItem
             Resource:
-              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/sdlf2-*
           - Effect: Allow
             Action:
               - kms:CreateGrant

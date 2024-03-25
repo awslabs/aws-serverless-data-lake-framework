@@ -7,38 +7,38 @@
             "tables": [
                 {
                     "object": "Configuration",
-                    "table_name": "octagon-Configuration-dev"
+                    "table_name": "sdlf2-Configuration-dev"
                 },
                 {
                     "object": "Datasets",
-                    "table_name": "octagon-Datasets-dev"
+                    "table_name": "sdlf2-Datasets-dev"
                 },
                 {
                     "object": "DataSchemas",
-                    "table_name": "octagon-DataSchemas-dev"
+                    "table_name": "sdlf2-DataSchemas-dev"
                 },
                 {
                     "object": "Pipelines",
-                    "table_name": "octagon-Pipelines-dev"
+                    "table_name": "sdlf2-Pipelines-dev"
                 },
                 {
                     "object": "PipelineExecutionHistory",
-                    "table_name": "octagon-PipelineExecutionHistory-dev",
+                    "table_name": "sdlf2-PipelineExecutionHistory-dev",
                     "ttl": 120
                 },
                 {
                     "object": "Events",
-                    "table_name": "octagon-Events-dev",
+                    "table_name": "sdlf2-Events-dev",
                     "ttl": 60
                 },
                 {
                     "object": "Artifacts",
-                    "table_name": "octagon-Artifacts-dev",
+                    "table_name": "sdlf2-Artifacts-dev",
                     "ttl": 60
                 },
                 {
                     "object": "Metrics",
-                    "table_name": "octagon-Metrics-dev",
+                    "table_name": "sdlf2-Metrics-dev",
                     "ttl": 60
                 }
             ],
@@ -151,38 +151,38 @@
             "tables": [
                 {
                     "object": "Configuration",
-                    "table_name": "octagon-Configuration-test"
+                    "table_name": "sdlf2-Configuration-test"
                 },
                 {
                     "object": "Datasets",
-                    "table_name": "octagon-Datasets-test"
+                    "table_name": "sdlf2-Datasets-test"
                 },
                 {
                     "object": "DataSchemas",
-                    "table_name": "octagon-DataSchemas-test"
+                    "table_name": "sdlf2-DataSchemas-test"
                 },
                 {
                     "object": "Pipelines",
-                    "table_name": "octagon-Pipelines-test"
+                    "table_name": "sdlf2-Pipelines-test"
                 },
                 {
                     "object": "PipelineExecutionHistory",
-                    "table_name": "octagon-PipelineExecutionHistory-test",
+                    "table_name": "sdlf2-PipelineExecutionHistory-test",
                     "ttl": 120
                 },
                 {
                     "object": "Events",
-                    "table_name": "octagon-Events-test",
+                    "table_name": "sdlf2-Events-test",
                     "ttl": 60
                 },
                 {
                     "object": "Artifacts",
-                    "table_name": "octagon-Artifacts-test",
+                    "table_name": "sdlf2-Artifacts-test",
                     "ttl": 60
                 },
                 {
                     "object": "Metrics",
-                    "table_name": "octagon-Metrics-test",
+                    "table_name": "sdlf2-Metrics-test",
                     "ttl": 60
                 }
             ],
@@ -224,38 +224,38 @@
             "tables": [
                 {
                     "object": "Configuration",
-                    "table_name": "octagon-Configuration-prod"
+                    "table_name": "sdlf2-Configuration-prod"
                 },
                 {
                     "object": "Datasets",
-                    "table_name": "octagon-Datasets-prod"
+                    "table_name": "sdlf2-Datasets-prod"
                 },
                 {
                     "object": "DataSchemas",
-                    "table_name": "octagon-DataSchemas-prod"
+                    "table_name": "sdlf2-DataSchemas-prod"
                 },
                 {
                     "object": "Pipelines",
-                    "table_name": "octagon-Pipelines-prod"
+                    "table_name": "sdlf2-Pipelines-prod"
                 },
                 {
                     "object": "PipelineExecutionHistory",
-                    "table_name": "octagon-PipelineExecutionHistory-prod",
+                    "table_name": "sdlf2-PipelineExecutionHistory-prod",
                     "ttl": 120
                 },
                 {
                     "object": "Events",
-                    "table_name": "octagon-Events-prod",
+                    "table_name": "sdlf2-Events-prod",
                     "ttl": 60
                 },
                 {
                     "object": "Artifacts",
-                    "table_name": "octagon-Artifacts-prod",
+                    "table_name": "sdlf2-Artifacts-prod",
                     "ttl": 60
                 },
                 {
                     "object": "Metrics",
-                    "table_name": "octagon-Metrics-prod",
+                    "table_name": "sdlf2-Metrics-prod",
                     "ttl": 60
                 }
             ],

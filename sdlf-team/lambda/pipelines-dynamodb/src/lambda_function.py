@@ -47,7 +47,7 @@ def lambda_handler(event, context):
     try:
         environment = os.getenv("ENVIRONMENT")
         team_name = os.getenv("TEAM_NAME")
-        table = f"octagon-Pipelines-{environment}"
+        table = f"sdlf2-Pipelines-{environment}"
 
         paginator = ssm.get_paginator("get_parameters_by_path")
         stages_pages = paginator.paginate(
