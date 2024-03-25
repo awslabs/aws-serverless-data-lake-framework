@@ -1457,6 +1457,13 @@ Resources:
       Type: String
       Value: !Ref rDynamoOctagonTeams
       Description: Name of the DynamoDB used to store teams metadata
+  rDynamoDataSchemasSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Dynamo/DataSchemas
+      Type: String
+      Value: !Ref rDynamoOctagonSchemas
+      Description: Name of the DynamoDB used to store data schemas
   rDynamoManifestsSsm:
     Type: AWS::SSM::Parameter
     Properties:
