@@ -30,7 +30,7 @@ then
     echo "-p not specified, using default..." >&2
     PROFILE="default"
 fi
-AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "PROFILE" | cut -d':' -f2)
+AWS_PARTITION=$(aws sts get-caller-identity --query 'Arn' --output text --profile "$PROFILE" | cut -d':' -f2)
 ENV=$(sed -e 's/^"//' -e 's/"$//' <<<"$(aws ssm get-parameter --name /SDLF/Misc/pEnv --profile "$PROFILE" --query "Parameter.Value")")
 TEAM_NAME=$(sed -e 's/^"//' -e 's/"$//' <<<"$(jq '.[] | select(.ParameterKey=="pTeamName") | .ParameterValue' "$DIRNAME/parameters-$ENV".json)")
 if ! "$sflag"
