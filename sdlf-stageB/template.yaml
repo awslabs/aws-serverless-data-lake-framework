@@ -377,7 +377,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-b-fetch-metadata/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-fetch-metadata-b
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-fetch-metadata-${pStageName}
       Description: Fetches transform metadata from DynamoDB
       MemorySize: 128
       Timeout: 300
@@ -392,7 +392,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-b-postupdate-metadata/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-b
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-${pStageName}
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 512
       Timeout: 600
@@ -407,7 +407,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-b-error/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-b
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-${pStageName}
       Description: Fallback lambda to handle messages which failed processing
       MemorySize: 256
       Timeout: 300
@@ -596,7 +596,7 @@ Resources:
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-b
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
       DefinitionUri: ./state-machine/stage-b.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn

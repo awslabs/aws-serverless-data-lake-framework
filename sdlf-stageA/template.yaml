@@ -441,7 +441,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-redrive/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-a
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
       Environment:
         Variables:
           TEAM: !Ref pTeamName
@@ -461,7 +461,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-preupdate-metadata/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-${pStageName}
       Description: Pre-Update the metadata in the DynamoDB Catalog table
       Environment:
         Variables:
@@ -479,7 +479,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-process-object/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-process-a
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-process-${pStageName}
       Description: Processing pipeline
       MemorySize: 1536
       Timeout: 600
@@ -494,7 +494,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-postupdate-metadata/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-a
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-${pStageName}
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 256
       Timeout: 300
@@ -509,7 +509,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/stage-a-error/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-${pStageName}
       Description: Fallback lambda to handle messages which failed processing
       MemorySize: 256
       Timeout: 300
@@ -702,7 +702,7 @@ Resources:
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-a
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
       DefinitionUri: ./state-machine/stage-a.asl.json
       DefinitionSubstitutions:
         lStep1: !GetAtt rLambdaStep1.Arn
