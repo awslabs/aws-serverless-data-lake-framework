@@ -80,5 +80,5 @@ Resources:
       MaxCapacity: 2.0
       GlueVersion: "4.0"
       Name: !Sub sdlf-${pTeamName}-${pDatasetName}-glue-job
-      SecurityConfiguration: !Sub sdlf-${pTeamName}-glue-security-config
+      SecurityConfiguration: !Sub "{{resolve:ssm:/SDLF2/Glue/${pTeamName}/SecurityConfigurationId:1}}"
       Role: !Ref rGlueRole
