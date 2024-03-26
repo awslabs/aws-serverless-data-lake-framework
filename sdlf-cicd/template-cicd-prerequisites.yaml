@@ -61,7 +61,7 @@ Resources:
   rKMSKey:
     Type: AWS::KMS::Key
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Metadata:
       cfn-lint:
         config:
@@ -199,7 +199,7 @@ Resources:
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Properties:
       AliasName: alias/sdlf-cicd-kms-key
       TargetKeyId: !Ref rKMSKey

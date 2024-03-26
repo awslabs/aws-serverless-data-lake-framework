@@ -185,7 +185,7 @@ Resources:
   ######## KMS #########
   rKMSKey:
     Type: AWS::KMS::Key
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Metadata:
       cfn_nag:
@@ -296,7 +296,7 @@ Resources:
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Properties:
       AliasName: alias/sdlf-kms-key
       TargetKeyId: !Ref rKMSKey
