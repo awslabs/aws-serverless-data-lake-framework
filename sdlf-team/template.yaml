@@ -260,7 +260,7 @@ Resources:
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
     Properties:
-      Name: !Sub sdlf-${pTeamName}-glue-security-config
+      Name: !Sub sdlf2-${pTeamName}-glue-security-config
       EncryptionConfiguration:
         CloudWatchEncryption:
           CloudWatchEncryptionMode: SSE-KMS
@@ -275,7 +275,7 @@ Resources:
   rEMRSecurityConfiguration:
     Type: AWS::EMR::SecurityConfiguration
     Properties:
-      Name: !Sub sdlf-${pTeamName}-emr-security-config
+      Name: !Sub sdlf2-${pTeamName}-emr-security-config
       SecurityConfiguration: !Sub |
         {
           "EncryptionConfiguration": {
