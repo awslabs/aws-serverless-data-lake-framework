@@ -111,7 +111,7 @@ Resources:
   rKMSInfraKey:
     Type: AWS::KMS::Key
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -169,7 +169,7 @@ Resources:
   rKMSInfraKeyAlias:
     Type: AWS::KMS::Alias
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Properties:
       AliasName: !Sub alias/sdlf-${pTeamName}-kms-infra-key
       TargetKeyId: !Ref rKMSInfraKey
@@ -177,7 +177,7 @@ Resources:
   rKMSDataKey:
     Type: AWS::KMS::Key
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Properties:
       Description: !Sub SDLF ${pTeamName} Data KMS Key
       EnableKeyRotation: True
@@ -206,7 +206,7 @@ Resources:
   rKMSDataKeyAlias:
     Type: AWS::KMS::Alias
     UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     Properties:
       AliasName: !Sub alias/sdlf-${pTeamName}-kms-data-key
       TargetKeyId: !Ref rKMSDataKey
