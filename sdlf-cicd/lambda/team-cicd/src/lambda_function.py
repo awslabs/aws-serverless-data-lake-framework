@@ -429,7 +429,7 @@ def lambda_handler(event, context):
                 cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
 
             for team in domain_details["teams"]:
-                repository_name = f"{main_repository_prefix}-{domain}-{team}"
+                repository_name = f"{main_repository_prefix}{domain}-{team}"
                 env_branches = ["dev", "test"]
                 for env_branch in env_branches:
                     try:

@@ -30,7 +30,7 @@ Resources:
         BranchName: main
         S3: ./README.md
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
-      RepositoryName: !Sub ${pMainRepositoriesPrefix}-${pDomain}-${pTeamName}
+      RepositoryName: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey
 
   rTeamMainCodeCommitSsm:
