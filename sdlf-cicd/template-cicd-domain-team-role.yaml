@@ -258,7 +258,7 @@ Resources:
               - glue:StopCrawler
               - glue:TagResource
               - glue:UntagResource
-            Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
+            Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/*
           - Effect: Allow
             Action:
               - glue:CreateDatabase

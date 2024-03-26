@@ -1,10 +1,14 @@
+import os
+
+import boto3
 from datalake_library import octagon
 from datalake_library.commons import init_logger
 from datalake_library.configuration.resource_configs import DynamoConfiguration
 from datalake_library.interfaces.dynamo_interface import DynamoInterface
 
 logger = init_logger(__name__)
-
+ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
+ssm = boto3.client("ssm", endpoint_url=ssm_endpoint_url)
 
 def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     dynamo_config = DynamoConfiguration()
@@ -67,7 +71,8 @@ def lambda_handler(event, context):
         event["body"]["glue"] = get_glue_transform_details(
             bucket, team, dataset, pipeline, stage
         )  # custom user code called
-        event["body"]["glue"]["crawler_name"] = "-".join(["sdlf", team, dataset, "post-stage-crawler"])
+        event["body"]["glue"]["crawler_name"] = ssm.get_parameter(Name=f"/SDLF2/Glue/{team}/{dataset}/GlueCrawler")["Parameter"]["Value"]
+        "-".join(["sdlf", team, dataset, "post-stage-crawler"])
         event["body"]["peh_id"] = peh_id
         octagon_client.update_pipeline_execution(
             status="{} {} Processing".format(stage, component), component=component

@@ -336,7 +336,7 @@ Resources:
     Properties:
       Name: !Sub /SDLF2/Glue/${pTeamName}/SecurityConfigurationId
       Type: String
-      Value: !Sub sdlf-${pTeamName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      Value: !Sub sdlf2-${pTeamName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       Description: !Sub Name of the ${pTeamName} Glue security configuration
   #### END KMS STACK
 
@@ -481,7 +481,7 @@ Resources:
               - glue:StartCrawler
               - glue:GetCrawler
             Resource:
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/*
           - Effect: Allow
             Action:
               - glue:GetTable

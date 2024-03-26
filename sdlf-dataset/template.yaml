@@ -75,7 +75,6 @@ Resources:
       Role: !Sub "{{resolve:ssm:/SDLF2/IAM/${pTeamName}/CrawlerRoleArn}}"
       CrawlerSecurityConfiguration: !Sub "{{resolve:ssm:/SDLF2/Glue/${pTeamName}/SecurityConfigurationId}}"
       DatabaseName: !Ref rGlueDataCatalog
-      Name: !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
       Targets:
         S3Targets:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}

@@ -584,7 +584,7 @@ Resources:
                   - glue:StartCrawler
                   - glue:GetCrawler
                 Resource:
-                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/*
               - Effect: Allow
                 Action:
                   - xray:PutTraceSegments # W11 exception
