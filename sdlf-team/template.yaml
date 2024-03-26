@@ -649,14 +649,14 @@ Resources:
   rSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub sdlf-${pTeamName}-notifications
+      TopicName: !Sub sdlf2-${pTeamName}-notifications
       KmsMasterKeyId: !GetAtt rKMSInfraKey.Arn
 
   rSNSTopicPolicy:
     Type: AWS::SNS::TopicPolicy
     Properties:
       PolicyDocument:
-        Id: !Sub sdlf-${pTeamName}-notifications
+        Id: !Sub sdlf2-${pTeamName}-notifications
         Version: "2012-10-17"
         Statement:
           - Sid: !Sub sdlf-${pTeamName}-notifications

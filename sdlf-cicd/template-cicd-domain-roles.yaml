@@ -468,7 +468,7 @@ Resources:
                   - sns:Subscribe
                   - sns:Unsubscribe
                   - sns:TagResource
-                Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf-*
+                Resource: !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:sdlf2-*
               - Effect: Allow
                 Action:
                   - s3:CreateBucket
