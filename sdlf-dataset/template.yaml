@@ -102,6 +102,14 @@ Resources:
       Value: !Ref rGlueDataCatalog
       Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
 
+  rGlueCrawlerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/GlueCrawler
+      Type: String
+      Value: !Ref rGlueCrawler
+      Description: !Sub "${pTeamName} team ${pDatasetName} Glue crawler"
+
   rDatasetSsm:
     Type: AWS::SSM::Parameter
     Properties:
