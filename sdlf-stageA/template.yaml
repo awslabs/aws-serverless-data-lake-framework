@@ -234,8 +234,8 @@ Resources:
                   - !GetAtt rPipelineInterfacerQueueRoutingStep.Arn
                   - !GetAtt rPipelineInterfacerDeadLetterQueueRoutingStep.Arn
 
-  # Step1 Role
-  rRoleLambdaExecutionStep1:
+  # Metadata Step Role (fetch metadata, update pipeline execution history...)
+  rRoleLambdaExecutionMetadataStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
@@ -271,8 +271,8 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
 
-  # Step2 Role
-  rRoleLambdaExecutionStep2:
+  # Processing Role
+  rRoleLambdaExecutionProcessingStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pTeamName}/
@@ -321,54 +321,6 @@ Resources:
                   - kms:CreateGrant
                 Resource:
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
-
-  # Step3 Role
-  rRoleLambdaExecutionStep3:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
-      ManagedPolicyArns:
-        - !Ref rLambdaCommonPolicy
-        - !If
-          - RunInVpc
-          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-          - !Ref "AWS::NoValue"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-a
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:GetQueueAttributes
-                  - sqs:GetQueueUrl
-                  - sqs:ListQueues
-                  - sqs:ListDeadLetterSourceQueues
-                  - sqs:ListQueueTags
-                  - sqs:SendMessage
-                  - sqs:SendMessageBatch
-                Resource:
-                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
 
   # Error Handling Lambda Role
   rRoleLambdaExecutionErrorStep:
@@ -468,7 +420,7 @@ Resources:
           STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaStep2.Arn
       MemorySize: 128
       Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionStep1.Arn
+      Role: !GetAtt rRoleLambdaExecutionMetadataStep.Arn
 
   rLambdaStep2:
     Type: AWS::Serverless::Function
@@ -483,7 +435,7 @@ Resources:
       Description: Processing pipeline
       MemorySize: 1536
       Timeout: 600
-      Role: !GetAtt rRoleLambdaExecutionStep2.Arn
+      Role: !GetAtt rRoleLambdaExecutionProcessingStep.Arn
 
   rLambdaStep3:
     Type: AWS::Serverless::Function
@@ -498,7 +450,7 @@ Resources:
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 256
       Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionStep3.Arn
+      Role: !GetAtt rRoleLambdaExecutionMetadataStep.Arn
 
   rLambdaErrorStep:
     Type: AWS::Serverless::Function
