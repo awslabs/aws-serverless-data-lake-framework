@@ -13,6 +13,18 @@ Parameters:
     Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
+  pEnableLambdaLayerBuilder:
+    Description: Enable Build Lambda Layers optional feature
+    Type: String
+    Default: false
+  pEnableGlueJobDeployer:
+    Description: Enable Glue Job Deployer optional feature
+    Type: String
+    Default: false
+  pEnableMonitoring:
+    Description: Enable Monitoring optional feature
+    Type: String
+    Default: false
 
 Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
@@ -38,7 +50,7 @@ Resources:
     Properties:
       Name: /SDLF/LambdaLayerBuilder/Enabled
       Type: String
-      Value: false
+      Value: !Ref pEnableLambdaLayerBuilder
       Description: Add Lambda layer builder infrastructure and pipeline stages
 
   rGlueJobDeployerFeatureSsm:
@@ -46,7 +58,7 @@ Resources:
     Properties:
       Name: /SDLF/GlueJobDeployer/Enabled
       Type: String
-      Value: false
+      Value: !Ref pEnableGlueJobDeployer
       Description: Add Glue job deployer infrastructure and pipeline stages
 
   rMonitoringFeatureSsm:
@@ -54,7 +66,7 @@ Resources:
     Properties:
       Name: /SDLF/Monitoring/Enabled
       Type: String
-      Value: false
+      Value: !Ref pEnableMonitoring
       Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
 
   ######## KMS #########
