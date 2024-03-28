@@ -209,7 +209,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-a
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -254,7 +254,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-preupdate-a
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-metadata-${pStageName}
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -291,7 +291,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-a
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-${pStageName}
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -342,7 +342,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-error-a
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-error-${pStageName}
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
