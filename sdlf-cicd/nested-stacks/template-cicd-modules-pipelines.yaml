@@ -14,11 +14,11 @@ Parameters:
     Type: String
   pMainRepository:
     Type: String
+  pMainRepositoryParserLambda:
+    Type: String
   pMainRepositoryDomainLambda:
     Type: String
   pMainRepositoryCrossAccountTeamLambda:
-    Type: String
-  pMainRepositoryTeamLambda:
     Type: String
   pBuildCloudFormationPackage:
     Type: String
@@ -90,9 +90,9 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource:
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryParserLambda}
                   - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryDomainLambda}
                   - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryCrossAccountTeamLambda}
-                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${pMainRepositoryTeamLambda}
               - Effect: Allow
                 Action:
                   - codebuild:StartBuild
@@ -137,9 +137,9 @@ Resources:
                 PollForSourceChanges: false
               RunOrder: 1
         -
-          Name: DomainPipeline
+          Name: MainRepositoryParser
           Actions:
-            - Name: CreateDomainCodePipeline
+            - Name: ParseDataDomainFiles
               ActionTypeId:
                 Category: Invoke
                 Owner: AWS
@@ -147,10 +147,10 @@ Resources:
                 Version: "1"
               InputArtifacts:
                 - Name: SourceMainArtifact
-                - Name: SourceCicdArtifact
               Configuration:
-                FunctionName: !Ref pMainRepositoryDomainLambda
+                FunctionName: !Ref pMainRepositoryParserLambda
                 UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+              Namespace: ParseDataDomainFilesVariables
               RunOrder: 1
         -
           Name: CrossAccountTeamPipelineRole
@@ -162,14 +162,13 @@ Resources:
                 Provider: Lambda
                 Version: "1"
               InputArtifacts:
-                - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
               Configuration:
                 FunctionName: !Ref pMainRepositoryCrossAccountTeamLambda
-                UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                UserParameters: "#{ParseDataDomainFilesVariables.Domains}"
               RunOrder: 1
         -
-          Name: TeamPipeline
+          Name: DomainPipeline
           Actions:
             - Name: PackageTemplate
               InputArtifacts:
@@ -186,19 +185,18 @@ Resources:
                 EnvironmentVariables: >-
                   [{"name":"TEMPLATE", "value":"template-cicd-team-repository.yaml", "type":"PLAINTEXT"}]
               RunOrder: 1
-            - Name: CreateTeamCodePipeline
+            - Name: CreateDomainCodePipeline
               ActionTypeId:
                 Category: Invoke
                 Owner: AWS
                 Provider: Lambda
                 Version: "1"
               InputArtifacts:
-                - Name: SourceMainArtifact
                 - Name: SourceCicdArtifact
                 - Name: TemplatePackage
               Configuration:
-                FunctionName: !Ref pMainRepositoryTeamLambda
-                UserParameters: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                FunctionName: !Ref pMainRepositoryDomainLambda
+                UserParameters: "#{ParseDataDomainFilesVariables.Domains}"
               RunOrder: 2
       ArtifactStore:
         Type: S3

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import zipfile
@@ -139,18 +140,21 @@ def create_domain_team_role_stack(
 
 def lambda_handler(event, context):
     try:
-        branch = event["CodePipeline.job"]["data"]["actionConfiguration"]["configuration"]["UserParameters"]
+        codepipeline_userparameters = json.loads(
+            event["CodePipeline.job"]["data"]["actionConfiguration"]["configuration"]["UserParameters"]
+        )
+        branch = codepipeline_userparameters["branch"]
         codecommit_branch_env_mapping = {"dev": "dev", "test": "test", "main": "prod"}
         environment = codecommit_branch_env_mapping[branch]
         logger.info("ENVIRONMENT: %s", environment)
+        domains = codepipeline_userparameters["domains"]
+        logger.info("DOMAINS: %s", domains)
         partition = os.getenv("AWS_PARTITION")
         devops_kms_key = os.getenv("DEVOPS_KMS_KEY")
 
         for artifact in event["CodePipeline.job"]["data"]["inputArtifacts"]:
             if artifact["name"] == "SourceCicdArtifact":
                 cicd_artifact_location = artifact["location"]["s3Location"]
-            if artifact["name"] == "SourceMainArtifact":
-                main_artifact_location = artifact["location"]["s3Location"]
 
         artifacts_bucket = cicd_artifact_location["bucketName"]
         cicd_artifact_key = cicd_artifact_location["objectKey"]
@@ -182,64 +186,11 @@ def lambda_handler(event, context):
         )
         logger.info("template_cicd_domain_url: %s", template_cicd_domain_team_role_url)
 
-        main_artifact_key = main_artifact_location["objectKey"]
-        zipped_object = BytesIO(
-            s3.get_object(
-                Bucket=artifacts_bucket,
-                Key=main_artifact_key,
-            )["Body"].read()
-        )
-        temp_directory = mkdtemp()
-        with zipfile.ZipFile(zipped_object, "r") as zip_ref:
-            zip_ref.extractall(temp_directory)
-
-        main_artifact_files = os.listdir(temp_directory)
-        logger.info("REPOSITORY FILES: %s", main_artifact_files)
-
-        domain_files = [
-            main_artifact_file
-            for main_artifact_file in main_artifact_files
-            if main_artifact_file.endswith(f"-{environment}.yaml") and main_artifact_file.startswith("datadomain-")
-        ]
-        logger.info("DATA DOMAIN FILES: %s", domain_files)
-
-        domains = []
-        # for each domain, find all the team names and create a CICD stack that will be used to deploy team resources in the child account
-        for domain_file in domain_files:
-            domain = domain_file.split("-")[1]
-            domains.append(f"{domain}-{environment}")
-
-            child_account = ""
-            teams = []
-            with open(os.path.join(temp_directory, domain_file), "r", encoding="utf-8") as template_domain:
-                while line := template_domain.readline():
-                    if "pChildAccountId:" in line:
-                        child_account = line.split(":", 1)[-1].strip()
-                        if "AWS::AccountId" in child_account:  # same account setup, usually for workshops/demo
-                            child_account = context.invoked_function_arn.split(":")[4]
-                    elif "pTeamName:" in line:
-                        teams.append(line.split(":", 1)[-1].strip())
-                    elif "TemplateURL:" in line:  # teams can be declared in nested stacks
-                        with open(
-                            os.path.join(temp_directory, line.split(":", 1)[-1].strip()),
-                            "r",
-                            encoding="utf-8",
-                        ) as nested_stack:
-                            while nested_stack_line := nested_stack.readline():
-                                if "pChildAccountId:" in nested_stack_line:
-                                    child_account = nested_stack_line.split(":", 1)[-1].strip()
-                                    if (
-                                        "AWS::AccountId" in child_account
-                                    ):  # same account setup, usually for workshops/demo
-                                        child_account = context.invoked_function_arn.split(":")[4]
-                                elif "pTeamName:" in nested_stack_line:
-                                    teams.append(nested_stack_line.split(":", 1)[-1].strip())
-            logger.info("pChildAccountId: %s", child_account)
-            logger.info("DATA DOMAIN (%s) TEAMS: %s", domain, teams)
-
+        # for each domain, create a CICD stack for each team inside that domain, that will be used to deploy team resources in the child account
+        for domain, domain_details in domains.items():
             # assume role in child account to be able to deploy a cloudformation stack
             crossaccount_pipeline_role = (
-                f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-devops-crossaccount-pipeline"
+                f"arn:{partition}:iam::{domain_details['child_account']}:role/sdlf-cicd-devops-crossaccount-pipeline"
             )
             sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
             sts = boto3.client("sts", endpoint_url=sts_endpoint_url)
@@ -257,12 +208,14 @@ def lambda_handler(event, context):
 
             # from this assumed role, deploy a cloudformation stack
             # this stack creates a role in the data domain that will be used to deploy a team's pipelines and datasets
-            crossaccount_cloudformation_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team"
+            crossaccount_cloudformation_role = (
+                f"arn:{partition}:iam::{domain_details['child_account']}:role/sdlf-cicd-team"
+            )
             cloudformation_waiters = {
                 "stack_create_complete": [],
                 "stack_update_complete": [],
             }
-            for team in teams:
+            for team in domain_details["teams"]:
                 stack_details = create_domain_team_role_stack(
                     cloudformation,
                     team,
@@ -284,8 +237,10 @@ def lambda_handler(event, context):
 
             crossaccount_team_roles = []
             grants_ids = []
-            for team in teams:
-                crossaccount_team_role = f"arn:{partition}:iam::{child_account}:role/sdlf-cicd-team-{team}"
+            for team in domain_details["teams"]:
+                crossaccount_team_role = (
+                    f"arn:{partition}:iam::{domain_details['child_account']}:role/sdlf-cicd-team-{team}"
+                )
                 crossaccount_team_roles.append(crossaccount_team_role)
                 # unfortunately kms grants cannot be defined using cloudformation
                 grant_id = kms.create_grant(
