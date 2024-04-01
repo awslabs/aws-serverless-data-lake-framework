@@ -9,20 +9,20 @@ Parameters:
   pDomainAccounts:
     Description: List of AWS account ids bootstrapped with SDLF domain roles
     Type: CommaDelimitedList
-  pEnableVpc:
-    Description: Deploy SDLF resources in a VPC
+  pEnableGlueJobDeployer:
+    Description: Enable Glue Job Deployer optional feature
     Type: String
     Default: false
   pEnableLambdaLayerBuilder:
     Description: Enable Build Lambda Layers optional feature
     Type: String
     Default: false
-  pEnableGlueJobDeployer:
-    Description: Enable Glue Job Deployer optional feature
-    Type: String
-    Default: false
   pEnableMonitoring:
     Description: Enable Monitoring optional feature
+    Type: String
+    Default: false
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
 
@@ -35,15 +35,13 @@ Conditions:
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
-  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
-  # both for the devops account and child accounts.
-  rVpcFeatureSsm:
+  rGlueJobDeployerFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/VPC/Enabled
+      Name: /SDLF/GlueJobDeployer/Enabled
       Type: String
-      Value: !Ref pEnableVpc
-      Description: Deploy SDLF resources in a VPC
+      Value: !Ref pEnableGlueJobDeployer
+      Description: Add Glue job deployer infrastructure and pipeline stages
 
   rBuildLambdaLayersFeatureSsm:
     Type: AWS::SSM::Parameter
@@ -53,14 +51,6 @@ Resources:
       Value: !Ref pEnableLambdaLayerBuilder
       Description: Add Lambda layer builder infrastructure and pipeline stages
 
-  rGlueJobDeployerFeatureSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/GlueJobDeployer/Enabled
-      Type: String
-      Value: !Ref pEnableGlueJobDeployer
-      Description: Add Glue job deployer infrastructure and pipeline stages
-
   rMonitoringFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -68,6 +58,16 @@ Resources:
       Type: String
       Value: !Ref pEnableMonitoring
       Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+
+  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
+  # both for the devops account and child accounts.
+  rVpcFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/VPC/Enabled
+      Type: String
+      Value: !Ref pEnableVpc
+      Description: Deploy SDLF resources in a VPC
 
   ######## KMS #########
   rKMSKey:

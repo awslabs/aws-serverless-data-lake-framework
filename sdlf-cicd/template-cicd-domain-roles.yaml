@@ -17,12 +17,12 @@ Parameters:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
-  pEnableVpc:
-    Description: Deploy SDLF resources in a VPC
-    Type: String
-    Default: false
   pEnableMonitoring:
     Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: String
+    Default: false
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
 

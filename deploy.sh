@@ -7,7 +7,7 @@ underline=$(tput smul)
 notunderline=$(tput rmul)
 notbold=$(tput sgr0)
 
-version () { echo "awssdlf/2.2.0"; }
+version () { echo "awssdlf/2.1.0"; }
 
 usage () { echo "
     --version -- Prints the SDLF version
@@ -17,13 +17,11 @@ usage () { echo "
     crossaccount-cicd-roles -d -p -- Deploys crossaccount IAM roles necessary for DevOps CICD pipelines
         -d -- AWS account id of the Shared DevOps account
         -p -- Name of the AWS profile to use where a SDLF data domain will reside
+        -f -- Enable optional features: monitoring, vpc. Multiple -f options can be given.
     devops-account -d -p -- Deploys SDLF DevOps/CICD/Tooling resources
         -d -- Comma-delimited list of AWS account ids where SDLF data domains are deployed
         -p -- Name of the AWS profile to use where SDLF DevOps/CICD/Tooling will reside
-        -g -- Set to true to deploy optional Glue Job Deployer feature 
-        -l -- Set to true to deploy optional Lambda Layer Builder feature
-        -m -- Set to true to deploy optional monitoring feature
-        -v -- Set to true to enable VPC
+        -f -- Enable optional features: gluejobdeployer, lambdalayerbuilder, monitoring, vpc. Multiple -f options can be given.
 
     Examples
 
@@ -56,8 +54,7 @@ crossaccount_cicd_roles () {
     pflag=false
     rflag=false
     dflag=false
-    mflag=false
-    vflag=false
+    fflag=false
     options=':p:r:d:v:m:'
     while getopts "$options" option
     do
@@ -65,8 +62,7 @@ crossaccount_cicd_roles () {
             p  ) pflag=true; DOMAIN_AWS_PROFILE=${OPTARG};;
             r  ) rflag=true; REGION=${OPTARG};;
             d  ) dflag=true; DEVOPS_ACCOUNT=${OPTARG};;
-            m  ) mflag=true; MONITORING=${OPTARG};;
-            v  ) vflag=true; VPC_ENABLED=${OPTARG};;
+            f  ) fflag=true; FEATURES+=("${OPTARG}");;
             \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
             :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
             *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
@@ -88,15 +84,24 @@ crossaccount_cicd_roles () {
         echo "-d must be specified when using the crossaccount-cicd-roles command" >&2
         exit 1
     fi
-    if ! "$mflag"
+    if "$fflag"
     then
-        echo "-m not specified, set to false by default" >&2
-        MONITORING="false"
-    fi
-    if ! "$vflag"
-    then
-        echo "-v not specified, set to false by default" >&2
-        VPC_ENABLED="false"
+        MONITORING=false
+        VPC=false
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "monitoring"
+        then
+            MONITORING=true
+            echo "Optional feature: sdlf-monitoring module"
+        fi
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "vpc"
+        then
+            VPC=true
+            echo "Optional feature: VPC support"
+        fi
+    else
+        echo "-f not specified, set all features to false by default" >&2
+        MONITORING=false
+        VPC=false
     fi
 
     echo "Deploying SDLF DevOps/Tooling roles in data domain accounts" >&2
@@ -116,7 +121,7 @@ crossaccount_cicd_roles () {
             pDevOpsArtifactsBucket="$DEVOPS_ARTIFACTS_BUCKET" \
             pDevOpsKMSKey="$DEVOPS_KMS_KEY_ALIAS" \
             pEnableMonitoring="$MONITORING" \
-            pEnableVpc="$VPC_ENABLED" \
+            pEnableVpc="$VPC" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
@@ -131,21 +136,15 @@ devops_account () {
     pflag=false
     rflag=false
     dflag=false
-    gflag=false
-    lflag=false
-    mflag=false
-    vflag=false
-    options=':p:r:d:g:l:m:v:'
+    fflag=false
+    options=':p:r:d:f:'
     while getopts "$options" option
     do
         case "$option" in
             p  ) pflag=true; DEVOPS_AWS_PROFILE=${OPTARG};;
             r  ) rflag=true; REGION=${OPTARG};;
             d  ) dflag=true; DOMAIN_ACCOUNTS=${OPTARG};;
-            g  ) gflag=true; GLUE_JOB_DEPLOYER=${OPTARG};;
-            l  ) lflag=true; LAMBDA_LAYER=${OPTARG};;
-            m  ) mflag=true; MONITORING=${OPTARG};;
-            v  ) vflag=true; VPC_ENABLED=${OPTARG};;
+            f  ) fflag=true; FEATURES+=("${OPTARG}");;
             \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
             :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
             *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
@@ -167,25 +166,38 @@ devops_account () {
         echo "-d must be specified when using the devops-account command" >&2
         exit 1
     fi
-    if ! "$gflag"
+    if "$fflag"
     then
-        echo "-g not specified, set to false by default" >&2
-        GLUE_JOB_DEPLOYER="false"
-    fi
-    if ! "$lflag"
-    then
-        echo "-l not specified, set to false by default" >&2
-        LAMBDA_LAYER="false"
-    fi
-    if ! "$mflag"
-    then
-        echo "-m not specified, set to false by default" >&2
-        MONITORING="false"
-    fi
-    if ! "$vflag"
-    then
-        echo "-v not specified, set to false by default" >&2
-        VPC_ENABLED="false"
+        GLUE_JOB_DEPLOYER=false
+        LAMBDA_LAYER_BUILDER=false
+        MONITORING=false
+        VPC=false
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "gluejobdeployer"
+        then
+            GLUE_JOB_DEPLOYER=true
+            echo "Optional feature: Glue Job Deployer"
+        fi
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "lambdalayerbuilder"
+        then
+            LAMBDA_LAYER_BUILDER=true
+            echo "Optional feature: Lambda Layer Builder"
+        fi
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "monitoring"
+        then
+            MONITORING=true
+            echo "Optional feature: sdlf-monitoring module"
+        fi
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "vpc"
+        then
+            VPC=true
+            echo "Optional feature: VPC support"
+        fi
+    else
+        echo "-f not specified, set all features to false by default" >&2
+        GLUE_JOB_DEPLOYER=false
+        LAMBDA_LAYER_BUILDER=false
+        MONITORING=false
+        VPC=false
     fi
     echo "Deploying SDLF DevOps/Tooling (components repositories, CICD pipelines)" >&2
 
@@ -201,9 +213,9 @@ devops_account () {
         --parameter-overrides \
             pDomainAccounts="$DOMAIN_ACCOUNTS" \
             pEnableGlueJobDeployer="$GLUE_JOB_DEPLOYER" \
-            pEnableLambdaLayerBuilder="$LAMBDA_LAYER" \
+            pEnableLambdaLayerBuilder="$LAMBDA_LAYER_BUILDER" \
             pEnableMonitoring="$MONITORING" \
-            pEnableVpc="$VPC_ENABLED" \
+            pEnableVpc="$VPC" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \
@@ -233,7 +245,8 @@ devops_account () {
     rm -Rf "$DIRNAME"/output
 
     declare -a REPOSITORIES=("sdlf-cicd" "sdlf-foundations" "sdlf-team" "sdlf-pipeline" "sdlf-dataset" "sdlf-datalakeLibrary" "sdlf-stageA" "sdlf-stageB" "sdlf-main")
-    if [ "$MONITORING" = "true" ]; then
+    if "$MONITORING"
+    then
         REPOSITORIES+=("sdlf-monitoring")
     fi
     for REPOSITORY in "${REPOSITORIES[@]}"
