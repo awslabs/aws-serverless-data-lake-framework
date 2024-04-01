@@ -34,8 +34,9 @@ if ! "$tflag"
 then
     echo "-t not specified, using default value: engineering..." >&2
     TEAM_NAME="engineering"
+else
+    echo "Team name: $TEAM_NAME"
 fi
-echo $TEAM_NAME
 REGION=$(aws configure get region --profile "$PROFILE")
 if ! "$sflag"
 then
@@ -65,7 +66,7 @@ function send_legislators()
   
   CENTRAL_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/CentralBucket --query "Parameter.Value" --output text)
   STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/StageBucket --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/KMS/$TEAM_NAME/DataKeyId --query "Parameter.Value" --output text)
+  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/SDLF/KMS/$TEAM_NAME/DataKeyId" --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$CENTRAL_BUCKET/
   COUNT=0
@@ -86,13 +87,13 @@ aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-j
   --profile "$PROFILE" \
   --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
-STACK_NAME=sdlf-$TEAM_NAME-legislators-glue-job
+STACK_NAME="sdlf-$TEAM_NAME-legislators-glue-job"
 if ! aws cloudformation describe-stacks --profile "$PROFILE" --stack-name "$STACK_NAME"; then
   echo -e "Stack does not exist, creating ..."
   aws cloudformation create-stack \
   --profile "$PROFILE" \
   --stack-name "$STACK_NAME" \
-  --parameters ParameterKey=pTeamName,ParameterValue=$TEAM_NAME \
+  --parameters ParameterKey=pTeamName,ParameterValue="$TEAM_NAME" \
   --template-body file://"$DIRNAME"/output/packaged-template.yaml \
   --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND"
 
@@ -107,6 +108,7 @@ else
   update_output=$(aws cloudformation update-stack \
     --profile "$PROFILE" \
     --stack-name "$STACK_NAME" \
+    --parameters ParameterKey=pTeamName,ParameterValue="$TEAM_NAME" \
     --template-body file://"$DIRNAME"/output/packaged-template.yaml \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" 2>&1)
   status=$?
