@@ -34,6 +34,14 @@ Conditions:
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
+  rMonitoringFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Monitoring/Enabled
+      Type: String
+      Value: !Ref pEnableMonitoring
+      Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+
   rVpcFeatureSsm:
     Type: AWS::SSM::Parameter
     Condition: MultiAccountSetup
@@ -648,6 +656,18 @@ Resources:
               StringEquals:
                 "iam:PassedToService":
                   - cloudtrail.amazonaws.com
+          - Effect: Allow
+            Action:
+              - s3:CreateStorageLensGroup
+              - s3:UpdateStorageLensGroup
+              - s3:GetStorageLensGroup
+              - s3:ListStorageLensGroups
+              - s3:DeleteStorageLensGroup
+              - s3:TagResource
+              - s3:UntagResource
+              - s3:ListTagsForResource
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:storage-lens-group/sdlf-*
       Roles:
         - !Ref rDomainCloudFormationRole
 
@@ -708,6 +728,7 @@ Resources:
               Resource:
                 - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
                 - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/*
+                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/*
             - Effect: Allow
               Action:
                 - iam:GetRole

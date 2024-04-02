@@ -55,7 +55,7 @@ crossaccount_cicd_roles () {
     rflag=false
     dflag=false
     fflag=false
-    options=':p:r:d:v:m:'
+    options=':p:r:d:f:'
     while getopts "$options" option
     do
         case "$option" in

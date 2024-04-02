@@ -11,12 +11,6 @@ Parameters:
   pTeamName:
     Description: Team name
     Type: String
-  pEnableLambdaLayerBuilder:
-    Description: Add Lambda layer builder infrastructure and pipeline stages
-    Type: String
-  pEnableGlueJobDeployer:
-    Description: Add Glue job deployer infrastructure and pipeline stages
-    Type: String
   pDomain:
     Description: Data domain name
     Type: String
@@ -24,14 +18,25 @@ Parameters:
     Description: Environment name
     Type: String
     AllowedValues: [dev, test, prod]
+  pEnableGlueJobDeployer:
+    Description: Add Glue job deployer infrastructure and pipeline stages
+    Type: String
+  pEnableLambdaLayerBuilder:
+    Description: Add Lambda layer builder infrastructure and pipeline stages
+    Type: String
+  pEnableMonitoring:
+    Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Monitoring/Enabled
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/VPC/Enabled
 
 Conditions:
-  EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
+  EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
+  EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
@@ -455,27 +460,6 @@ Resources:
       Roles:
         - !Ref rTeamCloudFormationRole
 
-  rTeamLambdaLayersCloudFormationPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Condition: EnableLambdaLayerBuilder
-    Properties:
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action:
-              - cloudformation:CreateChangeSet
-            Resource:
-              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
-          - Effect: Allow
-            Action:
-              - lambda:PublishLayerVersion
-              - lambda:DeleteLayerVersion
-            Resource:
-              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
-      Roles:
-        - !Ref rTeamCloudFormationRole
-
   rTeamGlueJobsCloudFormationPolicy:
     Type: AWS::IAM::ManagedPolicy
     Condition: EnableGlueJobDeployer
@@ -537,5 +521,48 @@ Resources:
             Condition:
               StringEquals:
                 "iam:PassedToService": glue.amazonaws.com
+      Roles:
+        - !Ref rTeamCloudFormationRole
+
+  rTeamLambdaLayersCloudFormationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnableLambdaLayerBuilder
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateChangeSet
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+          - Effect: Allow
+            Action:
+              - lambda:PublishLayerVersion
+              - lambda:DeleteLayerVersion
+            Resource:
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-${pTeamName}-*
+      Roles:
+        - !Ref rTeamCloudFormationRole
+
+  rMonitoringDatasetCloudFormationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnableMonitoring
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:CreateStorageLensGroup
+              - s3:UpdateStorageLensGroup
+              - s3:GetStorageLensGroup
+              - s3:ListStorageLensGroups
+              - s3:DeleteStorageLensGroup
+              - s3:TagResource
+              - s3:UntagResource
+              - s3:ListTagsForResource
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:storage-lens-group/sdlf-${pTeamName}-*
       Roles:
         - !Ref rTeamCloudFormationRole

@@ -96,9 +96,7 @@ Conditions:
   cTeamLevel: !And
     - !Not [!Equals [!Ref pTeamName, ""]]
     - !Equals [!Ref pDataset, ""]
-  cDatasetLevel: !And
-    - !Not [!Equals [!Ref pDataset, ""]]
-    - !Equals [!Ref pTeamName, ""]
+  cDatasetLevel: !Not [!Equals [!Ref pDataset, ""]]
   cCloudtrailEnabled: !And
     - !Not [!Condition cTeamLevel]
     - !Not [!Condition cDatasetLevel]
