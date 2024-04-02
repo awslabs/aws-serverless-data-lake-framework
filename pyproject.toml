@@ -1,10 +1,12 @@
 [tool.ruff]
-extend-select = ["I", "PL", "W"]
-ignore = ["PLR0912", "PLR0913", "PLR0915"]
-fixable = ["I001", "W291"]
 extend-exclude = ["sdlf-cicd/sam-translate.py"]
 line-length = 120
 target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "PL", "W"]
+ignore = ["PLR0912", "PLR0913", "PLR0915"]
+fixable = ["I001", "W291"]
 
 [tool.pylint.main]
 py-version = "3.12"
