@@ -550,6 +550,23 @@ Resources:
                   }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: 1
+        - Name: BuildDatasetsTemplate
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: TemplateSource
+              OutputArtifacts:
+                - Name: DatasetsTemplatePackage
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref pBuildCloudFormationPackage
+                EnvironmentVariables: >-
+                  [{"name":"TEMPLATE", "value":"datasets.yaml", "type":"PLAINTEXT"}]
+              RunOrder: 1
         - Name: DeployDatasetsInfrastructure
           Actions:
             - Name: CreateStack
@@ -561,11 +578,12 @@ Resources:
                 Version: "1"
               InputArtifacts:
                 - Name: TemplateSource
+                - Name: DatasetsTemplatePackage
               Configuration:
                 ActionMode: CREATE_UPDATE
                 RoleArn: !Ref pCrossAccountTeamRole
                 StackName: !Sub sdlf-${pTeamName}-datasets-${pEnvironment}
-                TemplatePath: "TemplateSource::datasets.yaml"
+                TemplatePath: "DatasetsTemplatePackage::packaged-template.yaml"
                 TemplateConfiguration: "TemplateSource::tags.json"
                 ParameterOverrides: |
                   {
