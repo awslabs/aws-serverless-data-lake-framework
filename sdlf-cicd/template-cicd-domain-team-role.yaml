@@ -511,6 +511,7 @@ Resources:
           - Effect: Allow
             Action:
               - glue:CreateJob
+              - glue:UpdateJob
               - glue:DeleteJob
               - glue:TagResource
               - glue:UntagResource
@@ -521,6 +522,7 @@ Resources:
             - Effect: Allow
               Action:
                 - glue:CreateConnection
+                - glue:UpdateConnection
                 - glue:DeleteConnection
               Resource:
                 - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
@@ -530,7 +532,7 @@ Resources:
             Action:
               - iam:PassRole
             Resource:
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-* # cfn bug?
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}-* # TODO cfn bug?
               - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
             Condition:
               StringEquals:
