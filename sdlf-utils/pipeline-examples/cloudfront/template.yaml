@@ -186,7 +186,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
-                  - sqs:DeleteMessageBatch
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                   - sqs:ListQueues
@@ -194,7 +193,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
 
@@ -331,7 +329,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
-                  - sqs:DeleteMessageBatch
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                   - sqs:ListQueues
@@ -339,7 +336,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
 
