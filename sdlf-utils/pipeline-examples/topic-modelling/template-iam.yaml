@@ -129,7 +129,6 @@ Resources:
             Effect: Allow
             Action:
               - sqs:DeleteMessage
-              - sqs:DeleteMessageBatch
               - sqs:GetQueueAttributes
               - sqs:GetQueueUrl
               - sqs:ListQueues
@@ -137,7 +136,6 @@ Resources:
               - sqs:ListQueueTags
               - sqs:ReceiveMessage
               - sqs:SendMessage
-              - sqs:SendMessageBatch
             Resource:
               - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
           - Effect: Allow
@@ -459,7 +457,6 @@ Resources:
                 Action:
                   - sqs:AddPermission
                   - sqs:ChangeMessageVisibility
-                  - sqs:ChangeMessageVisibilityBatch
                   - sqs:CreateQueue
                   - sqs:DeleteQueue
                   - sqs:GetQueueAttributes
@@ -755,7 +752,6 @@ Resources:
                   - sqs:AddPermission
                   - sqs:CreateQueue
                   - sqs:ChangeMessageVisibility
-                  - sqs:ChangeMessageVisibilityBatch
                   - sqs:DeleteQueue
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
@@ -763,7 +759,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:RemovePermission
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                   - sqs:SetQueueAttributes
                   - sqs:TagQueue
                   - sqs:UntagQueue

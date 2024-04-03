@@ -387,7 +387,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
-                  - sqs:DeleteMessageBatch
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                   - sqs:ListQueues
@@ -395,7 +394,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !GetAtt rDeadLetterQueueRoutingStep.Arn
 

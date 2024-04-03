@@ -213,7 +213,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
-                  - sqs:DeleteMessageBatch
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                   - sqs:ListQueues
@@ -221,7 +220,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !GetAtt rQueueRoutingStep.Arn
                   - !GetAtt rDeadLetterQueueRoutingStep.Arn
@@ -341,7 +339,6 @@ Resources:
                   - sqs:ListDeadLetterSourceQueues
                   - sqs:ListQueueTags
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
               - Effect: Allow
@@ -382,7 +379,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
-                  - sqs:DeleteMessageBatch
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                   - sqs:ListQueues
@@ -390,7 +386,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                 Resource:
                   - !GetAtt rDeadLetterQueueRoutingStep.Arn
 
