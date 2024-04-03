@@ -548,7 +548,6 @@ Resources:
                   - sqs:ListQueueTags
                   - sqs:RemovePermission
                   - sqs:SendMessage
-                  - sqs:SendMessageBatch
                   - sqs:SetQueueAttributes
                   - sqs:TagQueue
                   - sqs:UntagQueue
