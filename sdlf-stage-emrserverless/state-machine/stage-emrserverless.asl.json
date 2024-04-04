@@ -1,0 +1,134 @@
+{
+  "Comment": "Simple Amazon EMR Serverless transform",
+  "StartAt": "Try",
+  "States": {
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Create an EMR Serverless Application",
+          "States": {
+            "Create an EMR Serverless Application": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::emr-serverless:createApplication.sync",
+              "Parameters": {
+                "Name": "ExampleApplication",
+                "Type": "SPARK",
+                "ReleaseLabel": "emr-7.0.0",
+                "InitialCapacity": {
+                  "DRIVER": {
+                    "WorkerConfiguration": {
+                      "Cpu": "2",
+                      "Memory": "4",
+                      "Disk": "20gb"
+                    },
+                    "WorkerCount": 5
+                  },
+                  "EXECUTOR": {
+                    "WorkerConfiguration": {
+                      "Cpu": "4",
+                      "Memory": "8",
+                      "Disk": "20gb"
+                    },
+                    "WorkerCount": 50
+                  }
+                }
+              },
+              "Next": "Start Application"
+            },
+            "Start Application": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::emr-serverless:startApplication.sync",
+              "Parameters": {
+                "ApplicationId.$": "$.ApplicationId"
+              },
+              "Next": "Run Job"
+            },
+            "Run Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::emr-serverless:startJobRun.sync",
+              "Parameters": {
+                "ApplicationId.$": "$.ApplicationId",
+                "ExecutionRoleArn": "${lJobStepRole}",
+                "JobDriver": {
+                  "SparkSubmit": {
+                    "EntryPoint": "/usr/lib/spark/examples/jars/spark-examples.jar",
+                    "SparkSubmitParameters": "--class org.apache.spark.examples.SparkPi"
+                  }
+                }
+              },
+              "Next": "Stop Application"
+            },
+            "Stop Application": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::emr-serverless:stopApplication.sync",
+              "Parameters": {
+                "ApplicationId.$": "$.ApplicationId"
+              },
+              "Next": "Post-update Catalog"
+            },
+            "Post-update Catalog": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "ResultPath": null,
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lPostMetadata}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Error"
+        }
+      ]
+    },
+    "Error": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${lError}:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Fail"
+    },
+    "Fail": {
+      "Type": "Fail"
+    }
+  }
+}
