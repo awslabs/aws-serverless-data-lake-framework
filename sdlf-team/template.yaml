@@ -517,6 +517,19 @@ Resources:
               - lambda:InvokeFunction
             Resource:
               - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Resource:
+              - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctions* # Step Functions managed rules: https://docs.aws.amazon.com/step-functions/latest/dg/service-integration-iam-templates.html#connect-iam-sync-async
+          - Effect: Allow
+            Action:
+              - emr-serverless:CreateApplication
+              - emr-serverless:GetApplication
+            Resource:
+              - !Sub arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*
           - !If
             - RunInVpc
             - Effect: Allow
