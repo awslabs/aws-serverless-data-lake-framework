@@ -289,6 +289,16 @@ Resources:
                   ]
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rS3AccessLogsBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
 
   rArtifactsBucket:
     Type: AWS::S3::Bucket
@@ -336,18 +346,16 @@ Resources:
       Bucket: !Ref rArtifactsBucket
       PolicyDocument:
         Statement:
-          - Sid: EnforceTlsRequests
-            Effect: Deny
-            Principal: "*"
+          - Sid: AllowSSLRequestsOnly
             Action: s3:*
+            Effect: Deny
             Resource:
-              - !GetAtt rArtifactsBucket.Arn
-              - !Sub ${rArtifactsBucket.Arn}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}
             Condition:
               Bool:
                 aws:SecureTransport: False
-              NumericLessThan:
-                s3:TlsVersion: "1.2"
+            Principal: "*"
           - Sid: CrossAccount Pipelines
             Effect: Allow
             Principal: !If

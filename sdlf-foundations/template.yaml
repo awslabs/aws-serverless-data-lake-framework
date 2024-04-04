@@ -370,7 +370,7 @@ Resources:
     Properties:
       Bucket: !Ref rS3AccessLogsBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Action:
               - s3:PutObject
@@ -470,7 +470,7 @@ Resources:
     Properties:
       Bucket: !Ref rArtifactsBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -522,7 +522,7 @@ Resources:
     Properties:
       Bucket: !Ref rRawBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -581,7 +581,7 @@ Resources:
     Properties:
       Bucket: !Ref rStageBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -640,7 +640,7 @@ Resources:
     Properties:
       Bucket: !Ref rAnalyticsBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -693,7 +693,7 @@ Resources:
     Properties:
       Bucket: !Ref rAthenaBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -778,7 +778,7 @@ Resources:
     Type: AWS::SQS::QueuePolicy
     Properties:
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
