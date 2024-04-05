@@ -508,6 +508,7 @@ Resources:
               - logs:DescribeLogStreams
               - logs:GetLogEvents
               - logs:PutLogEvents
+              - logs:AssociateKmsKey
             Resource:
               - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pTeamName}-*

@@ -482,10 +482,34 @@ Resources:
               - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/*
           - Effect: Allow
             Action:
+              - iam:CreateRole
+              - iam:PutRolePermissionsBoundary
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-* # Glue Jobs always prepend /service-role/ as path
+            Condition:
+              ArnLike:
+                "iam:PermissionsBoundary": !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/sdlf/${pTeamName}/sdlf-domain-*
+          - Effect: Allow
+            Action:
+              - iam:DeleteRole
+              - iam:DeleteRolePolicy
+              - iam:GetRole
+              - iam:GetRolePolicy
+              - iam:ListRolePolicies
+              - iam:PutRolePolicy
+              - iam:UntagRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+              - iam:TagRole
+              - iam:UpdateAssumeRolePolicy
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
+          - Effect: Allow
+            Action:
               - iam:AttachRolePolicy
               - iam:DetachRolePolicy
             Resource:
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pTeamName}/sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/service-role/sdlf-${pTeamName}-*
             Condition:
               ArnEquals:
                 "iam:PolicyARN":

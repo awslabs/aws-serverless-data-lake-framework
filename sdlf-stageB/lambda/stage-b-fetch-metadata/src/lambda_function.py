@@ -13,10 +13,9 @@ def get_glue_transform_details(bucket, team, dataset, pipeline, stage):
     # we assume a Glue Job has already been created based on customer needs
     job_name = f"sdlf-{team}-{dataset}-glue-job"  # Name of the Glue Job
     glue_capacity = {"WorkerType": "G.1X", "NumberOfWorkers": 10}
-    wait_time = 45
+    wait_time = 60
     glue_arguments = {
         # Specify any arguments needed based on bucket and keys (e.g. input/output S3 locations)
-        "--JOB_NAME": f"sdlf-{team}-{dataset}-glue-job",
         "--SOURCE_LOCATION": f"s3://{bucket}/pre-stage/{team}/{dataset}",
         "--OUTPUT_LOCATION": f"s3://{bucket}/post-stage/{team}/{dataset}",
         "--job-bookmark-option": "job-bookmark-enable",
