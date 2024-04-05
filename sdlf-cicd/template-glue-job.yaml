@@ -40,7 +40,7 @@ Resources:
   rGlueRole:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pTeamName}/
+      Path: /service-role/
       PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -89,7 +89,7 @@ Resources:
         Description: "Network connected to the VPC data source"
         Name: !Sub sdlf-${pTeamName}-glue-conn
         PhysicalConnectionRequirements:
-          AvailabilityZone: us-east-1a # this is not taking into account at all, but the property needs to be present anyway
+          AvailabilityZone: us-east-1a # this is not taken into account at all, but the property needs to be present anyway
           SecurityGroupIdList: !Split [",", !ImportValue sdlf-cicd-domain-roles-vpc-security-groups]
           SubnetId: !Select
             - "1"
