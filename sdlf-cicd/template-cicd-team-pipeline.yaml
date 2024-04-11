@@ -319,6 +319,7 @@ Resources:
                     EnvironmentVariables: !Sub >-
                       [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN_ACCOUNT", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
                       {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
                   RunOrder: 1
                 - !Ref AWS::NoValue
@@ -378,11 +379,9 @@ Resources:
                     Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                     ParameterOverrides: !Sub |+
                       {
-                        "pArtifactsBucket": "${pArtifactsBucket}",
                         "pEnvironment": "${pEnvironment}",
                         "pTeamName": "${pTeamName}",
-                        "pGlueJobs": "#{GlueJobVariables.TRANSFORMS_CDL}",
-                        "pGitRef": "#{GlueJobVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
+                        "pGlueJobs": "#{GlueJobVariables.TRANSFORMS_CDL}"
                       }
                   RunOrder: 1
                 - !Ref AWS::NoValue
