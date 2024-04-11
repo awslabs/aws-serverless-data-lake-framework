@@ -292,6 +292,20 @@ Resources:
               - kms:GenerateDataKey*
               - kms:Describe*
             Resource: "*"
+          - Sid: CrossAccount Glue Job Deployer Pipelines
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:root"
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              "ArnLike":
+                "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:role/sdlf-cicd-sdlf-pipelines--*"
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
@@ -457,7 +471,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
             ServerSideEncryptionByDefault:
-              KMSMasterKeyID: !Ref rKMSKey
+              KMSMasterKeyID: !GetAtt rKMSKey.Arn
               SSEAlgorithm: aws:kms
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
@@ -482,6 +496,19 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
+          - Sid: CrossAccount Glue Job Deployer Pipelines
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:root"
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource:
+              - !Sub ${rArtifactsBucket.Arn}/*
+            Condition:
+              "ArnLike":
+                "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:role/sdlf-cicd-sdlf-pipelines--*"
 
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
   rRawBucket:
@@ -916,6 +943,22 @@ Resources:
       Type: String
       Value: !Ref rRawBucket
       Description: Name of the Raw S3 bucket
+  rS3ArtifactsBucketDevopsSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/S3/${pDomain}/${pEnvironment}/ArtifactsBucket
+      Type: String
+      Value: !Ref rArtifactsBucket
+      Description: !Sub Name of the Artifacts S3 bucket in domain ${pDomain} ${pEnvironment}
+      Tier: Advanced
+  rS3ArtifactsBucketDevopsSsmShare:
+    Type: AWS::RAM::ResourceShare
+    Properties:
+      Name: ArtifactsBucketSsmToDevops
+      ResourceArns:
+        - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${rS3ArtifactsBucketDevopsSsm}
+      Principals:
+        - "{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}"
   rS3StageBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1537,6 +1580,7 @@ Resources:
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
+
   rEnvironmentSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1544,6 +1588,7 @@ Resources:
       Type: String
       Value: !Ref pEnvironment
       Description: Environment name
+
   rDataLakeAdminRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1551,6 +1596,7 @@ Resources:
       Type: String
       Value: !GetAtt rDataLakeAdminRole.Arn
       Description: Lake Formation Data Lake Admin Role
+
   rS3AccessLogsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1558,6 +1604,7 @@ Resources:
       Type: String
       Value: !Ref rS3AccessLogsBucket
       Description: S3 Access Logs Bucket
+
 Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with

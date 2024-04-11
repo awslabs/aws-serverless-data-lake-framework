@@ -10,6 +10,12 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pDomainAccounts:
+    Description: List of AWS account ids bootstrapped with SDLF domain roles
+    Type: CommaDelimitedList
+  pDomainKmsArns:
+    Description: List of AWS account ids bootstrapped with SDLF domain roles
+    Type: CommaDelimitedList
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
@@ -54,8 +60,19 @@ Resources:
                   - s3:GetObject
                   - s3:GetObjectVersion
                   - s3:PutObject
+                  - s3:PutObjectAcl
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::*-artifacts/*
+                Condition:
+                  "StringEquals":
+                    "s3:ResourceAccount": !Ref pDomainAccounts
               - Effect: Allow
                 Action: codecommit:GitPull
                 Resource:
@@ -70,6 +87,25 @@ Resources:
                   - kms:ReEncrypt*
                 Resource:
                   - !Ref pKMSKey
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource: !Ref pDomainKmsArns
+                Condition:
+                  "ForAnyValue:StringLike":
+                    "kms:ResourceAliases": alias/sdlf-kms-key
+              - Sid: ReadOnlyAccessSsm
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:*:parameter/SDLF/S3/*
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -119,12 +155,6 @@ Resources:
         - !Ref "AWS::NoValue"
       Environment:
         EnvironmentVariables:
-          - Name: ARTIFACTS_BUCKET
-            Type: PLAINTEXT
-            Value: !Ref pArtifactsBucket
-          - Name: KMS_KEY
-            Type: PLAINTEXT
-            Value: !Ref pKMSKey
           - Name: AWS_PARTITION
             Type: PLAINTEXT
             Value: !Ref AWS::Partition
@@ -153,6 +183,9 @@ Resources:
             build:
               commands:
                 - |-
+                    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name "arn:$AWS_PARTITION:ssm:$AWS_REGION:$DOMAIN_ACCOUNT:parameter/SDLF/S3/$DOMAIN/$ENVIRONMENT/ArtifactsBucket" --query "Parameter.Value" --output text) || exit 1
+                    echo "Artifacts bucket to store Glue job scripts: $ARTIFACTS_BUCKET"
+                - |-
                     if [ -d "./transforms/" ]; then
                         cd "./transforms/" || exit
                         TRANSFORMS=()
@@ -168,10 +201,12 @@ Resources:
                             echo "Moving into dir..."
                             echo "Current directory contents:"
                             ls
+                            TRANSFORM_HASH=$(sha256sum "$TRANSFORM_NAME.py")
+                            S3_BASE_OBJECT_NAME="$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}"
                             aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                  --key "transforms/$DOMAIN/$ENVIRONMENT/$TEAM/$TRANSFORM_NAME-$CODEBUILD_RESOLVED_SOURCE_VERSION.py" \
+                                                  --key "transforms/$DOMAIN/$ENVIRONMENT/$TEAM/$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}.py" \
                                                   --body "$TRANSFORM_NAME.py" || exit 1
-                            TRANSFORMS+=("$TRANSFORM_NAME")
+                            TRANSFORMS+=("$S3_BASE_OBJECT_NAME")
                             popd || exit
                             echo "============= COMPLETED DIRECTORY BUILD ============="
                         done
