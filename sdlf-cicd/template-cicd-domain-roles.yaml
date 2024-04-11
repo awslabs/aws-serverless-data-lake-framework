@@ -609,6 +609,29 @@ Resources:
                   - athena:TagResource
                   - athena:UntagResource
                 Resource: !Sub arn:${AWS::Partition}:athena:${AWS::Region}:${AWS::AccountId}:workgroup/sdlf-*
+              - Effect: Allow
+                Action:
+                  - ram:CreateResourceShare
+                  - ram:UpdateResourceShare
+                  - ram:DeleteResourceShare
+                  - ram:TagResource
+                  - ram:UntagResource
+                  - ram:GetResourceShares
+                  - ram:GetResourceShareAssociations
+                  - ram:ListResourceSharePermissions
+                  - ram:AssociateResourceShare
+                  - ssm:PutResourcePolicy
+                  - ssm:DeleteResourcePolicy
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ram:${AWS::Region}:${AWS::AccountId}:resource-share/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/*
+                Condition:
+                  StringEqualsIfExists:
+                    "ram:RequestedResourceType":
+                      - ssm:Parameter
+                  # StringLikeIfExists:
+                  #   "ram:ResourceArn":
+                  #     - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/*
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -763,6 +786,14 @@ Resources:
                 StringEquals:
                   "iam:PassedToService":
                     - cloudformation.amazonaws.com
+
+  rDevopsAccountSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Misc/pDevOpsAccountId
+      Type: String
+      Value: !Ref pDevOpsAccountId
+      Description: DevOps Account Id
 
 Outputs:
   # workaround {{resolve:ssm:}} not returning an array that can be used directly in VpcConfig blocks

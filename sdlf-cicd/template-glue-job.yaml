@@ -5,7 +5,8 @@ Description: Deploy Glue jobs
 Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/S3/ArtifactsBucket
   pDomain:
     Description: Name of the data domain (all lowercase, no symbols or spaces)
     Type: AWS::SSM::Parameter::Value<String>
@@ -20,10 +21,7 @@ Parameters:
   pGlueJobs:
     Description: List of glue job names
     Type: CommaDelimitedList
-    AllowedPattern: "^[a-zA-Z0-9]*$"
-  pGitRef:
-    Description: Git reference (commit id) with the sources of these glue jobs
-    Type: String
+    AllowedPattern: "^[a-zA-Z0-9\\-]*$"
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
@@ -98,14 +96,14 @@ Resources:
   "Fn::ForEach::GlueJobResources":
   - GlueJobName
   - !Ref pGlueJobs
-  - "r${GlueJobName}GlueJob":
+  - "r&{GlueJobName}GlueJob":
       Type: AWS::Glue::Job
       Condition: GlueJobsNotEmpty
       Properties:
         Command:
           Name: glueetl
           PythonVersion: "3"
-          ScriptLocation: !Sub s3://${pArtifactsBucket}/transforms/${pDomain}/${pEnvironment}/${pTeamName}/${GlueJobName}-${pGitRef}.py
+          ScriptLocation: !Sub s3://${pArtifactsBucket}/transforms/${pDomain}/${pEnvironment}/${pTeamName}/${GlueJobName}.py
         DefaultArguments: !If
           - RunInVpc
           -
@@ -126,7 +124,9 @@ Resources:
         MaxRetries: 0
         MaxCapacity: 2.0
         GlueVersion: "4.0"
-        Name: !Sub sdlf-${pTeamName}-${GlueJobName}
+        Name: !Sub
+          - sdlf-${pTeamName}-${BaseGlueJobName}
+          - BaseGlueJobName: !Select [0, !Split ["-", !Ref GlueJobName]]
         SecurityConfiguration: !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
         Role: !Ref rGlueRole
         Connections: !If
