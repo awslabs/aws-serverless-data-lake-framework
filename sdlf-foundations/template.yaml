@@ -943,22 +943,6 @@ Resources:
       Type: String
       Value: !Ref rRawBucket
       Description: Name of the Raw S3 bucket
-  rS3ArtifactsBucketDevopsSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/S3/${pDomain}/${pEnvironment}/ArtifactsBucket
-      Type: String
-      Value: !Ref rArtifactsBucket
-      Description: !Sub Name of the Artifacts S3 bucket in domain ${pDomain} ${pEnvironment}
-      Tier: Advanced
-  rS3ArtifactsBucketDevopsSsmShare:
-    Type: AWS::RAM::ResourceShare
-    Properties:
-      Name: ArtifactsBucketSsmToDevops
-      ResourceArns:
-        - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${rS3ArtifactsBucketDevopsSsm}
-      Principals:
-        - "{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}"
   rS3StageBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -1612,3 +1596,6 @@ Outputs:
   oChildAccountId:
     Description: Child AWS account ID
     Value: !Ref pChildAccountId
+  oS3ArtifactsBucket:
+    Description: Name of the domain's Artifacts S3 bucket
+    Value: !Ref rArtifactsBucket
