@@ -105,7 +105,7 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParametersByPath
                 Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:*:parameter/SDLF/S3/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/*
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -183,9 +183,8 @@ Resources:
             build:
               commands:
                 - |-
-                    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name "arn:$AWS_PARTITION:ssm:$AWS_REGION:$DOMAIN_ACCOUNT:parameter/SDLF/S3/$DOMAIN/$ENVIRONMENT/ArtifactsBucket" --query "Parameter.Value" --output text) || exit 1
+                    ARTIFACTS_BUCKET=$(aws ssm get-parameter --name "/SDLF/S3/$DOMAIN/$ENVIRONMENT/ArtifactsBucket" --query "Parameter.Value" --output text) || exit 1
                     echo "Artifacts bucket to store Glue job scripts: $ARTIFACTS_BUCKET"
-                - |-
                     if [ -d "./transforms/" ]; then
                         cd "./transforms/" || exit
                         TRANSFORMS=()
@@ -204,7 +203,7 @@ Resources:
                             TRANSFORM_HASH=$(sha256sum "$TRANSFORM_NAME.py")
                             S3_BASE_OBJECT_NAME="$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}"
                             aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                  --key "transforms/$DOMAIN/$ENVIRONMENT/$TEAM/$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}.py" \
+                                                  --key "$TEAM/transforms/$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}.py" \
                                                   --body "$TRANSFORM_NAME.py" || exit 1
                             TRANSFORMS+=("$S3_BASE_OBJECT_NAME")
                             popd || exit

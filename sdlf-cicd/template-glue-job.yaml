@@ -7,14 +7,6 @@ Parameters:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/S3/ArtifactsBucket
-  pDomain:
-    Description: Name of the data domain (all lowercase, no symbols or spaces)
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Misc/pDomain
-  pEnvironment:
-    Description: Environment name
-    Type: String
-    AllowedValues: [dev, test, prod]
   pTeamName:
     Description: Name of the team (all lowercase, no symbols or spaces)
     Type: String
@@ -103,7 +95,7 @@ Resources:
         Command:
           Name: glueetl
           PythonVersion: "3"
-          ScriptLocation: !Sub s3://${pArtifactsBucket}/transforms/${pDomain}/${pEnvironment}/${pTeamName}/${GlueJobName}.py
+          ScriptLocation: !Sub s3://${pArtifactsBucket}/${pTeamName}/transforms/${GlueJobName}.py
         DefaultArguments: !If
           - RunInVpc
           -
