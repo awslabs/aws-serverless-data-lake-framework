@@ -440,10 +440,11 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-teams-*
                 Condition:
-                  StringEquals:
+                  StringEqualsIfExists:
                     "iam:PassedToService":
                       - codepipeline.amazonaws.com
                       - events.amazonaws.com
+                      - cloudformation.amazonaws.com
               - Effect: Allow
                 Action:
                   - iam:PassRole
@@ -472,6 +473,7 @@ Resources:
                   - iam:TagRole
                   - iam:UntagRole
                   - iam:UpdateRole
+                  - iam:UpdateAssumeRolePolicy
                   - iam:UpdateRoleDescription
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-*

@@ -424,6 +424,7 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
+              - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
               - !GetAtt rKMSDataKey.Arn
               - !GetAtt rKMSInfraKey.Arn
           - Sid: AllowSSMGet
@@ -474,6 +475,10 @@ Resources:
               StringEquals:
                 "iam:PassedToService":
                   - glue.amazonaws.com
+          - Effect: Allow
+            Action:
+              - glue:GetSecurityConfiguration # W13 exception
+            Resource: "*"
           - Effect: Allow
             Action:
               - glue:StartCrawler
