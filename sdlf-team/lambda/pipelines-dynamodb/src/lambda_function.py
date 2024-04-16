@@ -53,7 +53,6 @@ def lambda_handler(event, context):
         stages_pages = paginator.paginate(
             Path=f"/SDLF/Pipelines/{team_name}",
             Recursive=True,
-            PaginationConfig={"MaxItems": 30},
         )
         for stages_page in stages_pages:
             for stage in stages_page["Parameters"]:
