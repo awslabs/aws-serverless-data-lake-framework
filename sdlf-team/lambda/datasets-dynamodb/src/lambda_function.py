@@ -48,10 +48,7 @@ def lambda_handler(event, context):
         table = f"octagon-Datasets-{environment}"
 
         paginator = ssm.get_paginator("get_parameters_by_path")
-        datasets_pages = paginator.paginate(
-            Path=f"/SDLF/Datasets/{team_name}",
-            PaginationConfig={"MaxItems": 30},
-        )
+        datasets_pages = paginator.paginate(Path=f"/SDLF/Datasets/{team_name}")
 
         for datasets_page in datasets_pages:
             for dataset in datasets_page["Parameters"]:
