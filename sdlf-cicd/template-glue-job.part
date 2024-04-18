@@ -1,0 +1,20 @@
+
+  r%{BUILDSTEPVARIABLE_NOHYPHEN_AZ}GlueConnection:
+    Type: AWS::Glue::Connection
+    Condition: RunInVpc
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - W3010
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput:
+        ConnectionProperties: {}
+        ConnectionType: NETWORK
+        Description: "Network connected to the VPC data source"
+        Name: !Sub sdlf-${pTeamName}-glue-conn-%{BUILDSTEPVARIABLE_NOHYPHEN_AZ}
+        PhysicalConnectionRequirements:
+          AvailabilityZone: %{BUILDSTEPVARIABLE_AZ}
+          SecurityGroupIdList: !Split [",", !ImportValue sdlf-cicd-domain-roles-vpc-security-groups]
+          SubnetId: %{BUILDSTEPVARIABLE_SUBNET}

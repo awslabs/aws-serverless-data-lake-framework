@@ -63,28 +63,6 @@ Resources:
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
                   - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
-  rGlueConnection:
-    Type: AWS::Glue::Connection
-    Condition: RunInVpc
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-            - W3010
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      ConnectionInput:
-        ConnectionProperties: {}
-        ConnectionType: NETWORK
-        Description: "Network connected to the VPC data source"
-        Name: !Sub sdlf-${pTeamName}-glue-conn
-        PhysicalConnectionRequirements:
-          AvailabilityZone: us-east-1a # this is not taken into account at all, but the property needs to be present anyway
-          SecurityGroupIdList: !Split [",", !ImportValue sdlf-cicd-domain-roles-vpc-security-groups]
-          SubnetId: !Select
-            - "1"
-            - !Split [",", !ImportValue sdlf-cicd-domain-roles-vpc-subnets]
-
   "Fn::ForEach::GlueJobResources":
   - GlueJobName
   - !Ref pGlueJobs
@@ -124,5 +102,5 @@ Resources:
         Connections: !If
           - RunInVpc
           - Connections:
-              - !Ref rGlueConnection
+              - BUILDSTEPVARIABLE_GLUECONNECTIONS
           - !Ref "AWS::NoValue"
