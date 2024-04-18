@@ -285,6 +285,29 @@ Resources:
           - Name: BuildOptionalFeatures
             Actions:
               - !If
+                - EnableGlueJobDeployer
+                - Name: BuildGlueJobs
+                  InputArtifacts:
+                    - Name: TemplateSource
+                    - Name: SourceCicdArtifact
+                  OutputArtifacts:
+                    - Name: GlueJobDeployerArtifact
+                  Namespace: GlueJobVariables
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Version: "1"
+                    Provider: CodeBuild
+                  Configuration:
+                    PrimarySource: TemplateSource
+                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
+                    EnvironmentVariables: !Sub >-
+                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
+                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
+                  RunOrder: 1
+                - !Ref AWS::NoValue
+              - !If
                 - EnableLambdaLayerBuilder
                 - Name: BuildLambdaLayers
                   InputArtifacts:
@@ -303,30 +326,37 @@ Resources:
                       {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
                   RunOrder: 1
                 - !Ref AWS::NoValue
-              - !If
-                - EnableGlueJobDeployer
-                - Name: BuildGlueJobs
-                  InputArtifacts:
-                    - Name: TemplateSource
-                  Namespace: GlueJobVariables
-                  ActionTypeId:
-                    Category: Build
-                    Owner: AWS
-                    Version: "1"
-                    Provider: CodeBuild
-                  Configuration:
-                    ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
-                    EnvironmentVariables: !Sub >-
-                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
-                      {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
-                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
-                  RunOrder: 1
-                - !Ref AWS::NoValue
           - !Ref AWS::NoValue
         - !If
           - EnableOptionalFeatures
           - Name: DeployOptionalFeatures
             Actions:
+              - !If
+                - EnableGlueJobDeployer
+                - Name: CreateGlueJobsStack
+                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
+                  ActionTypeId:
+                    Category: Deploy
+                    Owner: AWS
+                    Provider: CloudFormation
+                    Version: "1"
+                  InputArtifacts:
+                    - Name: TemplateSource
+                    - Name: GlueJobDeployerArtifact
+                  Configuration:
+                    ActionMode: CREATE_UPDATE
+                    RoleArn: !Ref pCrossAccountTeamRole
+                    StackName: !Sub sdlf-${pTeamName}-gluejobs-${pEnvironment}
+                    TemplatePath: "GlueJobDeployerArtifact::template-glue-job.full.yaml"
+                    TemplateConfiguration: "TemplateSource::tags.json"
+                    Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                    ParameterOverrides: !Sub |+
+                      {
+                        "pTeamName": "${pTeamName}",
+                        "pGlueJobs": "#{GlueJobVariables.TRANSFORMS_CDL}"
+                      }
+                  RunOrder: 1
+                - !Ref AWS::NoValue
               - !If
                 - EnableLambdaLayerBuilder
                 - Name: CreateLambdaLayersStack
@@ -354,32 +384,6 @@ Resources:
                         "pTeamName": "${pTeamName}",
                         "pLayers": "#{LambdaLayersVariables.LAYERS_CDL}",
                         "pGitRef": "#{LambdaLayersVariables.CODEBUILD_RESOLVED_SOURCE_VERSION}"
-                      }
-                  RunOrder: 1
-                - !Ref AWS::NoValue
-              - !If
-                - EnableGlueJobDeployer
-                - Name: CreateGlueJobsStack
-                  RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
-                  ActionTypeId:
-                    Category: Deploy
-                    Owner: AWS
-                    Provider: CloudFormation
-                    Version: "1"
-                  InputArtifacts:
-                    - Name: TemplateSource
-                    - Name: SourceCicdArtifact
-                  Configuration:
-                    ActionMode: CREATE_UPDATE
-                    RoleArn: !Ref pCrossAccountTeamRole
-                    StackName: !Sub sdlf-${pTeamName}-gluejobs-${pEnvironment}
-                    TemplatePath: "SourceCicdArtifact::template-glue-job.yaml"
-                    TemplateConfiguration: "TemplateSource::tags.json"
-                    Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                    ParameterOverrides: !Sub |+
-                      {
-                        "pTeamName": "${pTeamName}",
-                        "pGlueJobs": "#{GlueJobVariables.TRANSFORMS_CDL}"
                       }
                   RunOrder: 1
                 - !Ref AWS::NoValue

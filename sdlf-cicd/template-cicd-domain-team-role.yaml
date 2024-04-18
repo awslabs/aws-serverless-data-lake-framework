@@ -534,7 +534,7 @@ Resources:
                 - glue:DeleteConnection
               Resource:
                 - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pTeamName}-glue-conn
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pTeamName}-glue-conn-*
             - !Ref "AWS::NoValue"
           - Effect: Allow
             Action:
