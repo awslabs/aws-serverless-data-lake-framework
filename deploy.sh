@@ -269,7 +269,6 @@ devops_account () {
         --region "$REGION" \
         --profile "$DEVOPS_AWS_PROFILE"
     STACK_NAME=sdlf-cicd-sdlf-pipelines
-    DOMAIN_KMS_ARNS=$(echo "$DOMAIN_ACCOUNTS" | sed -E "s ([^,]+) arn:$AWS_PARTITION:kms:$REGION:\1:key/* g")
     aws cloudformation deploy \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf-cicd-sdlf-pipelines \
         --stack-name "$STACK_NAME" \
@@ -277,8 +276,6 @@ devops_account () {
         --parameter-overrides \
             pArtifactsBucket=/SDLF/S3/DevOpsArtifactsBucket \
             pKMSKey=/SDLF/KMS/CICDKeyId \
-            pDomainAccounts="$DOMAIN_ACCOUNTS" \
-            pDomainKmsArns="$DOMAIN_KMS_ARNS" \
         --tags Framework=sdlf \
         --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
         --region "$REGION" \

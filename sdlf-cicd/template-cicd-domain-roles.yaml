@@ -13,6 +13,10 @@ Parameters:
   pDevOpsKMSKey:
     Description: DevOps KMS key alias
     Type: String
+  pKMSKey:
+    Description: Domain KMS key alias
+    Type: String
+    Default: alias/sdlf-kms-key
   pCustomBucketPrefix:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
@@ -86,6 +90,13 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${pDevOpsArtifactsBucket}/*
               - Effect: Allow
                 Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::*-artifacts/*
+              - Effect: Allow
+                Action:
                   - kms:Decrypt
                   - kms:Describe*
                   - kms:Encrypt
@@ -96,12 +107,19 @@ Resources:
                 Resource: "*"
                 Condition:
                   "ForAnyValue:StringLike":
-                    "kms:ResourceAliases": !Ref pDevOpsKMSKey
+                    "kms:ResourceAliases":
+                      - !Ref pDevOpsKMSKey
+                      - !Ref pKMSKey
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/Enabled
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/SubnetIds
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/ArtifactsBucket
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -115,8 +133,8 @@ Resources:
                   - cloudformation:UpdateStack
                   - cloudformation:GetTemplateSummary
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cfn-module-*"
-                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*"
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cfn-module-*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-domain-*
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-cicd-team-role-*
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*-pipelines-*
@@ -138,6 +156,14 @@ Resources:
                   - cloudformation:DescribeStacks
                 Resource:
                   - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
+              - !If
+                - RunInVpc
+                - Effect: Allow
+                  Action:
+                    - ec2:DescribeSubnets # W11 exception
+                  Resource:
+                    - "*"
+                - !Ref "AWS::NoValue"
 
   rBuildModuleCloudFormationRole:
     Type: AWS::IAM::Role

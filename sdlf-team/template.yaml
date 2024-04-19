@@ -367,12 +367,10 @@ Resources:
             Action:
               - s3:ListBucket
             Resource:
-              [
-                !Sub "arn:${AWS::Partition}:s3:::${pArtifactsBucket}",
-                !Sub "arn:${AWS::Partition}:s3:::${pCentralBucket}",
-                !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}",
-                !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}",
-              ]
+              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
           - Sid: AllowTeamPrefixActions
             Effect: Allow
             Action:
@@ -390,10 +388,7 @@ Resources:
             Effect: Allow
             Action:
               - codecommit:AssociateApprovalRuleTemplateWithRepository
-              - codecommit:BatchAssociateApprovalRuleTemplateWithRepositories
-              - codecommit:BatchDisassociateApprovalRuleTemplateFromRepositories
-              - codecommit:BatchGet*
-              - codecommit:BatchDescribe*
+              - codecommit:Batch* # Get, Describe, ApprovalRuleTemplate
               - codecommit:Create*
               - codecommit:DeleteBranch
               - codecommit:DeleteFile
@@ -410,8 +405,7 @@ Resources:
               - codecommit:Test*
               - codecommit:UntagResource
               - codecommit:Update*
-              - codecommit:GitPull
-              - codecommit:GitPush
+              - codecommit:Git*
             Resource:
               - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
           - Sid: AllowTeamKMSDataKeyUsage
@@ -427,8 +421,7 @@ Resources:
               - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
               - !GetAtt rKMSDataKey.Arn
               - !GetAtt rKMSInfraKey.Arn
-          - Sid: AllowSSMGet
-            Effect: Allow
+          - Effect: Allow
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
@@ -454,9 +447,7 @@ Resources:
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
               - sqs:GetQueueUrl
-              - sqs:ListQueues
-              - sqs:ListDeadLetterSourceQueues
-              - sqs:ListQueueTags
+              - sqs:List*
               - sqs:ReceiveMessage
               - sqs:SendMessage
             Resource:
@@ -481,24 +472,19 @@ Resources:
             Resource: "*"
           - Effect: Allow
             Action:
+              - glue:GetTable
               - glue:StartCrawler
               - glue:GetCrawler
-            Resource:
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
-          - Effect: Allow
-            Action:
-              - glue:GetTable
               - glue:GetJobRun
               - glue:GetJobRuns
               - glue:StartJobRun
-              - glue:StartDataQualityRuleRecommendationRun
-              - glue:GetDataQualityRuleRecommendationRun
-              - glue:StartDataQualityRulesetEvaluationRun
-              - glue:GetDataQualityRulesetEvaluationRun
+              - glue:StartDataQualityRule*
+              - glue:GetDataQualityRule*
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pEnvironment}-${pTeamName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
@@ -506,8 +492,7 @@ Resources:
             Action:
               - logs:CreateLogGroup
             Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-          - Sid: AllowCloudWatchLogsReadOnlyAccess
-            Effect: Allow
+          - Effect: Allow
             Action:
               - logs:CreateLogStream
               - logs:DescribeLogStreams
@@ -541,12 +526,30 @@ Resources:
                 - ec2:DeleteNetworkInterface # W13 condition applied
                 - ec2:AssignPrivateIpAddresses # W13 condition applied
                 - ec2:UnassignPrivateIpAddresses # W13 condition applied
+                - ec2:DescribeSubnets # W13 exception
+                - ec2:DescribeSecurityGroups # W13 exception
+                - ec2:DescribeVpcEndpoints # W13 exception
+                - ec2:DescribeRouteTables # W13 exception
+                - ec2:CreateTags # W13 condition applied
+                - ec2:DeleteTags # W13 condition applied
               Resource:
                 - "*"
               Condition:
                 ArnEqualsIfExists:
                   "ec2:Vpc":
                     - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                "ForAllValues:StringEqualsIfExists":
+                  "aws:TagKeys":
+                    - aws-glue-service-resource
+            - !Ref "AWS::NoValue"
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - Glue:GetConnection
+              Resource:
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pTeamName}-glue-conn-*
             - !Ref "AWS::NoValue"
 
   rDatalakeCrawlerRole:

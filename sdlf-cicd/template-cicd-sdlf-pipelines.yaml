@@ -10,12 +10,6 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
-  pDomainAccounts:
-    Description: List of AWS account ids bootstrapped with SDLF domain roles
-    Type: CommaDelimitedList
-  pDomainKmsArns:
-    Description: List of AWS account ids bootstrapped with SDLF domain roles
-    Type: CommaDelimitedList
   pCicdRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/CicdCodeCommit
@@ -440,11 +434,10 @@ Resources:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-*
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-teams-*
                 Condition:
-                  StringEqualsIfExists:
+                  StringEquals:
                     "iam:PassedToService":
                       - codepipeline.amazonaws.com
                       - events.amazonaws.com
-                      - cloudformation.amazonaws.com
               - Effect: Allow
                 Action:
                   - iam:PassRole
@@ -897,10 +890,3 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       TemplateURL: ./nested-stacks/template-cicd-glue-job.yaml
-      Parameters:
-        pDomainAccounts: !Join
-          - ","
-          - !Ref pDomainAccounts
-        pDomainKmsArns: !Join
-          - ","
-          - !Ref pDomainKmsArns
