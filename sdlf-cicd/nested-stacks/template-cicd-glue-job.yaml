@@ -10,12 +10,6 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
-  pDomainAccounts:
-    Description: List of AWS account ids bootstrapped with SDLF domain roles
-    Type: CommaDelimitedList
-  pDomainKmsArns:
-    Description: List of AWS account ids bootstrapped with SDLF domain roles
-    Type: CommaDelimitedList
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
     Type: AWS::SSM::Parameter::Value<String>
@@ -64,16 +58,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/*
               - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:PutObjectAcl
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::*-artifacts/*
-                Condition:
-                  "StringEquals":
-                    "s3:ResourceAccount": !Ref pDomainAccounts
-              - Effect: Allow
                 Action: codecommit:GitPull
                 Resource:
                   - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-*
@@ -88,25 +72,8 @@ Resources:
                 Resource:
                   - !Ref pKMSKey
               - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:DescribeKey
-                  - kms:Encrypt
-                  - kms:GenerateDataKey*
-                  - kms:ReEncrypt*
-                Resource: !Ref pDomainKmsArns
-                Condition:
-                  "ForAnyValue:StringLike":
-                    "kms:ResourceAliases": alias/sdlf-kms-key
-              - Sid: ReadOnlyAccessSsm
-                Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                  - ssm:GetParametersByPath
-                Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/*
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/VPC/SubnetIds
+                Action: sts:AssumeRole
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-devops-crossaccount-pipeline
               - !If
                 - RunInVpc
                 - Effect: Allow
@@ -184,10 +151,18 @@ Resources:
             build:
               commands:
                 - |-
+                    STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
                     SSM_ENDPOINT_URL="https://ssm.$AWS_REGION.amazonaws.com"
                     EC2_ENDPOINT_URL="https://ec2.$AWS_REGION.amazonaws.com"
-                    ARTIFACTS_BUCKET=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/S3/$DOMAIN/$ENVIRONMENT/ArtifactsBucket" --query "Parameter.Value" --output text) || exit 1
+
+                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$DOMAIN_ACCOUNT_ID:role/sdlf-cicd-devops-crossaccount-pipeline" --role-session-name "codebuild-glue-job")
+                    AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
+                    AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
+                    AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
+                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                    ARTIFACTS_BUCKET=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/S3/ArtifactsBucket" --query "Parameter.Value" --output text) || exit 1
                     echo "Artifacts bucket to store Glue job scripts: $ARTIFACTS_BUCKET"
+
                     if [ -d "./transforms/" ]
                     then
                         pushd "./transforms/" || exit
@@ -219,31 +194,35 @@ Resources:
                         TRANSFORMS_CDL="${joined%,}"
                         echo "TRANSFORMS_CDL - $TRANSFORMS_CDL"
 
-                        # for each subnet defined in /SDLF/VPC/SubnetIds, find in which AZ it lives in, then add to the Cloudformation template
-                        # a Glue connection per subnet. Frankly we would prefer to avoid doing these kind of things.
-                        # it can be revisited when AvailabilityZone is no longer required in PhysicalConnectionRequirements
-                        SUBNETS_CDL=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/VPC/SubnetIds" --query "Parameter.Value" --output text) || exit 1
-                        echo "Subnets provided: $SUBNETS_CDL"
-                        if [[ -n "$SUBNETS_CDL" ]]
+                        VPC_ENABLED=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/VPC/Enabled" --query "Parameter.Value" --output text) || exit 1
+                        if [[ "$VPC_ENABLED" == "true" ]]
                         then
-                            # convert comma-delimited list to array
-                            IFS="," read -ra SUBNETS <<< "$SUBNETS_CDL"
-                            BUILDSTEPVARIABLE_GLUECONNECTIONS=""
-                            for i in "${!SUBNETS[@]}"
-                            do
-                                BUILDSTEPVARIABLE_AZ=$(aws ec2 --endpoint-url "$EC2_ENDPOINT_URL" describe-subnets --subnet-id "${SUBNETS[$i]}" --query "Subnets[0].AvailabilityZone" --output text) || exit 1
-                                BUILDSTEPVARIABLE_NOHYPHEN_AZ="$i${BUILDSTEPVARIABLE_AZ//-/}"
-                                awk \
-                                    -v BUILDSTEPVARIABLE_NOHYPHEN_AZ="$BUILDSTEPVARIABLE_NOHYPHEN_AZ" \
-                                    -v BUILDSTEPVARIABLE_AZ="$BUILDSTEPVARIABLE_AZ" \
-                                    -v BUILDSTEPVARIABLE_SUBNET="${SUBNETS[$i]}" '{
-                                      sub(/%{BUILDSTEPVARIABLE_NOHYPHEN_AZ}/, BUILDSTEPVARIABLE_NOHYPHEN_AZ);
-                                      sub(/%{BUILDSTEPVARIABLE_AZ}/, BUILDSTEPVARIABLE_AZ);
-                                      sub(/%{BUILDSTEPVARIABLE_SUBNET}/, BUILDSTEPVARIABLE_SUBNET);
-                                      print;
-                                }' "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-glue-job.part >> "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-glue-job.yaml
-                                BUILDSTEPVARIABLE_GLUECONNECTIONS+="                - !Ref r${BUILDSTEPVARIABLE_NOHYPHEN_AZ}GlueConnection"$'\n'
-                            done
+                            # for each subnet defined in /SDLF/VPC/SubnetIds, find in which AZ it lives in, then add to the Cloudformation template
+                            # a Glue connection per subnet. Frankly we would prefer to avoid doing these kind of things.
+                            # it can be revisited when AvailabilityZone is no longer required in PhysicalConnectionRequirements
+                            SUBNETS_CDL=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/VPC/SubnetIds" --query "Parameter.Value" --output text) || exit 1
+                            echo "Subnets provided: $SUBNETS_CDL"
+                            if [[ -n "$SUBNETS_CDL" ]]
+                            then
+                                # convert comma-delimited list to array
+                                IFS="," read -ra SUBNETS <<< "$SUBNETS_CDL"
+                                BUILDSTEPVARIABLE_GLUECONNECTIONS=""
+                                for i in "${!SUBNETS[@]}"
+                                do
+                                    BUILDSTEPVARIABLE_AZ=$(aws ec2 --endpoint-url "$EC2_ENDPOINT_URL" describe-subnets --subnet-id "${SUBNETS[$i]}" --query "Subnets[0].AvailabilityZone" --output text) || exit 1
+                                    BUILDSTEPVARIABLE_NOHYPHEN_AZ="$i${BUILDSTEPVARIABLE_AZ//-/}"
+                                    awk \
+                                        -v BUILDSTEPVARIABLE_NOHYPHEN_AZ="$BUILDSTEPVARIABLE_NOHYPHEN_AZ" \
+                                        -v BUILDSTEPVARIABLE_AZ="$BUILDSTEPVARIABLE_AZ" \
+                                        -v BUILDSTEPVARIABLE_SUBNET="${SUBNETS[$i]}" '{
+                                          sub(/%{BUILDSTEPVARIABLE_NOHYPHEN_AZ}/, BUILDSTEPVARIABLE_NOHYPHEN_AZ);
+                                          sub(/%{BUILDSTEPVARIABLE_AZ}/, BUILDSTEPVARIABLE_AZ);
+                                          sub(/%{BUILDSTEPVARIABLE_SUBNET}/, BUILDSTEPVARIABLE_SUBNET);
+                                          print;
+                                    }' "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-glue-job.part >> "$CODEBUILD_SRC_DIR_SourceCicdArtifact"/template-glue-job.yaml
+                                    BUILDSTEPVARIABLE_GLUECONNECTIONS+="                - !Ref r${BUILDSTEPVARIABLE_NOHYPHEN_AZ}GlueConnection"$'\n'
+                                done
+                            fi
                         fi
                         popd || exit 1
                     fi

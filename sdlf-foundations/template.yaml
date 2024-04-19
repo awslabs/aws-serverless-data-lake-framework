@@ -292,20 +292,6 @@ Resources:
               - kms:GenerateDataKey*
               - kms:Describe*
             Resource: "*"
-          - Sid: CrossAccount Glue Job Deployer Pipelines
-            Effect: Allow
-            Principal:
-              AWS: !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:root"
-            Action:
-              - kms:Encrypt
-              - kms:Decrypt
-              - kms:ReEncrypt*
-              - kms:GenerateDataKey*
-              - kms:DescribeKey
-            Resource: "*"
-            Condition:
-              "ArnLike":
-                "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:role/sdlf-cicd-sdlf-pipelines--*"
 
   rKMSKeyAlias:
     Type: AWS::KMS::Alias
@@ -496,19 +482,6 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
-          - Sid: CrossAccount Glue Job Deployer Pipelines
-            Effect: Allow
-            Principal:
-              AWS: !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:root"
-            Action:
-              - s3:GetObject
-              - s3:PutObject
-              - s3:PutObjectAcl
-            Resource:
-              - !Sub ${rArtifactsBucket.Arn}/*
-            Condition:
-              "ArnLike":
-                "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::{{resolve:ssm:/SDLF/Misc/pDevOpsAccountId}}:role/sdlf-cicd-sdlf-pipelines--*"
 
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
   rRawBucket:

@@ -304,7 +304,8 @@ Resources:
                     EnvironmentVariables: !Sub >-
                       [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
-                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"}]
+                      {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"},
+                      {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"}]
                   RunOrder: 1
                 - !Ref AWS::NoValue
               - !If

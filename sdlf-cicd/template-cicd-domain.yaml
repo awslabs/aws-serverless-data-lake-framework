@@ -80,7 +80,6 @@ Resources:
             Principal:
               Service:
                 - codepipeline.amazonaws.com
-                - cloudformation.amazonaws.com
             Action:
               - sts:AssumeRole
       Policies:
@@ -137,41 +136,6 @@ Resources:
                 Action: sts:AssumeRole
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:DescribeStackEvents
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:SetStackPolicy
-                  - cloudformation:UpdateStack
-                  - cloudformation:GetTemplateSummary
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-*
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain-${pDomain}-*
-                Condition:
-                  StringEquals:
-                    "iam:PassedToService":
-                      - cloudformation.amazonaws.com
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                  - ssm:PutParameter
-                  - ssm:AddTagsToResource
-                  - ssm:ListTagsForResource
-                  - ssm:RemoveTagsFromResource
-                  - ssm:DeleteParameter
-                Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/S3/${pDomain}/${pEnvironment}/*
 
   rDomainCodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -336,7 +300,6 @@ Resources:
           Actions:
             - Name: CreateStack
               RoleArn: !Sub arn:${AWS::Partition}:iam::${pChildAccountId}:role/sdlf-cicd-devops-crossaccount-pipeline
-              Namespace: DomainVariables
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -357,29 +320,6 @@ Resources:
                   }
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
               RunOrder: 1
-            - Name: PublishDomainDetailsInDevops
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: "1"
-              InputArtifacts:
-                - Name: SourceCicdArtifact
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                RoleArn: !GetAtt rDomainCodePipelineRole.Arn
-                StackName: !Sub sdlf-domain-${pDomain}-${pEnvironment}-parameters
-                TemplatePath: "SourceCicdArtifact::template-cicd-domain-parameters.yaml"
-                TemplateConfiguration: "SourceCicdArtifact::tags.json"
-                ParameterOverrides: !Sub |
-                  {
-                    "pPipelineReference" : "#{codepipeline.PipelineExecutionId}",
-                    "pArtifactsBucket" : "#{DomainVariables.oS3ArtifactsBucket}",
-                    "pDomain" : "${pDomain}",
-                    "pEnvironment" : "${pEnvironment}"
-                  }
-                Capabilities: CAPABILITY_AUTO_EXPAND
-              RunOrder: 2
       ArtifactStore:
         Type: S3
         Location: !Ref pArtifactsBucket
