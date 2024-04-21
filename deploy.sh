@@ -7,7 +7,7 @@ underline=$(tput smul)
 notunderline=$(tput rmul)
 notbold=$(tput sgr0)
 
-version () { echo "awssdlf/2.1.0"; }
+version () { echo "awssdlf/2.3.0"; }
 
 usage () { echo "
     --version -- Prints the SDLF version
