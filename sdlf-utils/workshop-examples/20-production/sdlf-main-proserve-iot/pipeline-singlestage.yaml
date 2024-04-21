@@ -21,7 +21,7 @@ Resources:
                     "detail-type": ["Object Created"],
                     "detail": {
                         "bucket": {
-                            "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
+                            "name": ["{{resolve:ssm:/SDLF/S3/RawBucket}}"]
                         },
                         "object": {
                             "key": [{ "prefix": "iot/legislators/" }]

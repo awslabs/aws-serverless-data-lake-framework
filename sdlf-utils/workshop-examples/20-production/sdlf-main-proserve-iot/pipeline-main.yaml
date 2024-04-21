@@ -21,7 +21,7 @@ Resources:
                     "detail-type": ["Object Created"],
                     "detail": {
                         "bucket": {
-                            "name": ["{{resolve:ssm:/SDLF/S3/CentralBucket}}"]
+                            "name": ["{{resolve:ssm:/SDLF/S3/RawBucket}}"]
                         },
                         "object": {
                             "key": [{ "prefix": "iot/legislators/" }]
@@ -45,7 +45,7 @@ Resources:
                     "detail-type": ["Step Functions Execution Status Change"],
                     "detail": {
                         "status": ["SUCCEEDED"],
-                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-main-sm-a"]
+                        "stateMachineArn": ["arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-iot-main-sm-A"]
                     }
                 }
             pSchedule: "cron(*/5 * * * ? *)"
