@@ -211,6 +211,7 @@ Resources:
               Service:
                 - cloudtrail.amazonaws.com
                 - cloudwatch.amazonaws.com
+                - events.amazonaws.com
             Action:
               - kms:Decrypt
               - kms:GenerateDataKey*
@@ -486,7 +487,6 @@ Resources:
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
   rRawBucket:
     Type: AWS::S3::Bucket
-    DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
         !If
@@ -545,7 +545,6 @@ Resources:
 
   rStageBucket:
     Type: AWS::S3::Bucket
-    DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
         !If
@@ -604,7 +603,6 @@ Resources:
 
   rAnalyticsBucket:
     Type: AWS::S3::Bucket
-    DependsOn: rQueueCatalogPolicy
     Properties:
       BucketName:
         !If
@@ -730,6 +728,49 @@ Resources:
       VisibilityTimeout: 60
       KmsMasterKeyId: !GetAtt rKMSKey.Arn
 
+  rQueueCatalogPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - SQS:SendMessage
+            Resource: !GetAtt rQueueCatalog.Arn
+            Condition:
+              ArnEquals:
+                "aws:SourceArn": !GetAtt rS3ObjectTriggerRule.Arn
+      Queues:
+        - !Ref rQueueCatalog
+
+  rS3ObjectTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+          - Object Deleted
+        detail:
+          bucket:
+            name:
+              - !Ref rRawBucket
+              - !Ref rStageBucket
+              - !Ref rAnalyticsBucket
+      Targets:
+        - Arn: !GetAtt rQueueCatalog.Arn
+          RetryPolicy:
+            MaximumRetryAttempts: 3
+            MaximumEventAgeInSeconds: 600
+          DeadLetterConfig:
+            Arn: !GetAtt rDeadLetterQueueCatalog.Arn
+          Id: sdlf-catalog
+
   rQueueLambdaCatalogEventSourceMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -773,34 +814,6 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !GetAtt rKMSKey.Arn
-
-  rQueueCatalogPolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: s3.amazonaws.com
-            Action:
-              - SQS:SendMessage
-            Resource: !GetAtt rQueueCatalog.Arn
-            Condition:
-              ArnEquals:
-                "aws:SourceArn":
-                  !If
-                    - UseCustomBucketPrefix
-                    - - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-raw"
-                      - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-stage"
-                      - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}-analytics"
-                    - - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
-                      - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
-                      - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
-      Queues:
-        - !Ref rQueueCatalog
 
   rRoleLambdaExecution:
     Type: AWS::IAM::Role
@@ -869,30 +882,6 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/*
-
-  rS3ObjectTriggerRule:
-    Type: AWS::Events::Rule
-    Properties:
-      State: ENABLED
-      EventPattern:
-        source:
-          - aws.s3
-        detail-type:
-          - Object Created
-          - Object Deleted
-        detail:
-          bucket:
-            - !Ref rRawBucket
-            - !Ref rStageBucket
-            - !Ref rAnalyticsBucket
-      Targets:
-        - Arn: !GetAtt rQueueCatalog.Arn
-          RetryPolicy:
-            MaximumRetryAttempts: 3
-            MaximumEventAgeInSeconds: 600
-          DeadLetterConfig:
-            Arn: !GetAtt rDeadLetterQueueCatalog.Arn
-          Id: sdlf-catalog
 
   ####### SSM #######
   rS3ArtifactBucketSsm:
