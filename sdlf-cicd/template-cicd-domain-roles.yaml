@@ -40,6 +40,7 @@ Resources:
   ######## OPTIONAL SDLF FEATURES #########
   rMonitoringFeatureSsm:
     Type: AWS::SSM::Parameter
+    Condition: MultiAccountSetup
     Properties:
       Name: /SDLF/Monitoring/Enabled
       Type: String
