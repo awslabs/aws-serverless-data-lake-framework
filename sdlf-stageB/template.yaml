@@ -35,6 +35,11 @@ Parameters:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
     AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
+  pStageEnabled:
+    Description: Whether the stage is enabled or not
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
   pTriggerType:
     Description: Trigger type of the stage (event or schedule)
     Type: String
@@ -134,6 +139,7 @@ Resources:
       pTeamName: !Ref pTeamName
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
+      pStageEnabled: !Ref pStageEnabled
       pTriggerType: !Ref pTriggerType
       pSchedule: !Ref pSchedule
       pEventPattern: !Ref pEventPattern
