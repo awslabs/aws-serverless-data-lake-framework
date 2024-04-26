@@ -58,8 +58,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-        #Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
-        Name: !Ref pGlueDatabaseName
+        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pGlueDatabaseName}_db
 
   rGlueDataCatalogLakeFormationTag:
       Type: AWS::LakeFormation::TagAssociation
