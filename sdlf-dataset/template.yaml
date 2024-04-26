@@ -29,6 +29,10 @@ Parameters:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
+  pGlueDatabaseName:
+    Description: The name of the Glue database (all lowercase, alphanumeric and underscore characters only)
+    Type: String
+    AllowedPattern: "[a-z0-9_]{2,14}"
   pPipelineDetails:
     Type: String
     Default: >-
@@ -54,7 +58,8 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
+        #Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
+        Name: !Ref pGlueDatabaseName
 
   rGlueDataCatalogLakeFormationTag:
       Type: AWS::LakeFormation::TagAssociation
