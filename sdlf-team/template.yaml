@@ -720,7 +720,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:DescribeLogGroups
                   - logs:DeleteLogGroup
-                  - logs:TagLogGroup
+                  - logs:TagResource
                   - logs:PutRetentionPolicy
                   - logs:DeleteRetentionPolicy
                   - logs:DescribeLogStreams
@@ -833,7 +833,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:DescribeLogGroups
                   - logs:DeleteLogGroup
-                  - logs:TagLogGroup
+                  - logs:TagResource
                   - logs:PutRetentionPolicy
                   - logs:DeleteRetentionPolicy
                   - logs:DescribeLogStreams

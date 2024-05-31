@@ -475,7 +475,7 @@ Resources:
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
                   - logs:PutRetentionPolicy
-                  - logs:TagLogGroup
+                  - logs:TagResource
                 Resource:
                   - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/*/sdlf-*
               - Effect: Allow
