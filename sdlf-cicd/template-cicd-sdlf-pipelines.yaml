@@ -45,6 +45,8 @@ Parameters:
     Default: /SDLF/GlueJobDeployer/Enabled
 
 Conditions:
+  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
@@ -393,7 +395,7 @@ Resources:
             reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -402,24 +404,36 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - codecommit:ListRepositories # W11 exception
                 Resource: "*"
-              - Effect: Allow # TODO if codecommit?
-                Action:
-                  - codecommit:GetRepository
-                  - codecommit:CreateRepository
-                  - codecommit:DeleteRepository
-                  - codecommit:TagResource
-                  - codecommit:UntagResource
-                  - codecommit:UpdateRepositoryEncryptionKey
-                  - codecommit:PutRepositoryTriggers
-                  - codecommit:CreateCommit
-                Resource:
-                  - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepositoriesPrefix}*
+              - !If
+                - CodeCommitNoGitLab
+                - Effect: Allow
+                  Action:
+                    - codecommit:GetRepository
+                    - codecommit:CreateRepository
+                    - codecommit:DeleteRepository
+                    - codecommit:TagResource
+                    - codecommit:UntagResource
+                    - codecommit:UpdateRepositoryEncryptionKey
+                    - codecommit:PutRepositoryTriggers
+                    - codecommit:CreateCommit
+                  Resource:
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepositoriesPrefix}*
+                - !Ref "AWS::NoValue"
+              - !If
+                - GitLabNoCodeCommit
+                - Effect: Allow
+                  Action:
+                    - codeconnections:PassConnection
+                    - codestar-connections:PassConnection
+                  Resource:
+                    - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                - !Ref "AWS::NoValue"
               - Effect: Allow  
                 Action:
                   - kms:Decrypt
