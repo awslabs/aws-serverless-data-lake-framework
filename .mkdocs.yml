@@ -1,0 +1,23 @@
+site_name: AWS Serverless Data Lake Framework
+site_url: https://sdlf.readthedocs.io
+repo_url: https://github.com/awslabs/aws-serverless-data-lake-framework
+copyright: Amazon Web Services, Inc. All Rights Reserved.
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.integrate
+  logo: _static/sdlf-logo.svg
+  favicon: _static/sail-icon.ico
+markdown_extensions:
+  - admonition
+plugins:
+  - search
+nav:
+  - index.md
+  - architecture.md
+  - constructs.md
+  - 'Workshop': 'https://sdlf.workshop.aws/'
+  - 'License': 'https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/LICENSE'
+  - 'Contributing': 'https://github.com/awslabs/aws-serverless-data-lake-framework/blob/main/CONTRIBUTING.md'
