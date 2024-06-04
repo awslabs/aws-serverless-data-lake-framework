@@ -153,7 +153,7 @@ Resources:
                   Condition:
                     "ForAllValues:StringLikeIfExists":
                       "codeconnections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
@@ -161,7 +161,7 @@ Resources:
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
                       "codestar-connections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/CodeCommit/${pTeamName}/MainCodeCommit}}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
