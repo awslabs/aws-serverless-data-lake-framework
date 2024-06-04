@@ -1,15 +1,12 @@
-Architecture
-=============
+# Architecture
 
-.. image:: _static/sdlf-architecture.png
-    :alt: SDLF Architecture
-    :align: center
+![SDLF Architecture](_static/sdlf-architecture.png)
 
 An example architecture for a SDLF pipeline is detailed in the diagram above. The entire process is event-driven.
 
-It's important to understand that this is just `one example` used to illustrate the orchestration process within the framework. Each team has full flexibility in terms of the number, order and purpose of the various stages and steps within their pipeline.
+It's important to understand that this is just *one example* used to illustrate the orchestration process within the framework. Each team has full flexibility in terms of the number, order and purpose of the various stages and steps within their pipeline.
 
-1. As a file lands into the RAW bucket under the ``<team>/<dataset>`` prefix, an S3 Events Notification is created and placed in a queue
+1. As a file lands into the RAW bucket under the `<team>/<dataset>` prefix, an S3 Events Notification is created and placed in a queue
 
 2. The message is picked up by a Lambda which routes it to the appropriate SDLF team-specific pipeline
 
@@ -19,4 +16,5 @@ It's important to understand that this is just `one example` used to illustrate 
 
 5. This time a heavy transformation is applied on a batch of files. This heavy transformation can be an API call to an Analytical AWS service (Glue Job, Fargate Task, EMR Step, SageMaker Notebook…) and the code is again provided by the data engineer. The state machine waits for the job to reach a SUCCEEDED state before the output is crawled to update the Glue Metadata Catalog (i.e. Tables metadata). A data quality step leveraging Deequ can also be run
 
-.. warning:: We strongly recommend that customers conduct a `Well Architected Review <https://aws.amazon.com/architecture/well-architected/>`_ of their SDLF Implementation
+!!! warning
+    We strongly recommend that customers conduct a [Well Architected Review](https://aws.amazon.com/architecture/well-architected/) of their SDLF Implementation

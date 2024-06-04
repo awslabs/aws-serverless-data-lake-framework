@@ -5,9 +5,8 @@ build:
   tools:
     python: "3.12"
 
-sphinx:
-  configuration: docs/source/conf.py
-  # Fail on all warnings to avoid broken references
+mkdocs:
+  configuration: .mkdocs.yml
   fail_on_warning: true
 
 python:
