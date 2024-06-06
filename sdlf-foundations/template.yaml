@@ -309,7 +309,7 @@ Resources:
       Name: /SDLF/KMS/KeyArn
       Type: String
       Value: !GetAtt rKMSKey.Arn
-      Description: Arn of the KMS key
+      Description: ARN of the KMS key
 
   rLakeFormationDataAccessRoleSsm:
     Type: AWS::SSM::Parameter
@@ -1522,7 +1522,7 @@ Resources:
   rDomainSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Misc/pDomain
+      Name: /SDLF/Misc/pDomain
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
@@ -1530,7 +1530,7 @@ Resources:
   rEnvironmentSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Misc/pEnv
+      Name: /SDLF/Misc/pEnv
       Type: String
       Value: !Ref pEnvironment
       Description: Environment name
