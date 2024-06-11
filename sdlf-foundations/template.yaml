@@ -1432,7 +1432,14 @@ Resources:
       Name: /SDLF/Dynamo/TransformMapping
       Type: String
       Value: !Ref rDynamoOctagonDatasets
-      Description: Name of the DynamoDB used to store mappings to transformation
+      Description: Name of the DynamoDB used to store mappings to transformation (same as /SDLF/Dynamo/Datasets)
+  rDynamoDatasetsSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/Dynamo/Datasets
+      Type: String
+      Value: !Ref rDynamoOctagonDatasets
+      Description: Name of the DynamoDB used to store datasets metadata
   rDynamoPipelinesSsm:
     Type: AWS::SSM::Parameter
     Properties:

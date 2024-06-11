@@ -32,7 +32,7 @@ Everything is encrypted using SSE-KMS with [S3 Bucket Keys](https://docs.aws.ama
 | Table                                            | Description                                                                               | SSM Parameter                   |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------- |
 | `octagon-ObjectMetadata-{environment}`           | Metadata for all objects in the data lake raw & stage buckets (populated by `sdlf-catalog`) | `/SDLF/Dynamo/ObjectCatalog`  |
-| `octagon-Datasets-{environment}`                 | Metadata for all user-defined datasets (populated by `sdlf-dataset`)                      | `/SDLF/Dynamo/TransformMapping` |
+| `octagon-Datasets-{environment}`                 | Metadata for all user-defined datasets (populated by `sdlf-dataset`)                      | `/SDLF/Dynamo/TransformMapping`, `/SDLF/Dynamo/Datasets` |
 | `octagon-Artifacts-{environment}`                | Metadata for all artifacts (currently empty, soon populated by `sdlf-cicd`)               |                                 |
 | `octagon-Metrics-{environment}`                  | User-provided data pipeline metrics                                                       |                                 |
 | `octagon-Configuration-{environment}`            | User-provided key-value configurations                                                    |                                 |

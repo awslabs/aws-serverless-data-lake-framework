@@ -6,11 +6,12 @@ The core constructs available in the framework are detailed in this section.
 
 - [sdlf-foundations](foundations.md)
 - [sdlf-team](team.md)
+- [sdlf-dataset](dataset.md)
 - [sdlf-pipeline](pipeline.md)
 - [sdlf-stageA](stage-lambda.md)
 - [sdlf-stageB](stage-glue.md)
 - [sdlf-stage-dataquality](stage-dataquality.md)
-- [sdlf-dataset](dataset.md)
+- [sdlf-monitoring](monitoring.md)
 
 ![SDLF Constructs](../_static/sdlf-constructs.png)
 
