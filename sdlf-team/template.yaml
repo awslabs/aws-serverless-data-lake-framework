@@ -18,10 +18,10 @@ Parameters:
     Description: The analytics bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/AnalyticsBucket}}"
-  pCentralBucket:
-    Description: The central bucket for the solution
+  pRawBucket:
+    Description: The raw bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
+    Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pAthenaBucket:
     Description: S3 Athena bucket
     Type: String
@@ -368,7 +368,7 @@ Resources:
               - s3:ListBucket
             Resource:
               - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
-              - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
               - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
           - Sid: AllowTeamPrefixActions
@@ -379,7 +379,7 @@ Resources:
               - s3:PutObject
             Resource:
               - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pTeamName}/*
-              - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
@@ -606,7 +606,7 @@ Resources:
                   - s3:PutObject
                   - s3:PutObjectVersion
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/*
@@ -922,7 +922,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pCentralBucket}/${pTeamName}/
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/
 
   rStagePreTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions

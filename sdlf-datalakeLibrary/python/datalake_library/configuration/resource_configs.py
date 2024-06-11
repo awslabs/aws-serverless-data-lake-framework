@@ -52,7 +52,7 @@ class S3Configuration(BaseConfig):
     @property
     def raw_bucket(self):
         if not self._raw_bucket:
-            self._raw_bucket = self._get_ssm_param("/SDLF/S3/CentralBucket")
+            self._raw_bucket = self._get_ssm_param("/SDLF/S3/RawBucket")
         return self._raw_bucket
 
     @property

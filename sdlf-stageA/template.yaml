@@ -18,7 +18,7 @@ Parameters:
   pDatasetBucket:
     Description: The raw or central bucket for the solution
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/CentralBucket}}"
+    Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
