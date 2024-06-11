@@ -897,7 +897,7 @@ Resources:
       Name: /SDLF/S3/CentralBucket
       Type: String
       Value: !Ref rRawBucket
-      Description: Name of the Central S3 bucket
+      Description: Name of the Central S3 bucket (deprecrated, use /SDLF/S3/RawBucket instead)
   rS3RawBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:

@@ -64,16 +64,16 @@ function send_legislators()
 {
   ORIGIN="$DIRNAME/data/"
   
-  CENTRAL_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/CentralBucket --query "Parameter.Value" --output text)
+  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/RawBucket --query "Parameter.Value" --output text)
   STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/StageBucket --query "Parameter.Value" --output text)
   KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/SDLF/KMS/$TEAM_NAME/DataKeyId" --query "Parameter.Value" --output text)
 
-  S3_DESTINATION=s3://$CENTRAL_BUCKET/
+  S3_DESTINATION=s3://$RAW_BUCKET/
   COUNT=0
   for FILE in "$ORIGIN"/*.json;
   do
     (( COUNT++ )) || true
-    if [ "$CENTRAL_BUCKET" == "$STAGE_BUCKET" ];then
+    if [ "$RAW_BUCKET" == "$STAGE_BUCKET" ];then
       aws s3 cp "$FILE" "${S3_DESTINATION}raw/$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     else
       aws s3 cp "$FILE" "${S3_DESTINATION}$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
