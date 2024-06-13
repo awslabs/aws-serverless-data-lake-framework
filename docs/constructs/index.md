@@ -4,16 +4,19 @@ The core constructs available in the framework are detailed in this section.
 
 ## Available Constructs
 
-- [sdlf-foundations](foundations.md)
-- [sdlf-team](team.md)
-- [sdlf-dataset](dataset.md)
-- [sdlf-pipeline](pipeline.md)
-- [sdlf-stageA](stage-lambda.md)
-- [sdlf-stageB](stage-glue.md)
-- [sdlf-stage-dataquality](stage-dataquality.md)
-- [sdlf-monitoring](monitoring.md)
+![SDLF Constructs](../_static/sdlf-in-a-nutshell.png)
 
-![SDLF Constructs](../_static/sdlf-constructs.png)
+| Construct                                      | Description                                         |
+| ---------------------------------------------- | --------------------------------------------------- |
+| [sdlf-foundations](foundations.md)             | Data lake storage layers with S3 and Lake Formation |
+| [sdlf-team](team.md)                           | Dedicated policies and permissions                  |
+| [sdlf-dataset](dataset.md)                     | Glue database and crawler                           |
+| [sdlf-pipeline](pipeline.md)                   | Common interface used in sdlf-stage-* constructs    |
+| [sdlf-stageA](stage-lambda.md)                 | EventBridge-triggered Lambda function               |
+| [sdlf-stageB](stage-glue.md)                   | EventBridge-triggered Glue function                 |
+| [sdlf-stage-dataquality](stage-dataquality.md) | EventBridge-triggered Glue Data Quality Evaluation  |
+| [sdlf-monitoring](monitoring.md)               | CloudTrail, S3 Storage Lens                         |
+| [sdlf-cicd](cicd.md)                           | GitOps infrastructure to deploy all SDLF constructs |
 
 ## VPC Networking
 
