@@ -23,7 +23,6 @@ Parameters:
 
 Conditions:
   CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
 
 Resources:
   rTeamMainCodeCommit:
@@ -41,18 +40,6 @@ Resources:
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
       RepositoryName: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey
-
-  rTeamMainGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
-    Condition: GitLabNoCodeCommit
-    Properties:
-      Name: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
-#      Path: !Ref pSdlfGitLabGroup
 
   rTeamMainCodeCommitSsm:
     Type: AWS::SSM::Parameter
