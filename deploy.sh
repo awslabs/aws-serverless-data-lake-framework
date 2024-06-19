@@ -268,12 +268,13 @@ devops_account () {
         then
             GITLAB_URL=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/Url --query "Parameter.Value" --output text)
             GITLAB_ACCESSTOKEN=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/AccessToken --query "Parameter.Value" --output text)
+            GITLAB_NAMESPACE_ID=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/NameSpaceId --query "Parameter.Value" --output text)
 
+            echo "Creating $REPOSITORY repository in GitLab ..."
             curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
-                --header "Content-Type: application/json" --data '{
-                    "name": "$REPOSITORY", "description": "$REPOSITORY", "path": "$REPOSITORY",
-                    "namespace_id": "66", "initialize_with_readme": false}' \
-                --url "$GITLAB_URLapi/v4/projects/"
+                --header "Content-Type: application/json" \
+                --data "{\"name\": \"$REPOSITORY\", \"description\": \"$REPOSITORY\", \"path\": \"$REPOSITORY\", \"namespace_id\": \"$GITLAB_NAMESPACE_ID\", \"initialize_with_readme\": false}" \
+                --url "${GITLAB_URL}api/v4/projects/"
 
             GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}sdlf/$REPOSITORY.git"
 
