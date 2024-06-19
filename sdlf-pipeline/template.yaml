@@ -117,7 +117,7 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !GetAtt rStageRule.Arn
       Queues:
-        - Ref: rQueueRoutingStep
+        - !Ref rQueueRoutingStep
 
   rQueueLambdaEventSourceMapping:
     Type: AWS::Lambda::EventSourceMapping
@@ -182,7 +182,7 @@ Resources:
           {
             "FunctionName": "${pLambdaRoutingStep}",
             "InvocationType": "Event",
-            "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
+            "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"event_pattern\": \"true\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
           }
 
   ######## SSM OUTPUTS #########
