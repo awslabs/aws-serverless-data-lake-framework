@@ -4,6 +4,7 @@ import os
 import zipfile
 from io import BytesIO
 from tempfile import mkdtemp
+from urllib.request import Request, urlopen
 
 import boto3
 from botocore.client import Config
@@ -163,6 +164,15 @@ def delete_domain_team_role_stack(cloudformation, team):
 
 
 def create_team_repository_cicd_stack(domain, team_name, template_body_url, cloudformation_role):
+    gitlab_url = ssm.get_parameter(Name="/SDLF/GitLab/Url")["Parameter"]["Value"]
+    gitlab_accesstoken = ssm.get_parameter(Name="/SDLF/GitLab/AccessToken")["Parameter"]["Value"]
+    repository = f"sdlf-main-{domain}-{team_name}"
+    req = Request(f"{gitlab_url}api/v4/projects/")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("PRIVATE-TOKEN", gitlab_accesstoken)
+    data = '{"name": "$REPOSITORY", "description": "$REPOSITORY", "path": "$REPOSITORY","namespace_id": "66", "initialize_with_readme": false}'
+    response = urlopen(req, data=data).read()
+
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-teams-{domain}-{team_name}-repository"
