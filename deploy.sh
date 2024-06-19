@@ -50,7 +50,7 @@ function template_protection()
         --profile "$CURRENT_PROFILE_NAME"
 }
 
-crossaccount_cicd_roles () { 
+crossaccount_cicd_roles () {
     pflag=false
     rflag=false
     dflag=false
@@ -132,7 +132,7 @@ crossaccount_cicd_roles () {
     exit
 }
 
-devops_account () { 
+devops_account () {
     pflag=false
     rflag=false
     dflag=false
@@ -269,13 +269,17 @@ devops_account () {
             GITLAB_URL=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/Url --query "Parameter.Value" --output text)
             GITLAB_ACCESSTOKEN=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/AccessToken --query "Parameter.Value" --output text)
 
-            curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
-                --header "Content-Type: application/json" --data '{
-                    "name": "$REPOSITORY", "description": "$REPOSITORY", "path": "$REPOSITORY",
-                    "namespace_id": "66", "initialize_with_readme": false}' \
-                --url "$GITLAB_URLapi/v4/projects/"
+            GITLAB_NAMESPACE_ID=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/NameSpaceId --query "Parameter.Value" --output text)
+            GITLAB_GROUP_NAME=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter qq--name /SDLF/GitLab/SdlfGitLabGroup --query "Parameter.Value" --output text)
 
-            GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}sdlf/$REPOSITORY.git"
+            echo "Creating $REPOSITORY repository in GitLab ..."
+            curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
+                --header "Content-Type: application/json" \
+                --data "{\"name\": \"$REPOSITORY\", \"description\": \"$REPOSITORY\", \"path\": \"$REPOSITORY\", \"namespace_id\": \"$GITLAB_NAMESPACE_ID\", \"initialize_with_readme\": false}" \
+                --url "${GITLAB_URL}api/v4/projects/"
+
+
+            GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}${GITLAB_GROUP_NAME}/$REPOSITORY.git"
 
             if [ "$REPOSITORY" = "sdlf-main" ]
             then
