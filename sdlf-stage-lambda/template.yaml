@@ -1,0 +1,675 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Contains StageA StateMachine Definition
+
+Parameters:
+  pPipelineReference:
+    Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
+    Type: String
+    Default: none
+  pOrg:
+    Description: Name of the organization owning the datalake
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+  pDomain:
+    Description: Data domain name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+  pDatasetBucket:
+    Description: The raw or central bucket for the solution
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
+  pStageBucket:
+    Description: The stage bucket for the solution
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+  pTeamName:
+    Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]*"
+  pDataset:
+    Description: The name of the dataset (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,14}"
+    Default: legislators
+  pPipeline:
+    Description: The name of the pipeline (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]*"
+  pEnv:
+    Description: Environment name
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+  pStageName:
+    Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
+  pStageEnabled:
+    Description: Whether the stage is enabled or not
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+  pTriggerType:
+    Description: Trigger type of the stage (event or schedule)
+    Type: String
+    Default: event
+    AllowedValues: [event, schedule]
+  pSchedule:
+    Description: Cron expression when trigger type is schedule
+    Type: String
+    Default: "cron(*/5 * * * ? *)"
+  pEventPattern:
+    Description: Event pattern to match from previous stage
+    Type: String
+    Default: ""
+  pElasticSearchEnabled:
+    Description: Boolean for wether ElasticSearch is enabled
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/ElasticSearch/Enabled
+  pKibanaStreamRole:
+    Description: ARN of the role used to forward logs to Kinesis
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Lambda/KibanaStreamRoleArn
+  pKibanaStream:
+    Description: ARN of the Kinesis stream that collates logs
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Lambda/KibanaStreamArn
+  pCloudWatchLogsRetentionInDays:
+    Description: The number of days log events are kept in CloudWatch Logs
+    Type: Number
+    Default: 30
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
+  # pVpcSecurityGroupIds and pVpcSubnetIds are passed explicitly (unlike in sdlf-cicd/template-cicd-sdlf-repositories.yaml for example)
+  # due to Fn::ImportValue not being accepted in CloudFormation modules template fragments
+  pVpcSecurityGroupIds:
+    Description: VPC Security Groups Ids
+    Type: String
+    Default: ""
+  pVpcSubnetIds:
+    Description: VPC Subnet Ids
+    Type: String
+    Default: ""
+
+Conditions:
+  DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
+  EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Handler: lambda_function.lambda_handler
+    Layers:
+      - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
+    Environment:
+      Variables:
+        TEAM: !Ref pTeamName
+        DATASET: !Ref pDataset
+        PIPELINE: !Ref pPipeline
+        PIPELINE_STAGE: !Ref pStageName
+        ORG: !Ref pOrg
+        DOMAIN: !Ref pDomain
+        ENV: !Ref pEnv
+    KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+    VpcConfig: !If
+      - RunInVpc
+      - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
+        SubnetIds: !Split [",", !Ref pVpcSubnetIds]
+      - !Ref "AWS::NoValue"
+
+
+Resources:
+  rPipelineInterface:
+    Type: awslabs::sdlf::pipeline::MODULE
+    Properties:
+      pPipelineReference: !Ref pPipelineReference
+      pOrg: !Ref pOrg
+      pDomain: !Ref pDomain
+      pEnv: !Ref pEnv
+      pTeamName: !Ref pTeamName
+      pPipelineName: !Ref pPipeline
+      pStageName: !Ref pStageName
+      pStageEnabled: !Ref pStageEnabled
+      pTriggerType: !Ref pTriggerType
+      pSchedule: !Ref pSchedule
+      pEventPattern: !Ref pEventPattern
+      pLambdaRoutingStep: !GetAtt rLambdaRoutingStep.Arn
+
+  ######## IAM #########
+  rLambdaCommonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pTeamName}-${pPipeline}-*
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+          - Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource:
+              - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  # Routing Role
+  rRoleLambdaExecutionRoutingStep:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Ref rStateMachine
+              - Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListDeadLetterSourceQueues
+                  - sqs:ListQueueTags
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-${pPipeline}-queue-*
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-${pPipeline}-dlq-*
+
+  # Metadata Step Role (fetch metadata, update pipeline execution history...)
+  rRoleLambdaExecutionMetadataStep:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-metadata-${pStageName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
+
+  # Processing Role
+  rRoleLambdaExecutionProcessingStep:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-${pStageName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketVersioning
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
+              - Effect: Allow
+                Action:
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:CreateGrant
+                Resource:
+                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
+
+  # Error Handling Lambda Role
+  rRoleLambdaExecutionErrorStep:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      ManagedPolicyArns:
+        - !Ref rLambdaCommonPolicy
+        - !If
+          - RunInVpc
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref "AWS::NoValue"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-error-${pStageName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ListQueues
+                  - sqs:ListDeadLetterSourceQueues
+                  - sqs:ListQueueTags
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-${pPipeline}-dlq-*
+
+  ######## LAMBDA FUNCTIONS #########
+  rLambdaRoutingStep:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/routing/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
+      Description: Routes S3 PutObject Logs to the relevant StageA State Machine
+      Environment:
+        Variables:
+          STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaStep2.Arn
+      MemorySize: 192
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
+
+  rLambdaRedriveStep:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/redrive/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
+      Description: Redrives Failed S3 PutObject Logs to the routing queue
+      MemorySize: 192
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
+
+  rLambdaStep2:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/process-object/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-process-${pStageName}
+      Description: Processing pipeline
+      MemorySize: 1536
+      Timeout: 600
+      Role: !GetAtt rRoleLambdaExecutionProcessingStep.Arn
+
+  rLambdaStep3:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/postupdate-metadata/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-${pStageName}
+      Description: Post-Update the metadata in the DynamoDB Catalog table
+      MemorySize: 192
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaExecutionMetadataStep.Arn
+
+  rLambdaErrorStep:
+    Type: AWS::Serverless::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
+    Properties:
+      CodeUri: ./lambda/error/src
+      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-error-${pStageName}
+      Description: Fallback lambda to handle messages which failed processing
+      MemorySize: 192
+      Timeout: 300
+      Role: !GetAtt rRoleLambdaExecutionErrorStep.Arn
+
+  ######## CLOUDWATCH #########
+  rLambdaRoutingStepLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rUpdateSubscriptionFilterRoutingStep:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: DeployElasticSearch
+    Properties:
+      LogGroupName: !Ref rLambdaRoutingStepLogGroup
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+
+  rLambdaRoutingStepCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Routing Lambda Alarm
+      AlarmActions:
+        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
+      MetricName: Errors
+      EvaluationPeriods: 5
+      Period: 60
+      ComparisonOperator: GreaterThanThreshold
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Threshold: 5
+      Unit: Count
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref rLambdaRoutingStep
+
+  rLambdaRedriveStepLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rUpdateSubscriptionFilterRedriveStep:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: DeployElasticSearch
+    Properties:
+      LogGroupName: !Ref rLambdaRedriveStepLogGroup
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+
+  rLambdaStep2LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rUpdateSubscriptionFilterStep2:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: DeployElasticSearch
+    Properties:
+      LogGroupName: !Ref rLambdaStep2LogGroup
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+
+  rLambdaStep3LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rUpdateSubscriptionFilterStep3:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: DeployElasticSearch
+    Properties:
+      LogGroupName: !Ref rLambdaStep3LogGroup
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+
+  rLambdaErrorStepLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
+
+  rUpdateSubscriptionFilterErrorStep:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: DeployElasticSearch
+    Properties:
+      LogGroupName: !Ref rLambdaErrorStepLogGroup
+      DestinationArn: !Ref pKibanaStream
+      RoleArn: !Ref pKibanaStreamRole
+      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+
+  rLambdaErrorStepCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Error Lambda Alarm
+      AlarmActions:
+        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
+      MetricName: Invocations
+      EvaluationPeriods: 5
+      Period: 60
+      ComparisonOperator: GreaterThanThreshold
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Threshold: 5
+      Unit: Count
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref rLambdaErrorStep
+
+  ######## STATE MACHINE #########
+  rStatesExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that do not have resource limitations associated with them
+    Properties:
+      Path: !Sub /sdlf-${pTeamName}/
+      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Sub ${AWS::AccountId}
+      Policies:
+        - PolicyName: !Sub sdlf-${pTeamName}-states-execution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments # W11 exception
+                  - xray:PutTelemetryRecords # W11 exception
+                  - xray:GetSamplingRules # W11 exception
+                  - xray:GetSamplingTargets # W11 exception
+                Resource: "*"
+
+  rStatesExecutionRoleMap:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: sfn-map
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - states:StartExecution
+              - states:DescribeExecution
+              - states:StopExecution
+            Resource:
+              - !Ref rStateMachine
+              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:execution:${rStateMachine.Name}:*
+      RoleName: !Ref rStatesExecutionRole
+
+  rStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
+      DefinitionUri: ./state-machine/stage-lambda.asl.json
+      DefinitionSubstitutions:
+        lStep3: !GetAtt rLambdaStep3.Arn
+        lError: !GetAtt rLambdaErrorStep.Arn
+      Role: !GetAtt rStatesExecutionRole.Arn
+      Tracing:
+        Enabled: !If [EnableTracing, true, false]
+
+  ######## SSM OUTPUTS #########
+  rRoutingLambdaSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Lambda/${pTeamName}/${pPipeline}StageARoutingLambda
+      Type: String
+      Value: !GetAtt rLambdaRoutingStep.Arn
+      Description: !Sub "ARN of the StageA ${pTeamName} ${pPipeline} Routing Lambda"
+
+  rStateMachineSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/SM/${pTeamName}/${pPipeline}${pStageName}SM
+      Type: String
+      Value: !Ref rStateMachine
+      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} State Machine"
+
+Outputs:
+  oPipelineReference:
+    Description: CodePipeline reference this stack has been deployed with
+    Value: !Ref pPipelineReference
