@@ -340,6 +340,7 @@ Resources:
                   - ssm:GetParametersByPath
                 Resource:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Misc/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GitLab/*
               - Effect: Allow
                 Action:
                   - s3:PutObject
