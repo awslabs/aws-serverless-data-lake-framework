@@ -1,0 +1,148 @@
+{
+  "Comment": "Simple Glue-based transform",
+  "StartAt": "Try",
+  "States": {
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Pass",
+          "States": {
+            "Pass": {
+              "Type": "Pass",
+              "Next": "Records",
+              "Parameters": {
+                "Items.$": "States.StringToJson($)"
+              }
+            },
+            "Records": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "DISTRIBUTED",
+                  "ExecutionType": "STANDARD"
+                },
+                "StartAt": "Execute Glue Transformation",
+                "States": {
+                  "Process Data": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                    "ResultPath": "$.glue.run_output",
+                    "Parameters": {
+                      "JobName.$": "$.glue.job_name",
+                      "WorkerType.$": "$.glue.WorkerType",
+                      "NumberOfWorkers.$": "$.glue.NumberOfWorkers",
+                      "Arguments.$": "$.glue.arguments"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "Run Glue Crawler": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                "ResultPath": null,
+                "Parameters": {
+                  "Name.$": "$.glue.crawler_name"
+                },
+                "Next": "Wait X Seconds"
+              },
+              "Wait X Seconds": {
+                "Type": "Wait",
+                "SecondsPath": "$.glue.wait_time",
+                "Next": "GetCrawler"
+              },
+              "GetCrawler": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+                "ResultPath": "$.glue.crawler_response",
+                "Parameters": {
+                  "Name.$": "$.glue.crawler_name"
+                },
+                "Next": "Crawler Complete?"
+              },
+              "Crawler Complete?": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.glue.crawler_response.Crawler.State",
+                    "StringEquals": "READY",
+                    "Next": "Post-update Catalog"
+                  }
+                ],
+                "Default": "Wait X Seconds"
+              },
+              "Next": "Post-update Catalog",
+              "Label": "Records",
+              "MaxConcurrency": 50,
+              "ToleratedFailurePercentage": 100,
+              "ItemBatcher": {
+                "MaxItemsPerBatch": 1
+              },
+              "InputPath": "$.Items"
+            },
+            "Post-update Catalog": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "ResultPath": null,
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lPostMetadata}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Error"
+        }
+      ]
+    },
+    "Error": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${lError}:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Fail"
+    },
+    "Fail": {
+      "Type": "Fail"
+    }
+  }
+}
