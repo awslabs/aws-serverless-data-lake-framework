@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Contains StageA StateMachine Definition
+Description: Simple Lambda function-based Transform
 
 Parameters:
   pPipelineReference:
@@ -15,12 +15,12 @@ Parameters:
     Description: Data domain name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
-  pDatasetBucket:
-    Description: The raw or central bucket for the solution
+  pRawBucket:
+    Description: Raw bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pStageBucket:
-    Description: The stage bucket for the solution
+    Description: Stage Bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
   pTeamName:
@@ -281,14 +281,13 @@ Resources:
                 Action:
                   - s3:ListBucket
                 Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
 
   # Processing Role
   rRoleLambdaExecutionProcessingStep:
@@ -319,17 +318,19 @@ Resources:
                   - s3:GetBucketVersioning
                   - s3:ListBucket
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
+              - Effect: Allow
+                Action:
                   - s3:PutObject
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -389,10 +390,10 @@ Resources:
     Properties:
       CodeUri: ./lambda/routing/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
-      Description: Routes S3 PutObject Logs to the relevant StageA State Machine
+      Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
-          STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaStep2.Arn
+          STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaTransformStep.Arn
       MemorySize: 192
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
@@ -407,12 +408,12 @@ Resources:
     Properties:
       CodeUri: ./lambda/redrive/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
-      Description: Redrives Failed S3 PutObject Logs to the routing queue
+      Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
 
-  rLambdaStep2:
+  rLambdaTransformStep:
     Type: AWS::Serverless::Function
     Metadata:
       cfn_nag:
@@ -427,7 +428,7 @@ Resources:
       Timeout: 600
       Role: !GetAtt rRoleLambdaExecutionProcessingStep.Arn
 
-  rLambdaStep3:
+  rLambdaPostMetadataStep:
     Type: AWS::Serverless::Function
     Metadata:
       cfn_nag:
@@ -479,7 +480,7 @@ Resources:
   rLambdaRoutingStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Routing Lambda Alarm
+      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Errors
@@ -512,38 +513,38 @@ Resources:
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  rLambdaStep2LogGroup:
+  rLambdaTransformStepLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaStep2}
+      LogGroupName: !Sub /aws/lambda/${rLambdaTransformStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  rUpdateSubscriptionFilterStep2:
+  rUpdateSubscriptionFilterTransformStep:
     Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
     Properties:
-      LogGroupName: !Ref rLambdaStep2LogGroup
+      LogGroupName: !Ref rLambdaTransformStepLogGroup
       DestinationArn: !Ref pKibanaStream
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  rLambdaStep3LogGroup:
+  rLambdaPostMetadataStepLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
+      LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  rUpdateSubscriptionFilterStep3:
+  rUpdateSubscriptionFilterPostMetadataStep:
     Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
     Properties:
-      LogGroupName: !Ref rLambdaStep3LogGroup
+      LogGroupName: !Ref rLambdaPostMetadataStepLogGroup
       DestinationArn: !Ref pKibanaStream
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
@@ -569,7 +570,7 @@ Resources:
   rLambdaErrorStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Error Lambda Alarm
+      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Error Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Invocations
@@ -646,7 +647,7 @@ Resources:
       Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
       DefinitionUri: ./state-machine/stage-lambda.asl.json
       DefinitionSubstitutions:
-        lStep3: !GetAtt rLambdaStep3.Arn
+        lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
@@ -656,10 +657,10 @@ Resources:
   rRoutingLambdaSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Lambda/${pTeamName}/${pPipeline}StageARoutingLambda
+      Name: !Sub /SDLF/Lambda/${pTeamName}/${pPipeline}${pStageName}RoutingLambda
       Type: String
       Value: !GetAtt rLambdaRoutingStep.Arn
-      Description: !Sub "ARN of the StageA ${pTeamName} ${pPipeline} Routing Lambda"
+      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda"
 
   rStateMachineSsm:
     Type: AWS::SSM::Parameter

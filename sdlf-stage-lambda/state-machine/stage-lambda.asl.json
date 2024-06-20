@@ -64,7 +64,7 @@
               "ResultPath": null,
               "Parameters": {
                 "Payload.$": "$",
-                "FunctionName": "${lStep3}:$LATEST"
+                "FunctionName": "${lPostMetadata}:$LATEST"
               },
               "Retry": [
                 {

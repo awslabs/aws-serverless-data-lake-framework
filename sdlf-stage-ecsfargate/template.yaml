@@ -15,12 +15,12 @@ Parameters:
     Description: Data domain name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
-  pDatasetBucket:
-    Description: The raw or central bucket for the solution
+  pRawBucket:
+    Description: Raw bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pStageBucket:
-    Description: The stage bucket for the solution
+    Description: Stage bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
   pTeamName:
@@ -281,65 +281,14 @@ Resources:
                 Action:
                   - s3:ListBucket
                 Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
               - Effect: Allow
                 Action:
                   - s3:GetObject
                 Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-
-  # Processing Role
-  rRoleLambdaExecutionProcessingStep:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
-      ManagedPolicyArns:
-        - !Ref rLambdaCommonPolicy
-        - !If
-          - RunInVpc
-          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-          - !Ref "AWS::NoValue"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-process-${pStageName}
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetBucketVersioning
-                  - s3:ListBucket
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pDatasetBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/* # DEPRECATED, use {team}/{dataset}/{pipeline_stage}/* to store files instead
-              - Effect: Allow
-                Action:
-                  - kms:DescribeKey
-                  - kms:Encrypt
-                  - kms:Decrypt
-                  - kms:ReEncrypt*
-                  - kms:GenerateDataKey*
-                  - kms:CreateGrant
-                Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId}}"
 
   # Error Handling Lambda Role
   rRoleLambdaExecutionErrorStep:
@@ -389,7 +338,7 @@ Resources:
     Properties:
       CodeUri: ./lambda/routing/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
-      Description: Routes S3 PutObject Logs to the relevant StageA State Machine
+      Description: Checks if items are to be processed and route them to state machine
       MemorySize: 192
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
@@ -404,12 +353,12 @@ Resources:
     Properties:
       CodeUri: ./lambda/redrive/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-redrive-${pStageName}
-      Description: Redrives Failed S3 PutObject Logs to the routing queue
+      Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
 
-  rLambdaStep3:
+  rLambdaPostMetadata:
     Type: AWS::Serverless::Function
     Metadata:
       cfn_nag:
@@ -461,7 +410,7 @@ Resources:
   rLambdaRoutingStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Routing Lambda Alarm
+      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Errors
@@ -494,20 +443,20 @@ Resources:
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
 
-  rLambdaStep3LogGroup:
+  rLambdaPostMetadataLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaStep3}
+      LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadata}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  rUpdateSubscriptionFilterStep3:
+  rUpdateSubscriptionFilterPostMetadata:
     Type: AWS::Logs::SubscriptionFilter
     Condition: DeployElasticSearch
     Properties:
-      LogGroupName: !Ref rLambdaStep3LogGroup
+      LogGroupName: !Ref rLambdaPostMetadataLogGroup
       DestinationArn: !Ref pKibanaStream
       RoleArn: !Ref pKibanaStreamRole
       FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
@@ -533,7 +482,7 @@ Resources:
   rLambdaErrorStepCloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub StageA ${pTeamName} ${pPipeline} Error Lambda Alarm
+      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Error Lambda Alarm
       AlarmActions:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Invocations
@@ -578,7 +527,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipeline}-*
               - Effect: Allow
                 Action:
                   - ecs:RunTask # W11 TaskId is not known until the task is submitted
@@ -620,9 +569,9 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
-      DefinitionUri: ./state-machine/stage-lambda.asl.json
+      DefinitionUri: ./state-machine/stage-ecsfargate.asl.json
       DefinitionSubstitutions:
-        lStep3: !GetAtt rLambdaStep3.Arn
+        lPostMetadata: !GetAtt rLambdaPostMetadata.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
