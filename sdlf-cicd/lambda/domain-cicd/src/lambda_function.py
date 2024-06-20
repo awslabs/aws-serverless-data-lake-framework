@@ -4,7 +4,7 @@ import os
 import zipfile
 from io import BytesIO
 from tempfile import mkdtemp
-from urllib.request import Request, urlopen
+from urllib.request import HTTPError, Request, URLError, urlopen
 
 import boto3
 from botocore.client import Config
@@ -167,11 +167,30 @@ def create_team_repository_cicd_stack(domain, team_name, template_body_url, clou
     gitlab_url = ssm.get_parameter(Name="/SDLF/GitLab/Url")["Parameter"]["Value"]
     gitlab_accesstoken = ssm.get_parameter(Name="/SDLF/GitLab/AccessToken")["Parameter"]["Value"]
     repository = f"sdlf-main-{domain}-{team_name}"
-    req = Request(f"{gitlab_url}api/v4/projects/")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("PRIVATE-TOKEN", gitlab_accesstoken)
-    data = '{"name": "$REPOSITORY", "description": "$REPOSITORY", "path": "$REPOSITORY","namespace_id": "66", "initialize_with_readme": false}'
-    response = urlopen(req, data=data).read()
+    namespace_id = ssm.get_parameter(Name="/SDLF/GitLab/NameSpaceId")["Parameter"]["Value"]
+    url = f"{gitlab_url}api/v4/projects/"
+    headers = {
+        "Content-Type": "application/json",
+        "PRIVATE-TOKEN": gitlab_accesstoken
+    }
+    data = {
+        "name": repository,
+        "description": repository,
+        "path": repository,
+        "namespace_id": namespace_id,
+        "initialize_with_readme": "false"
+    }
+    json_data = json.dumps(data).encode('utf-8')
+    req = Request(url, data=json_data, headers=headers, method='POST')
+    # Send the request and handle the response
+    try:
+        with urlopen(req) as response:
+            response_body = response.read().decode('utf-8')
+            print(response_body)
+    except HTTPError as e:
+        print(f'HTTP error occurred: {e.code} {e.reason}')
+    except URLError as e:
+        print(f'URL error occurred: {e.reason}')
 
     response = {}
     cloudformation_waiter_type = None
