@@ -1,0 +1,112 @@
+{
+  "Comment": "Simple ECS Fargate-based transform",
+  "StartAt": "Try",
+  "States": {
+    "Try": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Pass",
+          "States": {
+            "Pass": {
+              "Type": "Pass",
+              "Next": "Records",
+              "Parameters": {
+                "Items.$": "States.StringToJson($)"
+              }
+            },
+            "Records": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "DISTRIBUTED",
+                  "ExecutionType": "STANDARD"
+                },
+                "StartAt": "Execute ECS Fargate Transformation",
+                "States": {
+                  "Execute ECS Fargate Transformation": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::ecs:runTask.sync",
+                    "Parameters": {
+                      "LaunchType": "FARGATE",
+                      "Cluster": "$.Items[0].ecsfargate_cluster",
+                      "TaskDefinition": "$.Items[0].ecsfargate_transform"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "Next": "Post-update Catalog",
+              "Label": "Records",
+              "MaxConcurrency": 50,
+              "ToleratedFailurePercentage": 100,
+              "ItemBatcher": {
+                "MaxItemsPerBatch": 1
+              },
+              "InputPath": "$.Items"
+            },
+            "Post-update Catalog": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "ResultPath": null,
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${lStep3}:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": null,
+          "Next": "Error"
+        }
+      ]
+    },
+    "Error": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${lError}:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Fail"
+    },
+    "Fail": {
+      "Type": "Fail"
+    }
+  }
+}
