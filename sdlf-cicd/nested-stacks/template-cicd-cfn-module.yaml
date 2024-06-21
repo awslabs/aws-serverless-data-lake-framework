@@ -139,8 +139,13 @@ Resources:
       EncryptionKey: !Ref pKMSKey
       VpcConfig: !If
         - RunInVpc
-        - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
-          Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
+        - SecurityGroupIds:
+            !Split [
+              ",",
+              !ImportValue sdlf-cicd-prerequisites-vpc-security-groups,
+            ]
+          Subnets:
+            !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
           VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
@@ -167,9 +172,8 @@ Resources:
                     && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
                     ./sam-installation/install \
                     && sam --version
-                - |-
-                    pip3 install cfn-lint==0.87.7
-                    pip3 install cloudformation-cli
+                - pip3 install cfn-lint==0.87.7
+                - pip3 install cloudformation-cli
                 - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
             build:
               commands:
@@ -246,8 +250,13 @@ Resources:
       EncryptionKey: !Ref pKMSKey
       VpcConfig: !If
         - RunInVpc
-        - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
-          Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
+        - SecurityGroupIds:
+            !Split [
+              ",",
+              !ImportValue sdlf-cicd-prerequisites-vpc-security-groups,
+            ]
+          Subnets:
+            !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
           VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
