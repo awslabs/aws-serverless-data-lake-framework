@@ -14,7 +14,7 @@
               "Parameters": {
                 "Name": "ExampleApplication",
                 "Type": "SPARK",
-                "ReleaseLabel": "emr-7.0.0",
+                "ReleaseLabel": "emr-7.1.0",
                 "InitialCapacity": {
                   "DRIVER": {
                     "WorkerConfiguration": {

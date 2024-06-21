@@ -30,7 +30,7 @@
                     "Parameters": {
                       "LaunchType": "FARGATE",
                       "Cluster": "$.Items[0].ecsfargate_cluster",
-                      "TaskDefinition": "$.Items[0].ecsfargate_transform"
+                      "TaskDefinition": "$.Items[0].transform"
                     },
                     "End": true
                   }

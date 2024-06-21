@@ -29,7 +29,7 @@
                     "Resource": "arn:aws:states:::glue:startJobRun.sync",
                     "ResultPath": "$.glue.run_output",
                     "Parameters": {
-                      "JobName.$": "$.glue.job_name",
+                      "JobName.$": "$.transform",
                       "WorkerType.$": "$.glue.WorkerType",
                       "NumberOfWorkers.$": "$.glue.NumberOfWorkers",
                       "Arguments.$": "$.glue.arguments"
