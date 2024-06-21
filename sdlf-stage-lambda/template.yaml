@@ -393,7 +393,7 @@ Resources:
       Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
-          STAGE_TRANSFORM_LAMBDA: !GetAtt rLambdaTransformStep.Arn
+          STAGE_TRANSFORM: !GetAtt rLambdaTransformStep.Arn
       MemorySize: 192
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn

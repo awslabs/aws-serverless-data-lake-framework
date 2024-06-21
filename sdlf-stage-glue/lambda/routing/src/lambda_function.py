@@ -84,17 +84,16 @@ def enrich_records(records, metadata):
 
 def get_transform_details(dynamo_interface):
     transform_info = dynamo_interface.get_transform_table_item(f"{team}-{dataset}")
-    lambda_arn = os.getenv("STAGE_TRANSFORM_LAMBDA")
     logger.info(f"Pipeline is {pipeline}, stage is {pipeline_stage}")
+    # an example transform is bundled with any sdlf-stage-*
+    # if needed, either make changes to it, or deploy a custom transform (preferred)
+    transform_details = dict(transform=os.environ["STAGE_TRANSFORM"])
     if pipeline in transform_info.get("pipeline", {}):
         if pipeline_stage in transform_info["pipeline"][pipeline]:
-            logger.info(f"Details from DynamoDB: {transform_info['pipeline'][pipeline][pipeline_stage]}")
-            lambda_arn = transform_info["pipeline"][pipeline][pipeline_stage].get("lambda_arn", lambda_arn)
-            # an example lambda function is provided as part of sdlf-stage-lambda
-            # if needed, either make changes to it, or deploy a custom lambda (preferred)
-            # deployment can be done in the sdlf-team's main repository
+            transform_details = transform_details | transform_info["pipeline"][pipeline][pipeline_stage]
+            logger.info(f"Details from DynamoDB: {transform_details}")
 
-    return lambda_arn
+    return transform_details
 
 
 def lambda_handler(event, context):
@@ -104,10 +103,10 @@ def lambda_handler(event, context):
         dynamo_interface = DynamoInterface(dynamo_config)
         peh_id = pipeline_start(octagon_client, event)
         records = get_source_records(event, dynamo_interface)
-        lambda_transform = get_transform_details(
+        metadata = get_transform_details(
             dynamo_interface
-        )  # allow customising the glue transform through sdlf-dataset's pPipelineDetails
-        metadata = dict(peh_id=peh_id, lambda_transform=lambda_transform)
+        )  # allow customising the transform through sdlf-dataset's pPipelineDetails
+        metadata = dict(peh_id=peh_id, **metadata)
         records = enrich_records(records, metadata)
 
         if records:

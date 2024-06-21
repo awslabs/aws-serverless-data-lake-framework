@@ -338,6 +338,9 @@ Resources:
       CodeUri: ./lambda/routing/src
       FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-routing-${pStageName}
       Description: Checks if items are to be processed and route them to state machine
+      Environment:
+        Variables:
+          STAGE_TRANSFORM: ""
       MemorySize: 192
       Timeout: 60
       Role: !GetAtt rRoleLambdaExecutionRoutingStep.Arn
