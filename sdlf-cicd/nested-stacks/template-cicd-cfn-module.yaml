@@ -139,8 +139,13 @@ Resources:
       EncryptionKey: !Ref pKMSKey
       VpcConfig: !If
         - RunInVpc
-        - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
-          Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
+        - SecurityGroupIds:
+            !Split [
+              ",",
+              !ImportValue sdlf-cicd-prerequisites-vpc-security-groups,
+            ]
+          Subnets:
+            !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
           VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:
@@ -246,8 +251,13 @@ Resources:
       EncryptionKey: !Ref pKMSKey
       VpcConfig: !If
         - RunInVpc
-        - SecurityGroupIds: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-security-groups]
-          Subnets: !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
+        - SecurityGroupIds:
+            !Split [
+              ",",
+              !ImportValue sdlf-cicd-prerequisites-vpc-security-groups,
+            ]
+          Subnets:
+            !Split [",", !ImportValue sdlf-cicd-prerequisites-vpc-subnets]
           VpcId: "{{resolve:ssm:/SDLF/VPC/VpcId}}"
         - !Ref "AWS::NoValue"
       Environment:

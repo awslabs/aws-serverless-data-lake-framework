@@ -8,7 +8,7 @@ Parameters:
     Default: /SDLF/KMS/CICDKeyId
   pSdlfGitLabGroup:
     Type: String
-    Default: sdlf
+    Default: datamesh
   pCicdRepository:
     Type: String
     Default: sdlf-cicd
