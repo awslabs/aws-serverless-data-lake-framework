@@ -86,7 +86,7 @@ Resources:
       Value: !Ref pEnableMonitoring
       Description: Build sdlf-monitoring cloudformation module as part of domain pipelines
 
-  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
+  # when enabling VPC support, /SDLF/VPC/VpcId, /SDLF/VPC/VpcAccountId, /SDLF/VPC/SecurityGroupIds and /SDLF/VPC/SubnetIds are required too (see Outputs section)
   # both for the devops account and child accounts.
   rVpcFeatureSsm:
     Type: AWS::SSM::Parameter
