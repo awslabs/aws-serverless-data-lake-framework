@@ -94,9 +94,6 @@ Resources:
                   Condition:
                     StringEquals:
                       "ec2:AuthorizedService": codebuild.amazonaws.com
-                    ArnEquals:
-                      "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:*:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
 
   rBuildLambdaLayersPackage:

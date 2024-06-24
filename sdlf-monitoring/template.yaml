@@ -433,10 +433,6 @@ Resources:
                 - ec2:CreateNetworkInterface # W12 exception
                 - ec2:DeleteNetworkInterface # W12 exception
               Resource: "*"
-              Condition:
-                ArnEqualsIfExists:
-                  "ec2:Vpc":
-                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:*:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
             - !Ref "AWS::NoValue"
         - !If
             - RunInVpc
@@ -456,9 +452,6 @@ Resources:
               Condition:
                 StringEquals:
                   "ec2:AuthorizedService": firehose.amazonaws.com
-                ArnEquals:
-                  "ec2:Vpc":
-                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:*:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
             - !Ref "AWS::NoValue"
         - Effect: Allow
           Action:
