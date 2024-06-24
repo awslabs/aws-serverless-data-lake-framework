@@ -272,14 +272,17 @@ devops_account () {
             GITLAB_NAMESPACE_ID=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/NamespaceId --query "Parameter.Value" --output text)
             GITLAB_GROUP_NAME=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/GitLab/SdlfGitLabGroup --query "Parameter.Value" --output text)
 
+            GITLAB_HOST_NAME=$(echo $url | cut -d'/' -f3)
+
             echo "Creating $REPOSITORY repository in GitLab ..."
-            curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
+            curl --insecure --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
                 --header "Content-Type: application/json" \
                 --data "{\"name\": \"$REPOSITORY\", \"description\": \"$REPOSITORY\", \"path\": \"$REPOSITORY\", \"namespace_id\": \"$GITLAB_NAMESPACE_ID\", \"initialize_with_readme\": false}" \
                 --url "${GITLAB_URL}api/v4/projects/"
 
 
             GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}${GITLAB_GROUP_NAME}/$REPOSITORY.git"
+            GITLAB_SSH_URI=git@${GITLAB_HOST_NAME}:${GITLAB_GROUP_NAME}/$REPOSITORY.git
 
             if [ "$REPOSITORY" = "sdlf-main" ]
             then
@@ -289,11 +292,11 @@ devops_account () {
             pushd "$REPOSITORY" || exit
             if [ ! -d .git ] # if .git exists, deploy.sh has likely been run before - do not try to push the base repositories
             then
-                git init
-                git remote add origin "$GITLAB_REPOSITORY_URL" || exit 1
+                git init --initial-branch=main
+                git remote add origin "$GITLAB_SSH_URI" || exit 1
                 git add .
                 git commit -m "initial commit"
-                git push origin main || exit 1
+                git push -u origin main || exit 1
                 git push origin main:dev
                 git push origin main:test
             fi
@@ -306,7 +309,7 @@ devops_account () {
     done
 
     aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body "$DIRNAME"/sdlf-cicd/sam-translate.py
-    curl -L -O --output-dir "$DIRNAME"/sdlf-cicd/ https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip
+    curl -L -O --insecure --output-dir "$DIRNAME"/sdlf-cicd/ https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip
     aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip --body "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
     rm "$DIRNAME"/sdlf-cicd/aws-sam-cli-linux-x86_64.zip
 
