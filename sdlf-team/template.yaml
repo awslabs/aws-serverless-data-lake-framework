@@ -550,7 +550,7 @@ Resources:
               Condition:
                 ArnEqualsIfExists:
                   "ec2:Vpc":
-                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:{{resolve:ssm:/SDLF/VPC/VpcAccountId}}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
                 "ForAllValues:StringEqualsIfExists":
                   "aws:TagKeys":
                     - aws-glue-service-resource
