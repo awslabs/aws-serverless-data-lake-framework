@@ -168,7 +168,7 @@ Resources:
                     ./sam-installation/install \
                     && sam --version
                 - |-
-                    pip3 install cfn-lint==0.87.7
+                    pip3 install "cfn-lint<1"
                     pip3 install cloudformation-cli
                 - aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
             build:
