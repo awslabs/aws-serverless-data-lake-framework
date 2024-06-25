@@ -272,7 +272,7 @@ devops_account () {
             GITLAB_NAMESPACE_ID=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitLab/NamespaceId --query "Parameter.Value" --output text)
             GITLAB_GROUP_NAME=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/GitLab/SdlfGitLabGroup --query "Parameter.Value" --output text)
 
-            GITLAB_HOST_NAME=$(echo $url | cut -d'/' -f3)
+            GITLAB_HOST_NAME=gitlab.ssh.covestro.com
 
             echo "Creating $REPOSITORY repository in GitLab ..."
             curl --insecure --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESSTOKEN" \
@@ -284,6 +284,7 @@ devops_account () {
             GITLAB_REPOSITORY_URL="https://aws:$GITLAB_ACCESSTOKEN@${GITLAB_URL#https://}${GITLAB_GROUP_NAME}/$REPOSITORY.git"
             GITLAB_SSH_URI=git@${GITLAB_HOST_NAME}:${GITLAB_GROUP_NAME}/$REPOSITORY.git
 
+            echo "Origin for repo is $GITLAB_SSH_URI"
             if [ "$REPOSITORY" = "sdlf-main" ]
             then
                 mkdir sdlf-main
@@ -293,10 +294,11 @@ devops_account () {
             if [ ! -d .git ] # if .git exists, deploy.sh has likely been run before - do not try to push the base repositories
             then
                 git init --initial-branch=main
+                git remote rename origin old-origin
                 git remote add origin "$GITLAB_SSH_URI" || exit 1
                 git add .
                 git commit -m "initial commit"
-                git push -u origin main || exit 1
+                git push origin main || exit 1
                 git push origin main:dev
                 git push origin main:test
             fi
