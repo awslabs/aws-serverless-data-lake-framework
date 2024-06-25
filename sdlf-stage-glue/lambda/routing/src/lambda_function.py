@@ -11,6 +11,7 @@ from datalake_library.configuration.resource_configs import (
 from datalake_library.interfaces.dynamo_interface import DynamoInterface
 from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.interfaces.states_interface import StatesInterface
+from decimal import Decimal
 
 logger = init_logger(__name__)
 team = os.environ["TEAM"]
@@ -21,6 +22,14 @@ org = os.environ["ORG"]
 domain = os.environ["DOMAIN"]
 env = os.environ["ENV"]
 
+
+def serializer(obj):
+    if isinstance(obj, Decimal):
+        if obj.as_integer_ratio()[1] == 1:
+            return int(obj)
+        else:
+            return float(obj)
+    raise TypeError("Type not serializable")
 
 def pipeline_start(octagon_client, event):
     peh_id = octagon_client.start_pipeline_execution(
@@ -73,10 +82,7 @@ def get_source_records(event, dynamo_interface):
 def enrich_records(records, metadata):
     enriched_records = []
     for record in records:
-        enriched_record = {
-            **record,
-            **metadata,
-        }
+        enriched_record = dict(**record, transform=metadata)
         enriched_records.append(enriched_record)
 
     return enriched_records
@@ -115,7 +121,7 @@ def lambda_handler(event, context):
             else:
                 logger.info(f"Starting State Machine Execution (processing {len(records)} source events)")
             state_config = StateMachineConfiguration(team, pipeline, pipeline_stage)
-            StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, json.dumps(records))
+            StatesInterface().run_state_machine(state_config.get_stage_state_machine_arn, json.dumps(records, default=serializer))
             octagon_client.update_pipeline_execution(
                 status=f"{pipeline_stage} Transform Processing", component="Transform"
             )
