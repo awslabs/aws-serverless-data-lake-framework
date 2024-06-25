@@ -30,7 +30,7 @@
                     "OutputPath": "$.Payload",
                     "Parameters": {
                       "Payload.$": "$.Items",
-                      "FunctionName.$": "$.Items[0].transform"
+                      "FunctionName.$": "$.Items[0].transform.transform"
                     },
                     "Retry": [
                       {

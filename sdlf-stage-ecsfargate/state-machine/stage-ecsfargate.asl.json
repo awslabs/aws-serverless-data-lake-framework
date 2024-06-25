@@ -29,8 +29,8 @@
                     "Resource": "arn:aws:states:::ecs:runTask.sync",
                     "Parameters": {
                       "LaunchType": "FARGATE",
-                      "Cluster": "$.Items[0].ecsfargate_cluster",
-                      "TaskDefinition": "$.Items[0].transform"
+                      "Cluster": "$.Items[0].transform.ecsfargate_cluster",
+                      "TaskDefinition": "$.Items[0].transform.transform"
                     },
                     "End": true
                   }
