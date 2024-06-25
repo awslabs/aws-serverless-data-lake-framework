@@ -47,18 +47,23 @@ Parameters:
   pEventPattern:
     Description: Event pattern to match from previous stage
     Type: String
+    Default: ""
   pLambdaRoutingStep:
     Description: Routing Lambda function ARN
     Type: String
 
 Conditions:
-  EventBased: !Equals [!Ref pTriggerType, "event"]
   ScheduleBased: !Equals [!Ref pTriggerType, "schedule"]
+  HasSourceEvents: !Not [!Equals [!Ref pEventPattern, ""]]
+  EventBased: !And
+    - !Equals [!Ref pTriggerType, "event"]
+    - !Condition HasSourceEvents
   StageEnabled: !Equals [!Ref pStageEnabled, true]
 
 Resources:
   rStageRule:
     Type: AWS::Events::Rule
+    Condition: HasSourceEvents
     Properties:
       Name: !Sub sdlf-${pTeamName}-${pPipelineName}-rule-${pStageName}
       Description: !Sub Send events to ${pStageName} queue
@@ -77,6 +82,7 @@ Resources:
 
   rQueueRoutingStep:
     Type: AWS::SQS::Queue
+    Condition: HasSourceEvents
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
@@ -92,6 +98,7 @@ Resources:
 
   rDeadLetterQueueRoutingStep:
     Type: AWS::SQS::Queue
+    Condition: HasSourceEvents
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
@@ -103,6 +110,7 @@ Resources:
 
   rQueuePolicyEventsStageRule:
     Type: AWS::SQS::QueuePolicy
+    Condition: HasSourceEvents
     Properties:
       PolicyDocument:
         Version: "2012-10-17"
@@ -178,16 +186,25 @@ Resources:
       Target:
         Arn: !Sub arn:${AWS::Partition}:scheduler:::aws-sdk:lambda:invoke
         RoleArn: !GetAtt rPostStateScheduleRole.Arn
-        Input: !Sub >-
-          {
-            "FunctionName": "${pLambdaRoutingStep}",
-            "InvocationType": "Event",
-            "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"event_pattern\": \"true\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
-          }
+        Input: !If
+          - HasSourceEvents
+          - !Sub >-
+            {
+              "FunctionName": "${pLambdaRoutingStep}",
+              "InvocationType": "Event",
+              "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"event_pattern\": \"true\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
+            }
+          - !Sub >-
+            {
+              "FunctionName": "${pLambdaRoutingStep}",
+              "InvocationType": "Event",
+              "Payload": "{\n \"team\": \"${pTeamName}\",\n \"pipeline\": \"${pPipelineName}\",\n \"pipeline_stage\": \"${pStageName}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"org\": \"${pOrg}\",\n \"domain\": \"${pDomain}\",\n \"env\": \"${pEnv}\"\n }"
+            }
 
   ######## SSM OUTPUTS #########
   rQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
+    Condition: HasSourceEvents
     Properties:
       Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}Queue
       Type: String
@@ -196,6 +213,7 @@ Resources:
 
   rDeadLetterQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
+    Condition: HasSourceEvents
     Properties:
       Name: !Sub /SDLF/SQS/${pTeamName}/${pPipelineName}${pStageName}DLQ
       Type: String
