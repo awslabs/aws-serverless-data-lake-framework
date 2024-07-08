@@ -1,9 +1,19 @@
 # Packaged Templates
 output/
 
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# Python
+__pycache__
+.pytest_cache
+*.egg-info
+
 # Editors
 .vscode/
 .idea/
+*.swp
 
 # Mac/OSX
 .DS_Store
