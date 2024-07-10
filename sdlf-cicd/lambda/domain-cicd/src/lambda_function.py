@@ -372,8 +372,18 @@ def create_team_pipeline_cicd_stack(
                         "UsePreviousValue": False,
                     },
                     {
+                        "ParameterKey": "pStageLambdaRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
                         "ParameterKey": "pStageBRepository",
                         "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
+                        "UsePreviousValue": False,
+                    },
+                    {
+                        "ParameterKey": "pStageGlueRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
                         "UsePreviousValue": False,
                     },
                     {
