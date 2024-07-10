@@ -254,28 +254,6 @@ class SdlfTeam(Stack):
             string_value=f"sdlf-{p_teamname.value_as_string}-glue-security-config" # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
         )
 
-
-        # emr_security_configuration_document = {
-        #     "EncryptionConfiguration": {
-        #         "EnableInTransitEncryption" : False,
-        #         "EnableAtRestEncryption" : True,
-        #         "AtRestEncryptionConfiguration" : {
-        #             "S3EncryptionConfiguration" : {
-        #                 "EncryptionMode" : "SSE-KMS",
-        #                 "AwsKmsKey": data_kms_key.key_id
-        #             },
-        #             "LocalDiskEncryptionConfiguration" : {
-        #                 "EncryptionKeyProviderType" : "AwsKms",
-        #                 "AwsKmsKey" : data_kms_key.key_id,
-        #                 "EnableEbsEncryption" : True
-        #             }
-        #         }
-        #     },
-        #     "InstanceMetadataServiceConfiguration":{
-        #         "MinimumInstanceMetadataServiceVersion": 2,
-        #         "HttpPutResponseHopLimit": 1
-        #     }
-        # }
         emr_security_configuration = emr.CfnSecurityConfiguration(self, "rEMRSecurityConfiguration",
             name=f"sdlf-{p_teamname.value_as_string}-emr-security-config",
             security_configuration=json.dumps(
@@ -1169,50 +1147,78 @@ class SdlfTeam(Stack):
         )
 
 
-#   ######## LAKEFORMATION PERMISSIONS #########
-#   rCentralTeamLakeFormationPermissions:
-#     Type: AWS::LakeFormation::Permissions
-#     Properties:
-#       DataLakePrincipal:
-#         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-#       Permissions:
-#         - DATA_LOCATION_ACCESS
-#       Resource:
-#         DataLocationResource:
-#           S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/
+        ######## LAKEFORMATION PERMISSIONS #########
+        raw_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rCentralTeamLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=datalakecrawler_role.role_arn
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                    s3_resource=self.format_arn(
+                        service="s3",
+                        resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/",
+                        region="",
+                        account="",
+                        arn_format=ArnFormat.NO_RESOURCE_NAME,
+                    )
+                ),
+            ),
+            permissions=["DATA_LOCATION_ACCESS"],
+        )
 
-#   rStagePreTeamLakeFormationPermissions:
-#     Type: AWS::LakeFormation::Permissions
-#     Properties:
-#       DataLakePrincipal:
-#         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-#       Permissions:
-#         - DATA_LOCATION_ACCESS
-#       Resource:
-#         DataLocationResource:
-#           S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/pre-stage/${pTeamName}/
+        stagepre_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rStagePreTeamLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=datalakecrawler_role.role_arn
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                    s3_resource=self.format_arn(
+                        service="s3",
+                        resource=f"{p_stagebucket.value_as_string}/pre-stage/{p_teamname.value_as_string}/",
+                        region="",
+                        account="",
+                        arn_format=ArnFormat.NO_RESOURCE_NAME,
+                    )
+                ),
+            ),
+            permissions=["DATA_LOCATION_ACCESS"],
+        )
 
-#   rStagePostTeamLakeFormationPermissions:
-#     Type: AWS::LakeFormation::Permissions
-#     Properties:
-#       DataLakePrincipal:
-#         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-#       Permissions:
-#         - DATA_LOCATION_ACCESS
-#       Resource:
-#         DataLocationResource:
-#           S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/post-stage/${pTeamName}/
+        stagepost_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rStagePostTeamLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=datalakecrawler_role.role_arn
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                    s3_resource=self.format_arn(
+                        service="s3",
+                        resource=f"{p_stagebucket.value_as_string}/post-stage/{p_teamname.value_as_string}/",
+                        region="",
+                        account="",
+                        arn_format=ArnFormat.NO_RESOURCE_NAME,
+                    )
+                ),
+            ),
+            permissions=["DATA_LOCATION_ACCESS"],
+        )
 
-#   rAnalyticsTeamLakeFormationPermissions:
-#     Type: AWS::LakeFormation::Permissions
-#     Properties:
-#       DataLakePrincipal:
-#         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-#       Permissions:
-#         - DATA_LOCATION_ACCESS
-#       Resource:
-#         DataLocationResource:
-#           S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pTeamName}/
+        analytics_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rAnalyticsTeamLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=datalakecrawler_role.role_arn
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                    s3_resource=self.format_arn(
+                        service="s3",
+                        resource=f"{p_analyticsbucket.value_as_string}/{p_teamname.value_as_string}/",
+                        region="",
+                        account="",
+                        arn_format=ArnFormat.NO_RESOURCE_NAME,
+                    )
+                ),
+            ),
+            permissions=["DATA_LOCATION_ACCESS"],
+        )
 
 #   rTeamLakeFormationTag:
 #     Type: AWS::LakeFormation::Tag
