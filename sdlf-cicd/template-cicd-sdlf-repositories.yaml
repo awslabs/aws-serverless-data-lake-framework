@@ -24,9 +24,15 @@ Parameters:
   pStageARepository:
     Type: String
     Default: sdlf-stageA
+  pStageLambdaRepository:
+    Type: String
+    Default: sdlf-stage-lambda
   pStageBRepository:
     Type: String
     Default: sdlf-stageB
+  pStageGlueRepository:
+    Type: String
+    Default: sdlf-stage-glue
   pDatalakeLibraryRepository:
     Type: String
     Default: sdlf-datalakeLibrary
@@ -139,6 +145,21 @@ Resources:
       RepositoryName: !Ref pStageARepository
       KmsKeyId: !Ref pKMSKey
 
+  rStageLambdaCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
+    Properties:
+      Code:
+        BranchName: main
+        S3: ../sdlf-stage-lambda
+      RepositoryDescription: sdlf-stage-lambda repository
+      RepositoryName: !Ref pStageLambdaRepository
+      KmsKeyId: !Ref pKMSKey
+
   rStageBCodeCommit:
     Type: AWS::CodeCommit::Repository
     Metadata:
@@ -152,6 +173,21 @@ Resources:
         S3: ../sdlf-stageB
       RepositoryDescription: sdlf-stageB repository
       RepositoryName: !Ref pStageBRepository
+      KmsKeyId: !Ref pKMSKey
+
+  rStageGlueCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
+    Properties:
+      Code:
+        BranchName: main
+        S3: ../sdlf-stage-glue
+      RepositoryDescription: sdlf-stage-glue repository
+      RepositoryName: !Ref pStageGlueRepository
       KmsKeyId: !Ref pKMSKey
 
   rDatalakeLibraryCodeCommit:
@@ -248,6 +284,14 @@ Resources:
       Value: !GetAtt rStageACodeCommit.Name
       Description: Name of the StageA repository
 
+  rStageLambdaCodeCommitSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeCommit/StageLambdaCodeCommit
+      Type: String
+      Value: !GetAtt rStageLambdaCodeCommit.Name
+      Description: Name of the Stage-Lambda repository
+
   rStageBCodeCommitSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -255,6 +299,14 @@ Resources:
       Type: String
       Value: !GetAtt rStageBCodeCommit.Name
       Description: Name of the StageB repository
+
+  rStageGlueCodeCommitSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/CodeCommit/StageGlueCodeCommit
+      Type: String
+      Value: !GetAtt rStageGlueCodeCommit.Name
+      Description: Name of the Stage-Glue repository
 
   rDatalakeLibraryCodeCommitSsm:
     Type: AWS::SSM::Parameter

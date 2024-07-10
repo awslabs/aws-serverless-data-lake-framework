@@ -71,9 +71,15 @@ Parameters:
   pStageARepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/StageACodeCommit
+  pStageLambdaRepository:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/StageLambdaCodeCommit
   pStageBRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/StageBCodeCommit
+  pStageGlueRepository:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/CodeCommit/StageGlueCodeCommit
   pDatasetRepository:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/CodeCommit/DatasetCodeCommit
@@ -139,7 +145,9 @@ Resources:
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatalakeLibraryRepository}
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pPipelineRepository}
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageARepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageLambdaRepository}
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageBRepository}
+                    - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pStageGlueRepository}
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
                 - !Ref "AWS::NoValue"
               - !If
@@ -158,7 +166,9 @@ Resources:
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
                       "codestar-connections:FullRepositoryId":
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
@@ -166,7 +176,9 @@ Resources:
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
                         - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
                 - !Ref "AWS::NoValue"
               - Effect: Allow
@@ -284,6 +296,19 @@ Resources:
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   PollForSourceChanges: false
                 RunOrder: 1
+              - Name: SourceStageLambda
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageLambdaArtifact
+                Configuration:
+                  RepositoryName: !Ref pStageLambdaRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
               - Name: SourceStageB
                 ActionTypeId:
                   Category: Source
@@ -294,6 +319,19 @@ Resources:
                   - Name: SourceStageBArtifact
                 Configuration:
                   RepositoryName: !Ref pStageBRepository
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  PollForSourceChanges: false
+                RunOrder: 1
+              - Name: SourceStageGlue
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeCommit
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageGlueArtifact
+                Configuration:
+                  RepositoryName: !Ref pStageGlueRepository
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   PollForSourceChanges: false
                 RunOrder: 1
@@ -380,6 +418,20 @@ Resources:
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
+              - Name: SourceStageLambda
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageLambdaArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
               - Name: SourceStageB
                 ActionTypeId:
                   Category: Source
@@ -391,6 +443,20 @@ Resources:
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
                   FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                  BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
+                  OutputArtifactFormat: CODE_ZIP
+                RunOrder: 1
+              - Name: SourceStageGlue
+                ActionTypeId:
+                  Category: Source
+                  Owner: AWS
+                  Provider: CodeStarSourceConnection
+                  Version: "1"
+                OutputArtifacts:
+                  - Name: SourceStageGlueArtifact
+                Configuration:
+                  ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -580,6 +646,26 @@ Resources:
                    {"name":"MODULE_NAME", "value":"stageA", "type":"PLAINTEXT"}]
               RunOrder: 1
             -
+              Name: BuildStageLambda
+              InputArtifacts:
+              - Name: SourceCicdArtifact
+              - Name: SourceStageLambdaArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                PrimarySource: SourceStageLambdaArtifact
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"stageLambda", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            -
               Name: BuildStageB
               InputArtifacts:
               - Name: SourceCicdArtifact
@@ -598,6 +684,26 @@ Resources:
                    {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
                    {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
                    {"name":"MODULE_NAME", "value":"stageB", "type":"PLAINTEXT"}]
+              RunOrder: 1
+            -
+              Name: BuildStageGlue
+              InputArtifacts:
+              - Name: SourceCicdArtifact
+              - Name: SourceStageGlueArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                PrimarySource: SourceStageGlueArtifact
+                ProjectName: !Ref pBuildCloudformationModuleStage
+                EnvironmentVariables: !Sub >-
+                  [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_NAME", "value":"${pSdlfModuleDomain}", "type":"PLAINTEXT"},
+                   {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"},
+                   {"name":"TEAM_NAME", "value":"${pSdlfModuleTeam}", "type":"PLAINTEXT"},
+                   {"name":"MODULE_NAME", "value":"stageGlue", "type":"PLAINTEXT"}]
               RunOrder: 1
             -
               Name: BuildDataset
