@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import zipfile
+import ssl
 from io import BytesIO
 from tempfile import mkdtemp
 from urllib.request import HTTPError, Request, URLError, urlopen
@@ -182,13 +183,13 @@ def create_team_repository_cicd_stack(domain, team_name, template_body_url, clou
     }
     json_data = json.dumps(data).encode('utf-8')
     req = Request(url, data=json_data, headers=headers, method='POST')
-
+    unverified_context = ssl._create_unverified_context()
     try:
-        with urlopen(req) as response:
+        with urlopen(req, context=unverified_context) as response:
             response_body = response.read().decode('utf-8')
             logger.info(response_body)
     except HTTPError as e:
-        logger.error(f"HTTP error occurred: {e.code} {e.reason}")
+        logger.warn(f"HTTP error occurred: {e.code} {e.reason}. Most likely the repository {repository} already exists")
     except URLError as e:
         logger.error(f"URL error occurred: {e.reason}")
 
@@ -319,8 +320,18 @@ def create_team_pipeline_cicd_stack(
                     "UsePreviousValue": False,
                 },
                 {
+                    "ParameterKey": "pStageLambdaRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
                     "ParameterKey": "pStageBRepository",
                     "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
+                    "UsePreviousValue": False,
+                },
+                {
+                    "ParameterKey": "pStageGlueRepository",
+                    "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
                     "UsePreviousValue": False,
                 },
                 {
@@ -391,10 +402,20 @@ def create_team_pipeline_cicd_stack(
                         "UsePreviousValue": False,
                     },
                     {
+                        "ParameterKey": "pStageLambdaRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
+                        "UsePreviousValue": False,
+                    },                    
+                    {
                         "ParameterKey": "pStageBRepository",
                         "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
                         "UsePreviousValue": False,
                     },
+                    {
+                        "ParameterKey": "pStageGlueRepository",
+                        "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
+                        "UsePreviousValue": False,
+                    },                    
                     {
                         "ParameterKey": "pDatasetRepository",
                         "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",

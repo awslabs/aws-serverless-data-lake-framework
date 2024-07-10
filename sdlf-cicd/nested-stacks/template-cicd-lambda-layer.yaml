@@ -83,10 +83,6 @@ Resources:
                     - ec2:DeleteNetworkInterface # W11 condition applied
                   Resource:
                     - "*"
-                  Condition:
-                    ArnEqualsIfExists:
-                      "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
               - !If
                 - RunInVpc
@@ -94,13 +90,10 @@ Resources:
                   Action:
                     - ec2:CreateNetworkInterfacePermission
                   Resource:
-                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:*:network-interface/*"
                   Condition:
                     StringEquals:
                       "ec2:AuthorizedService": codebuild.amazonaws.com
-                    ArnEquals:
-                      "ec2:Vpc":
-                        - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
                 - !Ref "AWS::NoValue"
 
   rBuildLambdaLayersPackage:

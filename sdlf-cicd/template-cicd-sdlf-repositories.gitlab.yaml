@@ -8,7 +8,7 @@ Parameters:
     Default: /SDLF/KMS/CICDKeyId
   pSdlfGitLabGroup:
     Type: String
-    Default: datamesh
+    Default: covestro-analytics-platform/datamesh
   pCicdRepository:
     Type: String
     Default: sdlf-cicd
@@ -27,9 +27,15 @@ Parameters:
   pStageARepository:
     Type: String
     Default: sdlf-stageA
+  pStageLambdaRepository:
+    Type: String
+    Default: sdlf-stage-lambda
   pStageBRepository:
     Type: String
     Default: sdlf-stageB
+  pStageGlueRepository:
+    Type: String
+    Default: sdlf-stage-glue
   pDatalakeLibraryRepository:
     Type: String
     Default: sdlf-datalakeLibrary
@@ -114,6 +120,14 @@ Resources:
       Value: !Ref pStageARepository # !GetAtt rStageAGitLab.Name
       Description: Name of the StageA repository
 
+  rStageLambdaGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/StageLambdaGitLab
+      Type: String
+      Value: !Ref pStageLambdaRepository # !GetAtt rStageLambdaGitLab.Name
+      Description: Name of the Stage-Lambda repository
+
   rStageBGitLabSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -121,6 +135,14 @@ Resources:
       Type: String
       Value: !Ref pStageBRepository # !GetAtt rStageBGitLab.Name
       Description: Name of the StageB repository
+
+  rStageGlueGitLabSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitLab/StageGlueGitLab
+      Type: String
+      Value: !Ref pStageGlueRepository # !GetAtt rStageGlueGitLab.Name
+      Description: Name of the Stage-Glue repository
 
   rDatalakeLibraryGitLabSsm:
     Type: AWS::SSM::Parameter
