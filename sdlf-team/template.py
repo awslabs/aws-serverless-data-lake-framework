@@ -1220,47 +1220,57 @@ class SdlfTeam(Stack):
             permissions=["DATA_LOCATION_ACCESS"],
         )
 
-#   rTeamLakeFormationTag:
-#     Type: AWS::LakeFormation::Tag
-#     Properties:
-#       CatalogId: !Ref AWS::AccountId
-#       # sdlf:team as key and team names as values would be best but impossible here
-#       TagKey: !Sub "sdlf:team:${pTeamName}"
-#       TagValues:
-#         - !Sub ${pTeamName}
+        tag = lakeformation.CfnTag(self, "rTeamLakeFormationTag",
+            catalog_id=self.account,
+            # sdlf:team as key and team names as values would be best but impossible here
+            tag_key=f"sdlf:team:{p_teamname.value_as_string}",
+            tag_values=[p_teamname.value_as_string]
+        )
 
-#   rTeamLakeFormationTagPermissions: # allows associating this lf-tag to datasets in sdlf-dataset
-#       Type: AWS::LakeFormation::PrincipalPermissions
-#       Properties:
-#         Principal:
-#           DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
-#         Resource:
-#           LFTag:
-#             CatalogId: !Ref AWS::AccountId
-#             TagKey: !Ref rTeamLakeFormationTag
-#             TagValues:
-#               - !Sub ${pTeamName}
-#         Permissions:
-#           - ASSOCIATE
-#         PermissionsWithGrantOption: []
+        tag_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(self, "rTeamLakeFormationTagPermissions", # allows associating this lf-tag to datasets in sdlf-dataset
+            permissions=["ASSOCIATE"],
+            permissions_with_grant_option=[],
+            principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=self.format_arn(
+                    service="iam",
+                    resource="role",
+                    region="",
+                    arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}"
+                ),
+            ),
+            resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
+                lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
+                    catalog_id=self.account,
+                    tag_key=tag.tag_key,
+                    tag_values=[p_teamname.value_as_string]
+                ),
+            ),
+        )
 
-#   rTeamLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
-#     Type: AWS::LakeFormation::PrincipalPermissions
-#     Properties:
-#       Principal:
-#         DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
-#       Resource:
-#         LFTagPolicy:
-#           CatalogId: !Ref AWS::AccountId
-#           ResourceType: TABLE
-#           Expression:
-#             - TagKey: !Ref rTeamLakeFormationTag
-#               TagValues:
-#                 - !Sub ${pTeamName}
-#       Permissions:
-#         - ALL
-#       PermissionsWithGrantOption:
-#         - ALL
+        tag_tables_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(self, "rTeamLakeFormationTagTablesPermissions", # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
+            permissions=["ALL"],
+            permissions_with_grant_option=["ALL"],
+            principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=self.format_arn(
+                    service="iam",
+                    resource="role",
+                    region="",
+                    arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}"
+                ),
+            ),
+            resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
+                lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
+                    catalog_id=self.account,
+                    expression=[lakeformation.CfnPrincipalPermissions.LFTagProperty(
+                        tag_key=tag.tag_key,
+                        tag_values=[p_teamname.value_as_string]
+                    )],
+                    resource_type="TABLE"
+                ),
+            ),
+        )
 
         athena_workgroup = athena.CfnWorkGroup(self, "rAthenaWorkgroup",
             name=f"sdlf-{p_teamname.value_as_string}",
