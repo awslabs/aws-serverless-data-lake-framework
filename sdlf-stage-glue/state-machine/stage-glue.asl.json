@@ -32,7 +32,7 @@
                       "JobName.$": "$.Items[0].transform.transform",
                       "WorkerType.$": "$.Items[0].transform.WorkerType",
                       "NumberOfWorkers.$": "$.Items[0].transform.NumberOfWorkers",
-                      "Arguments.$": "$.Items[0.transform.arguments"
+                      "Arguments.$": "$.Items[0].transform.arguments"
                     },
                     "End": true
                   }
