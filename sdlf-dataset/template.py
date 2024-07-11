@@ -12,12 +12,11 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+
 class SdlfDataset(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        run_in_vpc = False
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
@@ -105,34 +104,33 @@ class SdlfDataset(Stack):
             string_value=glue_crawler.name
         )
 
-#   rGlueDataCatalogLakeFormationTag:
-#       Type: AWS::LakeFormation::TagAssociation
-#       Properties:
-#         Resource:
-#           Database:
-#             CatalogId: !Ref AWS::AccountId
-#             Name: !Ref rGlueDataCatalog
-#         LFTags:
-#           - CatalogId: !Ref AWS::AccountId
-#             TagKey: !Sub "sdlf:team:${pTeamName}"
-#             TagValues:
-#               - !Sub ${pTeamName}
 
+        team_lf_tag_pair_property = lakeformation.CfnTagAssociation.LFTagPairProperty(
+            catalog_id=self.account,
+            tag_key=f"sdlf:team:{p_teamname.value_as_string}",
+            tag_values=[p_teamname.value_as_string]
+        )
+        team_tag_association = lakeformation.CfnTagAssociation(self, "TagAssociation",
+            lf_tags=[team_lf_tag_pair_property],
+            resource=lakeformation.CfnTagAssociation.ResourceProperty(
+                database=lakeformation.CfnTagAssociation.DatabaseResourceProperty(
+                    catalog_id=self.account,
+                    name=glue_catalog.database_name
+                )
+            )
+        )
 
-#   rGlueCrawlerLakeFormationPermissions:
-#     Type: AWS::LakeFormation::Permissions
-#     Properties:
-#       DataLakePrincipal:
-#         DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
-#       Permissions:
-#         - CREATE_TABLE
-#         - ALTER
-#         - DROP
-#       Resource:
-#         DatabaseResource:
-#           Name: !Ref rGlueDataCatalog
-
-  ######## SSM #########
+        crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rGlueCrawlerLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/CrawlerRoleArn}}}}"
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    name=glue_catalog.database_name
+                )
+            ),
+            permissions=["CREATE_TABLE", "ALTER", "DROP"],
+        )
 
         ssm.StringParameter(self, "rDatasetSsm",
             description=f"Placeholder {p_teamname.value_as_string} {p_datasetname.value_as_string}",
