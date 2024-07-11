@@ -41,108 +41,63 @@ def create_domain_cicd_stack(domain, environment, template_body_url, child_accou
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-domain-{domain}-{environment}"
+    stack_parameters= [
+        {
+            "ParameterKey": "pChildAccountId",
+            "ParameterValue": child_account,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pDomain",
+            "ParameterValue": domain,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pEnvironment",
+            "ParameterValue": environment,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pMainRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Main{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pCicdRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pFoundationsRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Foundations{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pTeamRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Team{git_platform}",
+            "UsePreviousValue": False,
+        },
+    ]
+    stack_arguments = dict(
+        StackName=stack_name,
+        TemplateURL=template_body_url,
+        Parameters=stack_parameters,
+        Capabilities=[
+            "CAPABILITY_NAMED_IAM",
+            "CAPABILITY_AUTO_EXPAND",
+        ],
+        RoleARN=cloudformation_role,
+        Tags=[
+            {"Key": "Framework", "Value": "sdlf"},
+        ],
+    )
+
     try:
-        response = cloudformation.create_stack(
-            StackName=stack_name,
-            TemplateURL=template_body_url,
-            Parameters=[
-                {
-                    "ParameterKey": "pChildAccountId",
-                    "ParameterValue": child_account,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pDomain",
-                    "ParameterValue": domain,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pEnvironment",
-                    "ParameterValue": environment,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pMainRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Main{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pCicdRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pFoundationsRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Foundations{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pTeamRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Team{git_platform}",
-                    "UsePreviousValue": False,
-                },
-            ],
-            Capabilities=[
-                "CAPABILITY_NAMED_IAM",
-                "CAPABILITY_AUTO_EXPAND",
-            ],
-            RoleARN=cloudformation_role,
-            Tags=[
-                {"Key": "Framework", "Value": "sdlf"},
-            ],
-        )
+        response = cloudformation.create_stack(**stack_arguments)
         cloudformation_waiter_type = "stack_create_complete"
     except cloudformation.exceptions.AlreadyExistsException:
         try:
-            response = cloudformation.update_stack(
-                StackName=stack_name,
-                TemplateURL=template_body_url,
-                Parameters=[
-                    {
-                        "ParameterKey": "pChildAccountId",
-                        "ParameterValue": child_account,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pDomain",
-                        "ParameterValue": domain,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pEnvironment",
-                        "ParameterValue": environment,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pMainRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Main{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pCicdRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pFoundationsRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Foundations{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pTeamRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Team{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                ],
-                Capabilities=[
-                    "CAPABILITY_NAMED_IAM",
-                    "CAPABILITY_AUTO_EXPAND",
-                ],
-                RoleARN=cloudformation_role,
-                Tags=[
-                    {"Key": "Framework", "Value": "sdlf"},
-                ],
-            )
+            response = cloudformation.update_stack(**stack_arguments)
             cloudformation_waiter_type = "stack_update_complete"
         except ClientError as err:
             if "No updates are to be performed" in err.response["Error"]["Message"]:
@@ -166,56 +121,37 @@ def create_team_repository_cicd_stack(domain, team_name, template_body_url, clou
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-teams-{domain}-{team_name}-repository"
+    stack_parameters = [
+        {
+            "ParameterKey": "pDomain",
+            "ParameterValue": domain,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pTeamName",
+            "ParameterValue": team_name,
+            "UsePreviousValue": False,
+        },
+    ]
+    stack_arguments = dict(
+        StackName=stack_name,
+        TemplateURL=template_body_url,
+        Parameters=stack_parameters,
+        Capabilities=[
+            "CAPABILITY_AUTO_EXPAND",
+        ],
+        RoleARN=cloudformation_role,
+        Tags=[
+            {"Key": "Framework", "Value": "sdlf"},
+        ],
+    )
+
     try:
-        response = cloudformation.create_stack(
-            StackName=stack_name,
-            TemplateURL=template_body_url,
-            Parameters=[
-                {
-                    "ParameterKey": "pDomain",
-                    "ParameterValue": domain,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pTeamName",
-                    "ParameterValue": team_name,
-                    "UsePreviousValue": False,
-                },
-            ],
-            Capabilities=[
-                "CAPABILITY_AUTO_EXPAND",
-            ],
-            RoleARN=cloudformation_role,
-            Tags=[
-                {"Key": "Framework", "Value": "sdlf"},
-            ],
-        )
+        response = cloudformation.create_stack(**stack_arguments)
         cloudformation_waiter_type = "stack_create_complete"
     except cloudformation.exceptions.AlreadyExistsException:
         try:
-            response = cloudformation.update_stack(
-                StackName=stack_name,
-                TemplateURL=template_body_url,
-                Parameters=[
-                    {
-                        "ParameterKey": "pDomain",
-                        "ParameterValue": domain,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pTeamName",
-                        "ParameterValue": team_name,
-                        "UsePreviousValue": False,
-                    },
-                ],
-                Capabilities=[
-                    "CAPABILITY_AUTO_EXPAND",
-                ],
-                RoleARN=cloudformation_role,
-                Tags=[
-                    {"Key": "Framework", "Value": "sdlf"},
-                ],
-            )
+            response = cloudformation.update_stack(**stack_arguments)
             cloudformation_waiter_type = "stack_update_complete"
         except ClientError as err:
             if "No updates are to be performed" in err.response["Error"]["Message"]:
@@ -239,168 +175,93 @@ def create_team_pipeline_cicd_stack(
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-teams-{domain}-{environment}-{team_name}"
+    stack_parameters = [
+        {
+            "ParameterKey": "pChildAccountId",
+            "ParameterValue": child_account,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pDomain",
+            "ParameterValue": domain,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pEnvironment",
+            "ParameterValue": environment,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pTeamName",
+            "ParameterValue": team_name,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pCrossAccountTeamRole",
+            "ParameterValue": crossaccount_team_role,
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pCicdRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pDatalakeLibraryRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/DatalakeLibrary{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pPipelineRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Pipeline{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pStageARepository",
+            "ParameterValue": f"/SDLF/{git_platform}/StageA{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pStageLambdaRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pStageBRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pStageGlueRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
+            "UsePreviousValue": False,
+        },
+        {
+            "ParameterKey": "pDatasetRepository",
+            "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",
+            "UsePreviousValue": False,
+        },
+    ]
+    stack_arguments = dict(
+        StackName=stack_name,
+        TemplateURL=template_body_url,
+        Parameters=stack_parameters,
+        Capabilities=[
+            "CAPABILITY_NAMED_IAM",
+            "CAPABILITY_AUTO_EXPAND",
+        ],
+        RoleARN=cloudformation_role,
+        Tags=[
+            {"Key": "Framework", "Value": "sdlf"},
+        ],
+    )
+
     try:
-        response = cloudformation.create_stack(
-            StackName=stack_name,
-            TemplateURL=template_body_url,
-            Parameters=[
-                {
-                    "ParameterKey": "pChildAccountId",
-                    "ParameterValue": child_account,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pDomain",
-                    "ParameterValue": domain,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pEnvironment",
-                    "ParameterValue": environment,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pTeamName",
-                    "ParameterValue": team_name,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pCrossAccountTeamRole",
-                    "ParameterValue": crossaccount_team_role,
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pCicdRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pDatalakeLibraryRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/DatalakeLibrary{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pPipelineRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Pipeline{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pStageARepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/StageA{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pStageLambdaRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pStageBRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pStageGlueRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
-                    "UsePreviousValue": False,
-                },
-                {
-                    "ParameterKey": "pDatasetRepository",
-                    "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",
-                    "UsePreviousValue": False,
-                },
-            ],
-            Capabilities=[
-                "CAPABILITY_NAMED_IAM",
-                "CAPABILITY_AUTO_EXPAND",
-            ],
-            RoleARN=cloudformation_role,
-            Tags=[
-                {"Key": "Framework", "Value": "sdlf"},
-            ],
-        )
+        response = cloudformation.create_stack(**stack_arguments)
         cloudformation_waiter_type = "stack_create_complete"
     except cloudformation.exceptions.AlreadyExistsException:
         try:
-            response = cloudformation.update_stack(
-                StackName=stack_name,
-                TemplateURL=template_body_url,
-                Parameters=[
-                    {
-                        "ParameterKey": "pChildAccountId",
-                        "ParameterValue": child_account,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pDomain",
-                        "ParameterValue": domain,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pEnvironment",
-                        "ParameterValue": environment,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pTeamName",
-                        "ParameterValue": team_name,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pCrossAccountTeamRole",
-                        "ParameterValue": crossaccount_team_role,
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pCicdRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Cicd{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pDatalakeLibraryRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/DatalakeLibrary{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pPipelineRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Pipeline{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pStageARepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/StageA{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pStageLambdaRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/StageLambda{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pStageBRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/StageB{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pStageGlueRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/StageGlue{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                    {
-                        "ParameterKey": "pDatasetRepository",
-                        "ParameterValue": f"/SDLF/{git_platform}/Dataset{git_platform}",
-                        "UsePreviousValue": False,
-                    },
-                ],
-                Capabilities=[
-                    "CAPABILITY_NAMED_IAM",
-                    "CAPABILITY_AUTO_EXPAND",
-                ],
-                RoleARN=cloudformation_role,
-                Tags=[
-                    {"Key": "Framework", "Value": "sdlf"},
-                ],
-            )
+            response = cloudformation.update_stack(**stack_arguments)
             cloudformation_waiter_type = "stack_update_complete"
         except ClientError as err:
             if "No updates are to be performed" in err.response["Error"]["Message"]:
