@@ -27,107 +27,141 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-class SdlfPipeline(Stack):
 
+class SdlfPipeline(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
-        p_pipelinereference = CfnParameter(self, "pPipelineReference",
+        p_pipelinereference = CfnParameter(
+            self,
+            "pPipelineReference",
             type="String",
             default="none",
         )
-        p_org = CfnParameter(self, "pOrg",
+        p_org = CfnParameter(
+            self,
+            "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}"
+            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
         )
-        p_domain = CfnParameter(self, "pDomain",
+        p_domain = CfnParameter(
+            self,
+            "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}"
+            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
-        p_env = CfnParameter(self, "pEnv",
-            description="Environment name",
-            type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
+        p_env = CfnParameter(
+            self, "pEnv", description="Environment name", type="String", default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
         )
-        p_teamname = CfnParameter(self, "pTeamName",
+        p_teamname = CfnParameter(
+            self,
+            "pTeamName",
             description="Name of the team (all lowercase, no symbols or spaces)",
             type="String",
-            allowed_pattern="[a-z0-9]{2,12}"
+            allowed_pattern="[a-z0-9]{2,12}",
         )
-        p_pipelinename = CfnParameter(self, "pPipelineName",
+        p_pipelinename = CfnParameter(
+            self,
+            "pPipelineName",
             description="The name of the pipeline (all lowercase, no symbols or spaces)",
             type="String",
-            allowed_pattern="[a-z0-9]*"
+            allowed_pattern="[a-z0-9]*",
         )
-        p_stagename = CfnParameter(self, "pStageName",
+        p_stagename = CfnParameter(
+            self,
+            "pStageName",
             description="Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)",
             type="String",
-            allowed_pattern="[a-zA-Z0-9\\-]{2,12}"
+            allowed_pattern="[a-zA-Z0-9\\-]{2,12}",
         )
-        p_stageenabled = CfnParameter(self, "pStageEnabled",
+        p_stageenabled = CfnParameter(
+            self,
+            "pStageEnabled",
             description="Whether the stage is enabled or not",
             type="String",
-            allowed_values=["true", "false"]
+            allowed_values=["true", "false"],
         )
-        p_triggertype = CfnParameter(self, "pTriggerType",
+        p_triggertype = CfnParameter(
+            self,
+            "pTriggerType",
             description="Trigger type of the stage (event or schedule)",
             type="String",
             allowed_values=["event", "schedule"],
-            default="event"
+            default="event",
         )
-        p_schedule = CfnParameter(self, "pSchedule",
+        p_schedule = CfnParameter(
+            self,
+            "pSchedule",
             description="Cron expression when trigger type is schedule",
             type="String",
-            default="cron(*/5 * * * ? *)"
+            default="cron(*/5 * * * ? *)",
         )
-        p_eventpattern = CfnParameter(self, "pEventPattern",
+        p_eventpattern = CfnParameter(
+            self,
+            "pEventPattern",
             description="Event pattern to match from previous stage",
             type="String",
             default="",
         )
-        p_lambdaroutingstep = CfnParameter(self, "pLambdaRoutingStep",
+        p_lambdaroutingstep = CfnParameter(
+            self,
+            "pLambdaRoutingStep",
             description="Routing Lambda function ARN",
             type="String",
         )
 
-        routing_dlq = sqs.Queue(self, "rDeadLetterQueueRoutingStep",
+        routing_dlq = sqs.Queue(
+            self,
+            "rDeadLetterQueueRoutingStep",
             queue_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-dlq-{p_stagename.value_as_string}.fifo",
             fifo=True,
             retention_period=Duration.days(14),
             visibility_timeout=Duration.seconds(60),
-            encryption_master_key=kms.Key.from_key_arn(self, "chaipakms1", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"),
+            encryption_master_key=kms.Key.from_key_arn(
+                self, "chaipakms1", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
         )
-        ssm.StringParameter(self, "rDeadLetterQueueRoutingStepSsm",
+        ssm.StringParameter(
+            self,
+            "rDeadLetterQueueRoutingStepSsm",
             description=f"Name of the {p_stagename.value_as_string} {p_teamname.value_as_string} {p_pipelinename.value_as_string} DLQ",
             parameter_name=f"/SDLF/SQS/{p_teamname.value_as_string}/{p_pipelinename.value_as_string}{p_stagename.value_as_string}DLQ",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=routing_dlq.queue_name,
         )
 
-        routing_queue = sqs.Queue(self, "rQueueRoutingStep",
+        routing_queue = sqs.Queue(
+            self,
+            "rQueueRoutingStep",
             queue_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-queue-{p_stagename.value_as_string}.fifo",
             fifo=True,
             content_based_deduplication=True,
             retention_period=Duration.days(7),
             visibility_timeout=Duration.seconds(60),
-            encryption_master_key=kms.Key.from_key_arn(self, "chaipakms2", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"),
+            encryption_master_key=kms.Key.from_key_arn(
+                self, "chaipakms2", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=1,
                 queue=routing_dlq,
-            )
+            ),
         )
-        ssm.StringParameter(self, "rQueueRoutingStepSsm",
+        ssm.StringParameter(
+            self,
+            "rQueueRoutingStepSsm",
             description=f"Name of the {p_stagename.value_as_string} {p_teamname.value_as_string} {p_pipelinename.value_as_string} Queue",
             parameter_name=f"/SDLF/SQS/{p_teamname.value_as_string}/{p_pipelinename.value_as_string}{p_stagename.value_as_string}Queue",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=routing_dlq.queue_name,
         )
 
-        stage_rule = events.Rule(self, "rStageRule",
+        stage_rule = events.Rule(
+            self,
+            "rStageRule",
             rule_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-rule-{p_stagename.value_as_string}",
             description=f"Send events to {p_stagename.value_as_string} queue",
             event_bus=f"{{{{resolve:ssm:/SDLF/EventBridge/{p_teamname.value_as_string}/EventBusName}}}}",
@@ -139,7 +173,7 @@ class SdlfPipeline(Stack):
                     message_group_id=f"{p_teamname.value_as_string}-{p_pipelinename.value_as_string}",
                     # InputPath: "$.detail" ? TODO
                 )
-            ]
+            ],
         )
 
         routing_queue_policy = iam.PolicyStatement(
@@ -149,47 +183,46 @@ class SdlfPipeline(Stack):
             ],
             actions=["SQS:SendMessage"],
             resources=[routing_queue.queue_arn],
-            conditions={"ArnEquals": {"aws:SourceArn": stage_rule.rule_arn}}
+            conditions={"ArnEquals": {"aws:SourceArn": stage_rule.rule_arn}},
         )
-        routing_queue.add_to_resource_policy(routing_queue_policy) # TODO may be a cdk grant
+        routing_queue.add_to_resource_policy(routing_queue_policy)  # TODO may be a cdk grant
 
+        #         catalog_function.add_event_source(eventsources.SqsEventSource(catalog_queue, batch_size=10))
+        #   rQueueLambdaEventSourceMapping:
+        #     Type: AWS::Lambda::EventSourceMapping
+        #     Condition: EventBased
+        #     Properties:
+        #       BatchSize: 10
+        #       Enabled: True
+        #       EventSourceArn: !GetAtt rQueueRoutingStep.Arn
+        #       FunctionName: !Ref pLambdaRoutingStep
 
-#         catalog_function.add_event_source(eventsources.SqsEventSource(catalog_queue, batch_size=10))
-#   rQueueLambdaEventSourceMapping:
-#     Type: AWS::Lambda::EventSourceMapping
-#     Condition: EventBased
-#     Properties:
-#       BatchSize: 10
-#       Enabled: True
-#       EventSourceArn: !GetAtt rQueueRoutingStep.Arn
-#       FunctionName: !Ref pLambdaRoutingStep
-
-
-        poststateschedule_role_policy = iam.Policy(self, "sdlf-schedule",
+        poststateschedule_role_policy = iam.Policy(
+            self,
+            "sdlf-schedule",
             statements=[
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
-                    resources=[
-                        p_lambdaroutingstep.value_as_string,
-                        f"{p_lambdaroutingstep.value_as_string}:*"
-                    ]
+                    resources=[p_lambdaroutingstep.value_as_string, f"{p_lambdaroutingstep.value_as_string}:*"],
                 ),
                 iam.PolicyStatement(
                     actions=["kms:Decrypt"],
-                    resources=[
-                        f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
-                    ]
-                )
-            ]
+                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"],
+                ),
+            ],
         )
-        poststateschedule_role = iam.Role(self, "rPostStateScheduleRole",
+        poststateschedule_role = iam.Role(
+            self,
+            "rPostStateScheduleRole",
             path=f"/sdlf-{p_teamname.value_as_string}/",
             assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}", # TODO
+            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",  # TODO
         )
         poststateschedule_role.attach_inline_policy(poststateschedule_role_policy)
 
-        poststate_schedule = scheduler.CfnSchedule(self, "rPostStateSchedule",
+        poststate_schedule = scheduler.CfnSchedule(
+            self,
+            "rPostStateSchedule",
             name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-schedule-rule-{p_stagename.value_as_string}",
             description=f"Trigger {p_stagename.value_as_string} Routing Lambda on a specified schedule",
             group_name=f"{{{{resolve:ssm:/SDLF/EventBridge/{p_teamname.value_as_string}/ScheduleGroupName}}}}",
@@ -209,18 +242,22 @@ class SdlfPipeline(Stack):
                 #         "Payload": "{\n \"team\": \"{p_teamname.value_as_string}\",\n \"pipeline\": \"{p_pipelinename.value_as_string}\",\n \"pipeline_stage\": \"{p_stagename.value_as_string}\",\n \"trigger_type\": \"{p_triggertype.value_as_string}\",\n \"event_pattern\": \"true\",\n \"org\": \"{p_org.value_as_string}\",\n \"domain\": \"{p_domain.value_as_string}\",\n \"env\": \"{p_env.value_as_string}\"\n }"
                 #     }
                 #     '''
-            )
+            ),
         )
 
-        ssm.StringParameter(self, "rPipelineStageSsm",
+        ssm.StringParameter(
+            self,
+            "rPipelineStageSsm",
             description=f"Placeholder {p_teamname.value_as_string} {p_pipelinename.value_as_string} {p_stagename.value_as_string}",
             parameter_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}/{p_pipelinename.value_as_string}/{p_stagename.value_as_string}",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value="placeholder",
         )
 
         # CloudFormation Outputs TODO
-        CfnOutput(self, "oPipelineReference",
+        CfnOutput(
+            self,
+            "oPipelineReference",
             description="CodePipeline reference this stack has been deployed with",
-            value=p_pipelinereference.value_as_string
+            value=p_pipelinereference.value_as_string,
         )

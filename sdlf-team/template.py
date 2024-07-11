@@ -28,8 +28,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-class SdlfTeam(Stack):
 
+class SdlfTeam(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -38,59 +38,81 @@ class SdlfTeam(Stack):
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
-        p_pipelinereference = CfnParameter(self, "pPipelineReference",
+        p_pipelinereference = CfnParameter(
+            self,
+            "pPipelineReference",
             type="String",
             default="none",
         )
-        p_org = CfnParameter(self, "pOrg",
+        p_org = CfnParameter(
+            self,
+            "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}"
+            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
         )
-        p_domain = CfnParameter(self, "pDomain",
+        p_domain = CfnParameter(
+            self,
+            "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}"
+            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
-        p_environment = CfnParameter(self, "pEnvironment",
+        p_environment = CfnParameter(
+            self,
+            "pEnvironment",
             description="Environment name",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
+            default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}",
         )
-        p_teamname = CfnParameter(self, "pTeamName",
+        p_teamname = CfnParameter(
+            self,
+            "pTeamName",
             description="Name of the team (all lowercase, no symbols or spaces)",
             type="String",
-            allowed_pattern="[a-z0-9]{2,12}"
+            allowed_pattern="[a-z0-9]{2,12}",
         )
-        p_lakeformationdataaccessrole = CfnParameter(self, "pLakeFormationDataAccessRole",
+        p_lakeformationdataaccessrole = CfnParameter(
+            self,
+            "pLakeFormationDataAccessRole",
             description="Name of the team (all lowercase, no symbols or spaces)",
             type="String",
-            default="{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn:1}}"
+            default="{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn:1}}",
         )
-        p_artifactsbucket = CfnParameter(self, "pArtifactsBucket",
+        p_artifactsbucket = CfnParameter(
+            self,
+            "pArtifactsBucket",
             description="The artifacts bucket used by CodeBuild and CodePipeline",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:2}}"
+            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:2}}",
         )
-        p_athenabucket = CfnParameter(self, "pAthenaBucket",
+        p_athenabucket = CfnParameter(
+            self,
+            "pAthenaBucket",
             description="Athena bucket",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/AthenaBucket:2}}"
+            default="{{resolve:ssm:/SDLF/S3/AthenaBucket:2}}",
         )
-        p_rawbucket = CfnParameter(self, "pRawBucket",
+        p_rawbucket = CfnParameter(
+            self,
+            "pRawBucket",
             description="The raw bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}"
+            default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}",
         )
-        p_stagebucket = CfnParameter(self, "pStageBucket",
+        p_stagebucket = CfnParameter(
+            self,
+            "pStageBucket",
             description="The stage bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}"
+            default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
         )
-        p_analyticsbucket = CfnParameter(self, "pAnalyticsBucket",
+        p_analyticsbucket = CfnParameter(
+            self,
+            "pAnalyticsBucket",
             description="The analytics bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:2}}"
+            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:2}}",
         )
 
         ######## KMS #########
@@ -101,7 +123,7 @@ class SdlfTeam(Stack):
                     effect=iam.Effect.ALLOW,
                     principals=[iam.AccountRootPrincipal()],
                     actions=["kms:*"],
-                    resources=["*"]
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     sid="Allow CloudWatch alarms access",
@@ -111,7 +133,7 @@ class SdlfTeam(Stack):
                         iam.ServicePrincipal("events.amazonaws.com"),
                     ],
                     actions=["kms:Decrypt", "kms:GenerateDataKey*"],
-                    resources=["*"]
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     sid="Allow logs access",
@@ -119,8 +141,15 @@ class SdlfTeam(Stack):
                     principals=[
                         iam.ServicePrincipal("logs.amazonaws.com", region=self.region),
                     ],
-                    actions=["kms:CreateGrant", "kms:Decrypt", "kms:DescribeKey", "kms:Encrypt", "kms:GenerateDataKey*", "kms:ReEncrypt*"],
-                    resources=["*"]
+                    actions=[
+                        "kms:CreateGrant",
+                        "kms:Decrypt",
+                        "kms:DescribeKey",
+                        "kms:Encrypt",
+                        "kms:GenerateDataKey*",
+                        "kms:ReEncrypt*",
+                    ],
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     sid="Allow SNS access",
@@ -128,24 +157,32 @@ class SdlfTeam(Stack):
                     actions=["kms:Decrypt", "kms:GenerateDataKey*"],
                     principals=[iam.AnyPrincipal()],
                     resources=["*"],
-                    conditions={ "StringEquals": {"kms:CallerAccount": self.account, "kms:ViaService": f"sns.{self.region}.amazonaws.com"}}
+                    conditions={
+                        "StringEquals": {
+                            "kms:CallerAccount": self.account,
+                            "kms:ViaService": f"sns.{self.region}.amazonaws.com",
+                        }
+                    },
                 ),
             ]
         )
 
-        infra_kms_key = kms.Key(self, "rKMSInfraKey",
+        infra_kms_key = kms.Key(
+            self,
+            "rKMSInfraKey",
             description=f"SDLF {p_teamname.value_as_string} Infrastructure KMS Key",
             policy=infra_kms_key_policy,
         )
         infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key")
 
-        ssm.StringParameter(self, "rKMSInfraKeySsm",
+        ssm.StringParameter(
+            self,
+            "rKMSInfraKeySsm",
             description=f"Arn of the {p_teamname.value_as_string} KMS infrastructure key",
             parameter_name=f"/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=infra_kms_key.key_arn,
         )
-
 
         data_kms_key_policy = iam.PolicyDocument(
             statements=[
@@ -154,7 +191,7 @@ class SdlfTeam(Stack):
                     effect=iam.Effect.ALLOW,
                     principals=[iam.AccountRootPrincipal()],
                     actions=["kms:*"],
-                    resources=["*"]
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     sid="Allow Lake Formation permissions",
@@ -163,129 +200,131 @@ class SdlfTeam(Stack):
                         iam.ArnPrincipal(p_lakeformationdataaccessrole.value_as_string),
                     ],
                     actions=["kms:Decrypt*", "kms:Describe*", "kms:Encrypt*", "kms:GenerateDataKey*", "kms:ReEncrypt*"],
-                    resources=["*"]
+                    resources=["*"],
                 ),
             ]
         )
 
-        data_kms_key = kms.Key(self, "rKMSDataKey",
+        data_kms_key = kms.Key(
+            self,
+            "rKMSDataKey",
             description=f"SDLF {p_teamname.value_as_string} Data KMS Key",
             policy=data_kms_key_policy,
         )
         data_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-data-key")
 
-        ssm.StringParameter(self, "rKMSDataKeySsm",
+        ssm.StringParameter(
+            self,
+            "rKMSDataKeySsm",
             description=f"Arn of the {p_teamname.value_as_string} KMS data key",
             parameter_name=f"/SDLF/KMS/{p_teamname.value_as_string}/DataKeyId",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=data_kms_key.key_arn,
         )
 
-
-        bus = events.EventBus(self, "rEventBus",
-            event_bus_name=f"sdlf-{p_teamname.value_as_string}"
-        )
-        ssm.StringParameter(self, "rEventBusSsm",
+        bus = events.EventBus(self, "rEventBus", event_bus_name=f"sdlf-{p_teamname.value_as_string}")
+        ssm.StringParameter(
+            self,
+            "rEventBusSsm",
             description=f"Name of the {p_teamname.value_as_string} event bus",
             parameter_name=f"/SDLF/EventBridge/{p_teamname.value_as_string}/EventBusName",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=bus.event_bus_name,
         )
 
-        forwardeventbustrigger_role_policy = iam.Policy(self, "sdlf-cicd-events-trigger",
-            statements=[
-                iam.PolicyStatement(
-                    actions=["events:PutEvents"],
-                    resources=[
-                        bus.event_bus_arn
-                    ]
-                )
-            ]
+        forwardeventbustrigger_role_policy = iam.Policy(
+            self,
+            "sdlf-cicd-events-trigger",
+            statements=[iam.PolicyStatement(actions=["events:PutEvents"], resources=[bus.event_bus_arn])],
         )
 
-        forwardeventbustrigger_role = iam.Role(self, "rForwardEventBusTriggerRole",
+        forwardeventbustrigger_role = iam.Role(
+            self,
+            "rForwardEventBusTriggerRole",
             assumed_by=iam.ServicePrincipal("events.amazonaws.com"),
         )
         forwardeventbustrigger_role.attach_inline_policy(forwardeventbustrigger_role_policy)
 
-        forwardeventbus_rule = events.Rule(self, "rForwardEventBusRule",
+        forwardeventbus_rule = events.Rule(
+            self,
+            "rForwardEventBusRule",
             event_pattern=events.EventPattern(
-                source=events.Match.prefix("aws."),
-                account=[self.account],
-                region=[self.region]
+                source=events.Match.prefix("aws."), account=[self.account], region=[self.region]
             ),
-            targets=[
-                targets.EventBus(
-                    bus,
-                    role=forwardeventbustrigger_role
-                )
-            ]
+            targets=[targets.EventBus(bus, role=forwardeventbustrigger_role)],
         )
 
-        schedule_group = scheduler.CfnScheduleGroup(self, "rScheduleGroup",
+        schedule_group = scheduler.CfnScheduleGroup(
+            self,
+            "rScheduleGroup",
             name=f"sdlf-{p_teamname.value_as_string}",
         )
-        ssm.StringParameter(self, "rScheduleGroupSsm",
+        ssm.StringParameter(
+            self,
+            "rScheduleGroupSsm",
             description=f"Name of the {p_teamname.value_as_string} schedule group",
             parameter_name=f"/SDLF/EventBridge/{p_teamname.value_as_string}/ScheduleGroupName",
-            simple_name=False, # parameter name is a token
-            string_value=schedule_group.name
+            simple_name=False,  # parameter name is a token
+            string_value=schedule_group.name,
         )
 
-        glue.SecurityConfiguration(self, "rGlueSecurityConfiguration",
+        glue.SecurityConfiguration(
+            self,
+            "rGlueSecurityConfiguration",
             security_configuration_name=f"sdlf-{p_teamname.value_as_string}-glue-security-config",
             cloud_watch_encryption=glue.CloudWatchEncryption(
-                mode=glue.CloudWatchEncryptionMode.KMS,
-                kms_key=infra_kms_key
+                mode=glue.CloudWatchEncryptionMode.KMS, kms_key=infra_kms_key
             ),
             job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS,
-                kms_key=infra_kms_key
+                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS, kms_key=infra_kms_key
             ),
-            s3_encryption=glue.S3Encryption(
-                mode=glue.S3EncryptionMode.KMS,
-                kms_key=data_kms_key
-            )
+            s3_encryption=glue.S3Encryption(mode=glue.S3EncryptionMode.KMS, kms_key=data_kms_key),
         )
-        ssm.StringParameter(self, "rGlueSecurityConfigurationSsm",
+        ssm.StringParameter(
+            self,
+            "rGlueSecurityConfigurationSsm",
             description=f"Name of the {p_teamname.value_as_string} Glue security configuration",
             parameter_name=f"/SDLF/Glue/{p_teamname.value_as_string}/SecurityConfigurationId",
-            simple_name=False, # parameter name is a token
-            string_value=f"sdlf-{p_teamname.value_as_string}-glue-security-config" # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+            simple_name=False,  # parameter name is a token
+            string_value=f"sdlf-{p_teamname.value_as_string}-glue-security-config",  # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
         )
 
-        emr_security_configuration = emr.CfnSecurityConfiguration(self, "rEMRSecurityConfiguration",
+        emr_security_configuration = emr.CfnSecurityConfiguration(
+            self,
+            "rEMRSecurityConfiguration",
             name=f"sdlf-{p_teamname.value_as_string}-emr-security-config",
             security_configuration=json.dumps(
                 {
                     "EncryptionConfiguration": {
-                        "EnableInTransitEncryption" : False,
-                        "EnableAtRestEncryption" : True,
-                        "AtRestEncryptionConfiguration" : {
-                            "S3EncryptionConfiguration" : {
-                                "EncryptionMode" : "SSE-KMS",
-                                "AwsKmsKey": data_kms_key.key_id
+                        "EnableInTransitEncryption": False,
+                        "EnableAtRestEncryption": True,
+                        "AtRestEncryptionConfiguration": {
+                            "S3EncryptionConfiguration": {
+                                "EncryptionMode": "SSE-KMS",
+                                "AwsKmsKey": data_kms_key.key_id,
                             },
-                            "LocalDiskEncryptionConfiguration" : {
-                                "EncryptionKeyProviderType" : "AwsKms",
-                                "AwsKmsKey" : data_kms_key.key_id,
-                                "EnableEbsEncryption" : True
-                            }
-                        }
+                            "LocalDiskEncryptionConfiguration": {
+                                "EncryptionKeyProviderType": "AwsKms",
+                                "AwsKmsKey": data_kms_key.key_id,
+                                "EnableEbsEncryption": True,
+                            },
+                        },
                     },
-                    "InstanceMetadataServiceConfiguration":{
+                    "InstanceMetadataServiceConfiguration": {
                         "MinimumInstanceMetadataServiceVersion": 2,
-                        "HttpPutResponseHopLimit": 1
-                    }
+                        "HttpPutResponseHopLimit": 1,
+                    },
                 }
-            )
+            ),
         )
         #### END KMS STACK
 
         ######## IAM #########
-        permissions_boundary = iam.ManagedPolicy(self, "rTeamIAMManagedPolicy",
+        permissions_boundary = iam.ManagedPolicy(
+            self,
+            "rTeamIAMManagedPolicy",
             description="Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role",
-            path=f"/sdlf/{p_teamname.value_as_string}/", # keep this path for the team's permissions boundary policy only
+            path=f"/sdlf/{p_teamname.value_as_string}/",  # keep this path for the team's permissions boundary policy only
             statements=[
                 iam.PolicyStatement(
                     sid="AllowConsoleListBuckets",
@@ -301,7 +340,7 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         )
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowTeamBucketList",
@@ -335,7 +374,7 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowTeamPrefixActions",
@@ -383,13 +422,13 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowFullCodeCommitOnTeamRepositories",
                     actions=[
                         "codecommit:AssociateApprovalRuleTemplateWithRepository",
-                        "codecommit:Batch*", # Get, Describe, ApprovalRuleTemplate"
+                        "codecommit:Batch*",  # Get, Describe, ApprovalRuleTemplate"
                         "codecommit:Create*",
                         "codecommit:DeleteBranch",
                         "codecommit:DeleteFile",
@@ -414,16 +453,19 @@ class SdlfTeam(Stack):
                             resource=f"sdlf-{p_teamname.value_as_string}-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowTeamKMSDataKeyUsage",
-                    actions=["kms:CreateGrant", "kms:Decrypt", "kms:DescribeKey", "kms:Encrypt", "kms:GenerateDataKey*", "kms:ReEncrypt*"],
-                    resources=[
-                        "{{resolve:ssm:/SDLF/KMS/KeyArn}}",
-                        infra_kms_key.key_arn,
-                        data_kms_key.key_arn
-                    ]
+                    actions=[
+                        "kms:CreateGrant",
+                        "kms:Decrypt",
+                        "kms:DescribeKey",
+                        "kms:Encrypt",
+                        "kms:GenerateDataKey*",
+                        "kms:ReEncrypt*",
+                    ],
+                    resources=["{{resolve:ssm:/SDLF/KMS/KeyArn}}", infra_kms_key.key_arn, data_kms_key.key_arn],
                 ),
                 iam.PolicyStatement(
                     actions=["ssm:GetParameter", "ssm:GetParameters"],
@@ -432,9 +474,9 @@ class SdlfTeam(Stack):
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="/SDLF/*"
+                            resource_name="/SDLF/*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowOctagonDynamoAccess",
@@ -448,16 +490,16 @@ class SdlfTeam(Stack):
                         "dynamodb:PutItem",
                         "dynamodb:Query",
                         "dynamodb:Scan",
-                        "dynamodb:UpdateItem"
+                        "dynamodb:UpdateItem",
                     ],
                     resources=[
                         self.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="octagon-*"
+                            resource_name="octagon-*",
                         )
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowSQSManagement",
@@ -475,12 +517,10 @@ class SdlfTeam(Stack):
                             resource=f"sdlf-{p_teamname.value_as_string}-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
-                    actions=[
-                        "states:StartExecution"
-                    ],
+                    actions=["states:StartExecution"],
                     resources=[
                         self.format_arn(
                             service="states",
@@ -488,7 +528,7 @@ class SdlfTeam(Stack):
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=["iam:PassRole"],
@@ -498,14 +538,14 @@ class SdlfTeam(Stack):
                             resource="role",
                             region="",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}/sdlf-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}/sdlf-*",
                         ),
                     ],
-                    conditions={ "StringEquals": {"iam:PassedToService": "glue.amazonaws.com"}}
+                    conditions={"StringEquals": {"iam:PassedToService": "glue.amazonaws.com"}},
                 ),
                 iam.PolicyStatement(
-                    actions=["glue:GetSecurityConfiguration"], # W13 exception
-                    resources=["*"]
+                    actions=["glue:GetSecurityConfiguration"],  # W13 exception
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -528,39 +568,39 @@ class SdlfTeam(Stack):
                             service="glue",
                             resource="database",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*"
+                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*",
                         ),
                         self.format_arn(
                             service="glue",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*"
+                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*",
                         ),
                         self.format_arn(
                             service="glue",
                             resource="crawler",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
                         self.format_arn(
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
                         self.format_arn(
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{p_teamname.value_as_string}-*"
+                            resource_name=f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{p_teamname.value_as_string}-*",
                         ),
                         self.format_arn(
                             service="glue",
                             resource="dataQualityRuleset",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"*" # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
+                            resource_name=f"*",  # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup"],
@@ -570,30 +610,36 @@ class SdlfTeam(Stack):
                             resource="*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
-                    actions=["logs:CreateLogStream", "logs:DescribeLogStreams", "logs:GetLogEvents", "logs:PutLogEvents", "logs:AssociateKmsKey"],
+                    actions=[
+                        "logs:CreateLogStream",
+                        "logs:DescribeLogStreams",
+                        "logs:GetLogEvents",
+                        "logs:PutLogEvents",
+                        "logs:AssociateKmsKey",
+                    ],
                     resources=[
                         self.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-*",
                         ),
                         self.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/codebuild/sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"/aws/codebuild/sdlf-{p_teamname.value_as_string}-*",
                         ),
                         self.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws-glue/jobs/sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"/aws-glue/jobs/sdlf-{p_teamname.value_as_string}-*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     sid="AllowCloudFormationReadOnlyAccess",
@@ -601,16 +647,16 @@ class SdlfTeam(Stack):
                         "cloudformation:DescribeStacks",
                         "cloudformation:DescribeStackEvents",
                         "cloudformation:DescribeStackResource",
-                        "cloudformation:DescribeStackResources"
+                        "cloudformation:DescribeStackResources",
                     ],
                     resources=[
                         self.format_arn(
                             service="cloudformation",
                             resource="stack",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}:*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}:*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -621,24 +667,20 @@ class SdlfTeam(Stack):
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
-                    actions=[
-                        "events:PutTargets",
-                        "events:PutRule",
-                        "events:DescribeRule"
-                    ],
+                    actions=["events:PutTargets", "events:PutRule", "events:DescribeRule"],
                     resources=[
                         self.format_arn(
                             service="events",
                             resource="rule",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="StepFunctions*" # Step Functions managed rules: https://docs.aws.amazon.com/step-functions/latest/dg/service-integration-iam-templates.html#connect-iam-sync-async
+                            resource_name="StepFunctions*",  # Step Functions managed rules: https://docs.aws.amazon.com/step-functions/latest/dg/service-integration-iam-templates.html#connect-iam-sync-async
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -651,18 +693,22 @@ class SdlfTeam(Stack):
                             resource="/applications/*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
-        ssm.StringParameter(self, "rTeamIAMManagedPolicySsm",
+        ssm.StringParameter(
+            self,
+            "rTeamIAMManagedPolicySsm",
             description="The permissions boundary IAM Managed policy for the team",
             parameter_name=f"/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=permissions_boundary.managed_policy_arn,
         )
 
-        datalakecrawler_role_policy = iam.Policy(self, "sdlf-glue-crawler", # "sdlf-{p_teamname.value_as_string}-glue-crawler",
+        datalakecrawler_role_policy = iam.Policy(
+            self,
+            "sdlf-glue-crawler",  # "sdlf-{p_teamname.value_as_string}-glue-crawler",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -676,14 +722,10 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
-                    actions=[
-                        "s3:DeleteObject",
-                        "s3:GetObject",
-                        "s3:PutObject"
-                    ],
+                    actions=["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
                     resources=[
                         self.format_arn(
                             service="s3",
@@ -699,7 +741,7 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -720,7 +762,7 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -769,7 +811,7 @@ class SdlfTeam(Stack):
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -780,17 +822,13 @@ class SdlfTeam(Stack):
                         "kms:GenerateDataKey*",
                         "kms:CreateGrant",
                     ],
-                    resources=[
-                        infra_kms_key.key_arn,
-                        data_kms_key.key_arn,
-                        "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
-                    ]
+                    resources=[infra_kms_key.key_arn, data_kms_key.key_arn, "{{resolve:ssm:/SDLF/KMS/KeyArn}}"],
                 ),
                 iam.PolicyStatement(
                     actions=[
-                        "lakeformation:GetDataAccess", # W11 exception
+                        "lakeformation:GetDataAccess",  # W11 exception
                     ],
-                    resources=["*"]
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -804,35 +842,41 @@ class SdlfTeam(Stack):
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws-glue/crawlers-role/sdlf-{p_teamname.value_as_string}/*"
+                            resource_name=f"/aws-glue/crawlers-role/sdlf-{p_teamname.value_as_string}/*",
                         ),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
 
-        datalakecrawler_role = iam.Role(self, "rDatalakeCrawlerRole",
+        datalakecrawler_role = iam.Role(
+            self,
+            "rDatalakeCrawlerRole",
             path=f"/sdlf-{p_teamname.value_as_string}/",
             assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
-            managed_policies=[iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSGlueServiceRole"),]
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSGlueServiceRole"),
+            ],
         )
         datalakecrawler_role.attach_inline_policy(datalakecrawler_role_policy)
 
-        ssm.StringParameter(self, "rDatalakeCrawlerRoleArnSsm",
+        ssm.StringParameter(
+            self,
+            "rDatalakeCrawlerRoleArnSsm",
             description="The ARN of the Crawler role",
             parameter_name=f"/SDLF/IAM/{p_teamname.value_as_string}/CrawlerRoleArn",
-            simple_name=False, # parameter name is a token
+            simple_name=False,  # parameter name is a token
             string_value=datalakecrawler_role.role_arn,
         )
 
-
         ######## SNS #########
-        topic = sns.Topic(self, "rSNSTopic",
-            topic_name=f"sdlf-{p_teamname.value_as_string}-notifications",
-            master_key=infra_kms_key
+        topic = sns.Topic(
+            self, "rSNSTopic", topic_name=f"sdlf-{p_teamname.value_as_string}-notifications", master_key=infra_kms_key
         )
 
-        sns.TopicPolicy(self, "rSNSTopicPolicy", # TODO grant?
+        sns.TopicPolicy(
+            self,
+            "rSNSTopicPolicy",  # TODO grant?
             policy_document=iam.PolicyDocument(
                 # id=f"sdlf-{p_teamname.value_as_string}-notifications", TODO
                 statements=[
@@ -840,25 +884,28 @@ class SdlfTeam(Stack):
                         effect=iam.Effect.ALLOW,
                         principals=[
                             iam.ServicePrincipal("cloudwatch.amazonaws.com"),
-                            iam.ServicePrincipal("events.amazonaws.com")
+                            iam.ServicePrincipal("events.amazonaws.com"),
                         ],
                         actions=["sns:Publish"],
-                        resources=[topic.topic_arn]
+                        resources=[topic.topic_arn],
                     )
                 ]
             ),
-            topics=[topic]
+            topics=[topic],
         )
 
-        ssm.StringParameter(self, "rSNSTopicSsm",
+        ssm.StringParameter(
+            self,
+            "rSNSTopicSsm",
             description="The ARN of the team-specific SNS Topic",
             parameter_name=f"/SDLF/SNS/{p_teamname.value_as_string}/Notifications",
-            simple_name=False, # parameter name is a token
-            string_value=topic.topic_arn
+            simple_name=False,  # parameter name is a token
+            string_value=topic.topic_arn,
         )
 
-
-        datasetsdynamodb_role_policy = iam.Policy(self, "sdlf-dynamodb-lambda", # f"sdlf-{p_teamname.value_as_string}-dynamodb-lambda",
+        datasetsdynamodb_role_policy = iam.Policy(
+            self,
+            "sdlf-dynamodb-lambda",  # f"sdlf-{p_teamname.value_as_string}-dynamodb-lambda",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -870,15 +917,15 @@ class SdlfTeam(Stack):
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"octagon-Pipelines-{p_environment.value_as_string}"
+                            resource_name=f"octagon-Pipelines-{p_environment.value_as_string}",
                         ),
                         self.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"octagon-Datasets-{p_environment.value_as_string}"
+                            resource_name=f"octagon-Datasets-{p_environment.value_as_string}",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -898,15 +945,15 @@ class SdlfTeam(Stack):
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-datasets-dynamodb"
+                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-datasets-dynamodb",
                         ),
                         self.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-datasets-dynamodb:*"
+                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-datasets-dynamodb:*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -921,9 +968,9 @@ class SdlfTeam(Stack):
                             service="cloudwatch",
                             resource="alarm",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -934,75 +981,90 @@ class SdlfTeam(Stack):
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}"
+                            resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}",
                         ),
                         self.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"/SDLF/Datasets/{p_teamname.value_as_string}"
+                            resource_name=f"/SDLF/Datasets/{p_teamname.value_as_string}",
                         ),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
 
-        datasetsdynamodb_role = iam.Role(self, "rDatasetsDynamodbLambdaRole",
+        datasetsdynamodb_role = iam.Role(
+            self,
+            "rDatasetsDynamodbLambdaRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
         )
         datasetsdynamodb_role.attach_inline_policy(datasetsdynamodb_role_policy)
 
-        datasetsdynamodb_function = _lambda.Function(self, "rDatasetsDynamodbLambda",
-            runtime = _lambda.Runtime.PYTHON_3_12,
-            code = _lambda.Code.from_asset(os.path.join(dirname, "lambda/datasets-dynamodb/src")),
-            handler = "lambda_function.lambda_handler",
+        datasetsdynamodb_function = _lambda.Function(
+            self,
+            "rDatasetsDynamodbLambda",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/datasets-dynamodb/src")),
+            handler="lambda_function.lambda_handler",
             function_name=f"sdlf-{p_teamname.value_as_string}-datasets-dynamodb",
             description=f"Creates/updates DynamoDB entries for {p_teamname.value_as_string} datasets",
             memory_size=192,
             timeout=Duration.seconds(300),
             role=datasetsdynamodb_role,
-            environment={
-                "TEAM_NAME": p_teamname.value_as_string,
-                "ENV": p_environment.value_as_string
-            },
-            environment_encryption=infra_kms_key
+            environment={"TEAM_NAME": p_teamname.value_as_string, "ENV": p_environment.value_as_string},
+            environment_encryption=infra_kms_key,
             # vpcconfig TODO
         )
 
-        logs.LogGroup(self, "rDatasetsDynamodbLambdaLogGroup",
+        logs.LogGroup(
+            self,
+            "rDatasetsDynamodbLambdaLogGroup",
             log_group_name=f"/aws/lambda/{datasetsdynamodb_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
-#            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=infra_kms_key
+            #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
+            encryption_key=infra_kms_key,
         )
 
-        datasetsdynamodb_events_rule = events.Rule(self, "rDatasetsDynamodbTriggerEventRule",
+        datasetsdynamodb_events_rule = events.Rule(
+            self,
+            "rDatasetsDynamodbTriggerEventRule",
             description="Run Datasets DynamoDB update",
             event_pattern=events.EventPattern(
                 source=["aws.cloudformation"],
                 detail_type=["CloudFormation Stack Status Change"],
-                resources=events.Match.prefix(self.format_arn(service="cloudformation", resource="stack",arn_format=ArnFormat.SLASH_RESOURCE_NAME,resource_name=f"sdlf-{p_teamname.value_as_string}-datasets-{p_environment.value_as_string}")),
+                resources=events.Match.prefix(
+                    self.format_arn(
+                        service="cloudformation",
+                        resource="stack",
+                        arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                        resource_name=f"sdlf-{p_teamname.value_as_string}-datasets-{p_environment.value_as_string}",
+                    )
+                ),
                 detail={
                     "stack-id": [
-                        {"prefix": self.format_arn(service="cloudformation", resource="stack",arn_format=ArnFormat.SLASH_RESOURCE_NAME,resource_name=f"sdlf-{p_teamname.value_as_string}-datasets-{p_environment.value_as_string}")}
+                        {
+                            "prefix": self.format_arn(
+                                service="cloudformation",
+                                resource="stack",
+                                arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                                resource_name=f"sdlf-{p_teamname.value_as_string}-datasets-{p_environment.value_as_string}",
+                            )
+                        }
                     ],
-                    "status-details": {
-                        "status": [
-                            "CREATE_COMPLETE",
-                            "UPDATE_COMPLETE"
-                        ]
-                    }
-                }
+                    "status-details": {"status": ["CREATE_COMPLETE", "UPDATE_COMPLETE"]},
+                },
             ),
             targets=[
                 targets.LambdaFunction(
                     datasetsdynamodb_function,
-                ) # AWS::Lambda::Permission is added automatically
-            ]
+                )  # AWS::Lambda::Permission is added automatically
+            ],
         )
 
-
-        pipelinesdynamodb_role_policy = iam.Policy(self, "sdlf-pipelinesdynamodb-lambda", # f"sdlf-{p_teamname.value_as_string}-pipelinesdynamodb-lambda", TODO merge in a single policy
+        pipelinesdynamodb_role_policy = iam.Policy(
+            self,
+            "sdlf-pipelinesdynamodb-lambda",  # f"sdlf-{p_teamname.value_as_string}-pipelinesdynamodb-lambda", TODO merge in a single policy
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -1014,15 +1076,15 @@ class SdlfTeam(Stack):
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"octagon-Pipelines-{p_environment.value_as_string}"
+                            resource_name=f"octagon-Pipelines-{p_environment.value_as_string}",
                         ),
                         self.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"octagon-Datasets-{p_environment.value_as_string}"
+                            resource_name=f"octagon-Datasets-{p_environment.value_as_string}",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -1042,15 +1104,15 @@ class SdlfTeam(Stack):
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-pipelines-dynamodb"
+                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-pipelines-dynamodb",
                         ),
                         self.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-pipelines-dynamodb:*"
+                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-pipelines-dynamodb:*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -1065,9 +1127,9 @@ class SdlfTeam(Stack):
                             service="cloudwatch",
                             resource="alarm",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*"
+                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                    ]
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -1078,77 +1140,91 @@ class SdlfTeam(Stack):
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}"
+                            resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}",
                         ),
                         self.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"/SDLF/Datasets/{p_teamname.value_as_string}"
+                            resource_name=f"/SDLF/Datasets/{p_teamname.value_as_string}",
                         ),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
 
-        pipelinesdynamodb_role = iam.Role(self, "rPipelinesDynamodbLambdaRole",
+        pipelinesdynamodb_role = iam.Role(
+            self,
+            "rPipelinesDynamodbLambdaRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
         )
         pipelinesdynamodb_role.attach_inline_policy(pipelinesdynamodb_role_policy)
 
-
-        pipelinesdynamodb_function = _lambda.Function(self, "rPipelinesDynamodbLambda",
-            runtime = _lambda.Runtime.PYTHON_3_12,
-            code = _lambda.Code.from_asset(os.path.join(dirname, "lambda/pipelines-dynamodb/src")),
-            handler = "lambda_function.lambda_handler",
+        pipelinesdynamodb_function = _lambda.Function(
+            self,
+            "rPipelinesDynamodbLambda",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/pipelines-dynamodb/src")),
+            handler="lambda_function.lambda_handler",
             function_name=f"sdlf-{p_teamname.value_as_string}-pipelines-dynamodb",
             description=f"Creates/updates DynamoDB entries for {p_teamname.value_as_string} pipelines",
             memory_size=192,
             timeout=Duration.seconds(300),
             role=pipelinesdynamodb_role,
-            environment={
-                "TEAM_NAME": p_teamname.value_as_string,
-                "ENV": p_environment.value_as_string
-            },
-            environment_encryption=infra_kms_key
+            environment={"TEAM_NAME": p_teamname.value_as_string, "ENV": p_environment.value_as_string},
+            environment_encryption=infra_kms_key,
             # vpcconfig TODO
         )
 
-        logs.LogGroup(self, "rPipelinesDynamodbLambdaLogGroup",
+        logs.LogGroup(
+            self,
+            "rPipelinesDynamodbLambdaLogGroup",
             log_group_name=f"/aws/lambda/{pipelinesdynamodb_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
-#            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=infra_kms_key
+            #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
+            encryption_key=infra_kms_key,
         )
 
-        pipelinesdynamodb_events_rule = events.Rule(self, "rPipelinesDynamodbTriggerEventRule",
+        pipelinesdynamodb_events_rule = events.Rule(
+            self,
+            "rPipelinesDynamodbTriggerEventRule",
             description="Run Pipelines DynamoDB update",
             event_pattern=events.EventPattern(
                 source=["aws.cloudformation"],
                 detail_type=["CloudFormation Stack Status Change"],
-                resources=events.Match.prefix(self.format_arn(service="cloudformation", resource="stack",arn_format=ArnFormat.SLASH_RESOURCE_NAME,resource_name=f"sdlf-{p_teamname.value_as_string}-pipelines-{p_environment.value_as_string}")),
+                resources=events.Match.prefix(
+                    self.format_arn(
+                        service="cloudformation",
+                        resource="stack",
+                        arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                        resource_name=f"sdlf-{p_teamname.value_as_string}-pipelines-{p_environment.value_as_string}",
+                    )
+                ),
                 detail={
                     "stack-id": [
-                        {"prefix": self.format_arn(service="cloudformation", resource="stack",arn_format=ArnFormat.SLASH_RESOURCE_NAME,resource_name=f"sdlf-{p_teamname.value_as_string}-pipelines-{p_environment.value_as_string}")}
+                        {
+                            "prefix": self.format_arn(
+                                service="cloudformation",
+                                resource="stack",
+                                arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                                resource_name=f"sdlf-{p_teamname.value_as_string}-pipelines-{p_environment.value_as_string}",
+                            )
+                        }
                     ],
-                    "status-details": {
-                        "status": [
-                            "CREATE_COMPLETE",
-                            "UPDATE_COMPLETE"
-                        ]
-                    }
-                }
+                    "status-details": {"status": ["CREATE_COMPLETE", "UPDATE_COMPLETE"]},
+                },
             ),
             targets=[
                 targets.LambdaFunction(
                     pipelinesdynamodb_function,
-                ) # AWS::Lambda::Permission is added automatically
-            ]
+                )  # AWS::Lambda::Permission is added automatically
+            ],
         )
 
-
         ######## LAKEFORMATION PERMISSIONS #########
-        raw_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rCentralTeamLakeFormationPermissions",
+        raw_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
+            self,
+            "rCentralTeamLakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=datalakecrawler_role.role_arn
             ),
@@ -1166,7 +1242,9 @@ class SdlfTeam(Stack):
             permissions=["DATA_LOCATION_ACCESS"],
         )
 
-        stagepre_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rStagePreTeamLakeFormationPermissions",
+        stagepre_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
+            self,
+            "rStagePreTeamLakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=datalakecrawler_role.role_arn
             ),
@@ -1184,7 +1262,9 @@ class SdlfTeam(Stack):
             permissions=["DATA_LOCATION_ACCESS"],
         )
 
-        stagepost_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rStagePostTeamLakeFormationPermissions",
+        stagepost_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
+            self,
+            "rStagePostTeamLakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=datalakecrawler_role.role_arn
             ),
@@ -1202,7 +1282,9 @@ class SdlfTeam(Stack):
             permissions=["DATA_LOCATION_ACCESS"],
         )
 
-        analytics_crawler_lakeformation_permissions = lakeformation.CfnPermissions(self, "rAnalyticsTeamLakeFormationPermissions",
+        analytics_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
+            self,
+            "rAnalyticsTeamLakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=datalakecrawler_role.role_arn
             ),
@@ -1220,14 +1302,18 @@ class SdlfTeam(Stack):
             permissions=["DATA_LOCATION_ACCESS"],
         )
 
-        tag = lakeformation.CfnTag(self, "rTeamLakeFormationTag",
+        tag = lakeformation.CfnTag(
+            self,
+            "rTeamLakeFormationTag",
             catalog_id=self.account,
             # sdlf:team as key and team names as values would be best but impossible here
             tag_key=f"sdlf:team:{p_teamname.value_as_string}",
-            tag_values=[p_teamname.value_as_string]
+            tag_values=[p_teamname.value_as_string],
         )
 
-        tag_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(self, "rTeamLakeFormationTagPermissions", # allows associating this lf-tag to datasets in sdlf-dataset
+        tag_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
+            self,
+            "rTeamLakeFormationTagPermissions",  # allows associating this lf-tag to datasets in sdlf-dataset
             permissions=["ASSOCIATE"],
             permissions_with_grant_option=[],
             principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
@@ -1236,19 +1322,19 @@ class SdlfTeam(Stack):
                     resource="role",
                     region="",
                     arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}"
+                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
                 ),
             ),
             resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
                 lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
-                    catalog_id=self.account,
-                    tag_key=tag.tag_key,
-                    tag_values=[p_teamname.value_as_string]
+                    catalog_id=self.account, tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
                 ),
             ),
         )
 
-        tag_tables_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(self, "rTeamLakeFormationTagTablesPermissions", # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
+        tag_tables_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
+            self,
+            "rTeamLakeFormationTagTablesPermissions",  # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
             permissions=["ALL"],
             permissions_with_grant_option=["ALL"],
             principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
@@ -1257,22 +1343,25 @@ class SdlfTeam(Stack):
                     resource="role",
                     region="",
                     arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}"
+                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
                 ),
             ),
             resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
                 lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
                     catalog_id=self.account,
-                    expression=[lakeformation.CfnPrincipalPermissions.LFTagProperty(
-                        tag_key=tag.tag_key,
-                        tag_values=[p_teamname.value_as_string]
-                    )],
-                    resource_type="TABLE"
+                    expression=[
+                        lakeformation.CfnPrincipalPermissions.LFTagProperty(
+                            tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
+                        )
+                    ],
+                    resource_type="TABLE",
                 ),
             ),
         )
 
-        athena_workgroup = athena.CfnWorkGroup(self, "rAthenaWorkgroup",
+        athena_workgroup = athena.CfnWorkGroup(
+            self,
+            "rAthenaWorkgroup",
             name=f"sdlf-{p_teamname.value_as_string}",
             description=f"Athena workgroup for team {p_teamname.value_as_string}",
             state="ENABLED",
@@ -1280,27 +1369,30 @@ class SdlfTeam(Stack):
                 enforce_work_group_configuration=True,
                 engine_version=athena.CfnWorkGroup.EngineVersionProperty(
                     effective_engine_version="Athena engine version 3",
-                    selected_engine_version="Athena engine version 3"
+                    selected_engine_version="Athena engine version 3",
                 ),
                 publish_cloud_watch_metrics_enabled=True,
                 result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
                     encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
-                        encryption_option="SSE_KMS",
-                        kms_key=data_kms_key.key_arn
+                        encryption_option="SSE_KMS", kms_key=data_kms_key.key_arn
                     ),
-                    output_location=f"s3://{p_athenabucket.value_as_string}/{p_teamname.value_as_string}/"
-                )
-            )
+                    output_location=f"s3://{p_athenabucket.value_as_string}/{p_teamname.value_as_string}/",
+                ),
+            ),
         )
-        ssm.StringParameter(self, "rAthenaWorkgroupSsm",
+        ssm.StringParameter(
+            self,
+            "rAthenaWorkgroupSsm",
             description="The name of the Athena workgroup",
             parameter_name=f"/SDLF/Athena/{p_teamname.value_as_string}/WorkgroupName",
-            simple_name=False, # parameter name is a token
-            string_value=athena_workgroup.name
+            simple_name=False,  # parameter name is a token
+            string_value=athena_workgroup.name,
         )
 
         # CloudFormation Outputs TODO
-        CfnOutput(self, "oPipelineReference",
+        CfnOutput(
+            self,
+            "oPipelineReference",
             description="CodePipeline reference this stack has been deployed with",
-            value=p_pipelinereference.value_as_string
+            value=p_pipelinereference.value_as_string,
         )
