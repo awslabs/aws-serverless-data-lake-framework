@@ -6,6 +6,7 @@ import os.path
 from aws_cdk import (
     ArnFormat,
     Duration,
+    RemovalPolicy,
     Stack,
     CfnParameter,
     CfnOutput,
@@ -388,10 +389,11 @@ class SdlfFoundations(Stack):
         kms_key = kms.Key(
             self,
             "rKMSKey",
+            removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description="SDLF Foundations KMS Key",
             policy=kms_key_policy,
         )
-        kms_key.add_alias("alias/sdlf-kms-key")
+        kms_key.add_alias("alias/sdlf-kms-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
 
         ssm.StringParameter(
             self,

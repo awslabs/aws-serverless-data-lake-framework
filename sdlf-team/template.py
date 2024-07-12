@@ -7,6 +7,7 @@ import os.path
 from aws_cdk import (
     ArnFormat,
     Duration,
+    RemovalPolicy,
     Stack,
     CfnParameter,
     CfnOutput,
@@ -170,10 +171,11 @@ class SdlfTeam(Stack):
         infra_kms_key = kms.Key(
             self,
             "rKMSInfraKey",
+            removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_teamname.value_as_string} Infrastructure KMS Key",
             policy=infra_kms_key_policy,
         )
-        infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key")
+        infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
 
         ssm.StringParameter(
             self,
@@ -208,10 +210,11 @@ class SdlfTeam(Stack):
         data_kms_key = kms.Key(
             self,
             "rKMSDataKey",
+            removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_teamname.value_as_string} Data KMS Key",
             policy=data_kms_key_policy,
         )
-        data_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-data-key")
+        data_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-data-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
 
         ssm.StringParameter(
             self,
