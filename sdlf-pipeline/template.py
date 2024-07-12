@@ -117,6 +117,7 @@ class SdlfPipeline(Stack):
         routing_dlq = sqs.Queue(
             self,
             "rDeadLetterQueueRoutingStep",
+            removal_policy=RemovalPolicy.DESTROY,
             queue_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-dlq-{p_stagename.value_as_string}.fifo",
             fifo=True,
             retention_period=Duration.days(14),
@@ -137,6 +138,7 @@ class SdlfPipeline(Stack):
         routing_queue = sqs.Queue(
             self,
             "rQueueRoutingStep",
+            removal_policy=RemovalPolicy.DESTROY,
             queue_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-queue-{p_stagename.value_as_string}.fifo",
             fifo=True,
             content_based_deduplication=True,

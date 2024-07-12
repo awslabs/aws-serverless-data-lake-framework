@@ -1023,6 +1023,7 @@ class SdlfTeam(Stack):
         logs.LogGroup(
             self,
             "rDatasetsDynamodbLambdaLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{datasetsdynamodb_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
@@ -1182,6 +1183,7 @@ class SdlfTeam(Stack):
         logs.LogGroup(
             self,
             "rPipelinesDynamodbLambdaLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{pipelinesdynamodb_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),

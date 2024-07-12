@@ -6,6 +6,7 @@ import os.path
 from aws_cdk import (
     ArnFormat,
     Duration,
+    RemovalPolicy,
     Stack,
     CfnParameter,
     CfnOutput,
@@ -220,6 +221,7 @@ class SdlfStageEcsfargate(Stack):
         logs.LogGroup(
             self,
             "rLambdaPostMetadataStepLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{postmetadatastep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
@@ -280,6 +282,7 @@ class SdlfStageEcsfargate(Stack):
         logs.LogGroup(
             self,
             "rLambdaErrorStepLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{errorstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
@@ -541,6 +544,7 @@ class SdlfStageEcsfargate(Stack):
         logs.LogGroup(
             self,
             "rLambdaRoutingStepLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{routingstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
@@ -565,6 +569,7 @@ class SdlfStageEcsfargate(Stack):
         logs.LogGroup(
             self,
             "rLambdaRedriveStepLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{redrivestep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
