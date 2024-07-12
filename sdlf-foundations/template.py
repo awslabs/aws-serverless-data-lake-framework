@@ -633,6 +633,7 @@ class SdlfFoundations(Stack):
         catalog_dlq = sqs.Queue(
             self,
             "rDeadLetterQueueCatalog",
+            removal_policy=RemovalPolicy.DESTROY,
             queue_name="sdlf-catalog-dlq",
             retention_period=Duration.days(14),
             visibility_timeout=Duration.seconds(60),
@@ -642,6 +643,7 @@ class SdlfFoundations(Stack):
         catalog_queue = sqs.Queue(
             self,
             "rQueueCatalog",
+            removal_policy=RemovalPolicy.DESTROY,
             queue_name="sdlf-catalog-queue",
             retention_period=Duration.days(7),
             visibility_timeout=Duration.seconds(60),
@@ -811,6 +813,7 @@ class SdlfFoundations(Stack):
         logs.LogGroup(
             self,
             "rLambdaCatalogRedriveLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{catalog_redrive_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
@@ -823,6 +826,7 @@ class SdlfFoundations(Stack):
         objectmetadata_table = ddb.Table(
             self,
             "rDynamoOctagonObjectMetadata",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
                 type=ddb.AttributeType.STRING,
@@ -845,6 +849,7 @@ class SdlfFoundations(Stack):
         datasets_table = ddb.Table(
             self,
             "rDynamoOctagonDatasets",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="name",
                 type=ddb.AttributeType.STRING,
@@ -873,6 +878,7 @@ class SdlfFoundations(Stack):
         artifacts_table = ddb.Table(
             self,
             "rDynamoOctagonArtifacts",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
                 type=ddb.AttributeType.STRING,
@@ -944,6 +950,7 @@ class SdlfFoundations(Stack):
         metrics_table = ddb.Table(
             self,
             "rDynamoOctagonMetrics",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="root",
                 type=ddb.AttributeType.STRING,
@@ -999,6 +1006,7 @@ class SdlfFoundations(Stack):
         configuration_table = ddb.Table(
             self,
             "rDynamoOctagonConfiguration",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="key",
                 type=ddb.AttributeType.STRING,
@@ -1021,6 +1029,7 @@ class SdlfFoundations(Stack):
         teams_table = ddb.Table(
             self,
             "rDynamoOctagonTeams",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="team",
                 type=ddb.AttributeType.STRING,
@@ -1042,6 +1051,7 @@ class SdlfFoundations(Stack):
         pipelines_table = ddb.Table(
             self,
             "rDynamoOctagonPipelines",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="name",
                 type=ddb.AttributeType.STRING,
@@ -1063,6 +1073,7 @@ class SdlfFoundations(Stack):
         events_table = ddb.Table(
             self,
             "rDynamoOctagonEvents",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
                 type=ddb.AttributeType.STRING,
@@ -1114,6 +1125,7 @@ class SdlfFoundations(Stack):
         peh_table = ddb.Table(
             self,
             "rDynamoOctagonExecutionHistory",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
                 type=ddb.AttributeType.STRING,
@@ -1213,6 +1225,7 @@ class SdlfFoundations(Stack):
         schemas_table = ddb.Table(
             self,
             "rDynamoOctagonSchemas",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="name",
                 type=ddb.AttributeType.STRING,
@@ -1235,6 +1248,7 @@ class SdlfFoundations(Stack):
         manifests_table = ddb.Table(
             self,
             "rDynamoOctagonManifests",
+            removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="dataset_name",
                 type=ddb.AttributeType.STRING,
@@ -1279,6 +1293,7 @@ class SdlfFoundations(Stack):
         logs.LogGroup(
             self,
             "rLambdaReplicateLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
             log_group_name=f"/aws/lambda/{replicate_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number), # TODO
