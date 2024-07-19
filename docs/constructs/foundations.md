@@ -11,7 +11,7 @@
 
 - **Raw:** All data ingested from various data sources into the data lake lands in the raw bucket, in their original data format (*raw*). This can include structured, semi-structured, and unstructured data objects such as databases, backups, archives, JSON, CSV, XML, text files, or images.
 - **Stage:** After raw data have been transformed or normalized through data pipelines, it is stored in a staging bucket (also called *transformed*). In this stage, data can be transformed into columnar data formats such as Apache Parquet and Apache ORC. These formats can be used by Amazon Athena.
-- **Analytics:** Transformed data can be further enreched by blending other datasets to provide additional insights. This layer typically contains S3 objects which are optimized for analytics, reporting using Amazon Athena, Amazon Redshift Spectrum, and loading into massively-parallel processing data warehouses such as Amazon Redshift.
+- **Analytics:** Transformed data can be further enriched by blending other datasets to provide additional insights. This layer typically contains S3 objects which are optimized for analytics, reporting using Amazon Athena, Amazon Redshift Spectrum, and loading into massively-parallel processing data warehouses such as Amazon Redshift.
 
 An important building block of a data lake on AWS is [AWS Lake Formation](https://aws.amazon.com/lake-formation/). It allows managing fine-grained data access permissions and share data. `sdlf-foundations` enables Lake Formation and register the previous buckets so that they can be managed through it.
 
