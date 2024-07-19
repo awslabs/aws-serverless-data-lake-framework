@@ -5,33 +5,23 @@ import os.path
 
 from aws_cdk import (
     ArnFormat,
+    CfnOutput,
+    CfnParameter,
     Duration,
     RemovalPolicy,
-    Stack,
-    CfnParameter,
-    CfnOutput,
-    aws_athena as athena,
-    aws_dynamodb as ddb,
-    aws_emr as emr,
-    aws_events as events,
-    aws_events_targets as targets,
     aws_iam as iam,
     aws_kms as kms,
-    aws_lakeformation as lakeformation,
     aws_lambda as _lambda,
     aws_logs as logs,
-    aws_scheduler_alpha as scheduler,
-    aws_sns as sns,
-    aws_sqs as sqs,
     aws_ssm as ssm,
     aws_stepfunctions as sfn,
 )
 from constructs import Construct
 
 
-class SdlfStageEmrserverless(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfStageEmrserverless(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
 
@@ -43,9 +33,11 @@ class SdlfStageEmrserverless(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_rawbucket = CfnParameter(
             self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}"
         )
+        p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
             self,
             "pStageBucket",
@@ -53,6 +45,7 @@ class SdlfStageEmrserverless(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
         )
+        p_stagebucket.override_logical_id("pStageBucket")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -60,6 +53,7 @@ class SdlfStageEmrserverless(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,12}",
         )
+        p_teamname.override_logical_id("pTeamName")
         p_pipeline = CfnParameter(
             self,
             "pPipeline",
@@ -67,6 +61,7 @@ class SdlfStageEmrserverless(Stack):
             type="String",
             allowed_pattern="[a-z0-9]*",
         )
+        p_pipeline.override_logical_id("pPipeline")
         p_stagename = CfnParameter(
             self,
             "pStageName",
@@ -74,12 +69,14 @@ class SdlfStageEmrserverless(Stack):
             type="String",
             allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
         )
+        p_stagename.override_logical_id("pStageName")
         p_enabletracing = CfnParameter(
             self,
             "pEnableTracing",
             description="Flag for whether XRay tracing is enabled",
             type="String",
         )
+        p_enabletracing.override_logical_id("pEnableTracing")
 
         ######## IAM #########
         common_policy = iam.ManagedPolicy(
@@ -90,7 +87,7 @@ class SdlfStageEmrserverless(Stack):
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -101,7 +98,7 @@ class SdlfStageEmrserverless(Stack):
                 iam.PolicyStatement(
                     actions=["ssm:GetParameter", "ssm:GetParameters"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -124,7 +121,7 @@ class SdlfStageEmrserverless(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -155,14 +152,14 @@ class SdlfStageEmrserverless(Stack):
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_rawbucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_stagebucket.value_as_string,
                             region="",
@@ -174,14 +171,14 @@ class SdlfStageEmrserverless(Stack):
                 iam.PolicyStatement(
                     actions=["s3:GetObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -214,7 +211,9 @@ class SdlfStageEmrserverless(Stack):
             memory_size=192,
             timeout=Duration.seconds(300),
             role=postmetadatastep_role,
-            environment_encryption=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            environment_encryption=kms.Key.from_key_arn(
+                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
             # vpcconfig TODO
         )
 
@@ -244,7 +243,7 @@ class SdlfStageEmrserverless(Stack):
                         "sqs:SendMessage",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -275,7 +274,9 @@ class SdlfStageEmrserverless(Stack):
             memory_size=192,
             timeout=Duration.seconds(300),
             role=errorstep_role,
-            environment_encryption=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            environment_encryption=kms.Key.from_key_arn(
+                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
             # vpcconfig TODO
         )
 
@@ -375,7 +376,7 @@ class SdlfStageEmrserverless(Stack):
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -391,7 +392,7 @@ class SdlfStageEmrserverless(Stack):
                         "emr-serverless:GetApplication",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="emr-serverless",
                             resource="/applications/*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -405,7 +406,7 @@ class SdlfStageEmrserverless(Stack):
                         "events:DescribeRule",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="events",
                             resource="rule",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -429,8 +430,8 @@ class SdlfStageEmrserverless(Stack):
             self,
             "rStatesExecutionRole",
             assumed_by=iam.PrincipalWithConditions(
-                iam.ServicePrincipal("states.amazonaws.com", region=self.region),
-                conditions={"StringEquals": {"aws:SourceAccount": self.account}},
+                iam.ServicePrincipal("states.amazonaws.com", region=scope.region),
+                conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
             ),
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
@@ -442,7 +443,7 @@ class SdlfStageEmrserverless(Stack):
             "rEmrServerlessExecutionRole",
             assumed_by=iam.PrincipalWithConditions(
                 iam.ServicePrincipal("emr-serverless.amazonaws.com"),
-                conditions={"StringEquals": {"aws:SourceAccount": self.account}},
+                conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
             ),
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
@@ -488,12 +489,12 @@ class SdlfStageEmrserverless(Stack):
                         "sqs:SendMessage",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-queue-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -528,7 +529,9 @@ class SdlfStageEmrserverless(Stack):
             environment={
                 "STAGE_TRANSFORM": "",
             },
-            environment_encryption=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            environment_encryption=kms.Key.from_key_arn(
+                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
             # vpcconfig TODO
         )
         ssm.StringParameter(
@@ -561,7 +564,9 @@ class SdlfStageEmrserverless(Stack):
             memory_size=192,
             timeout=Duration.seconds(300),
             role=routingstep_role,
-            environment_encryption=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            environment_encryption=kms.Key.from_key_arn(
+                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+            ),
             # vpcconfig TODO
         )
 

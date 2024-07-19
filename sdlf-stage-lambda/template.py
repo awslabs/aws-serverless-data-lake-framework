@@ -5,34 +5,23 @@ import os.path
 
 from aws_cdk import (
     ArnFormat,
+    CfnOutput,
+    CfnParameter,
     Duration,
     RemovalPolicy,
-    Stack,
-    CfnParameter,
-    CfnOutput,
-    aws_athena as athena,
-    aws_dynamodb as ddb,
-    aws_emr as emr,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_glue_alpha as glue,
     aws_iam as iam,
     aws_kms as kms,
-    aws_lakeformation as lakeformation,
     aws_lambda as _lambda,
     aws_logs as logs,
-    aws_scheduler_alpha as scheduler,
-    aws_sns as sns,
-    aws_sqs as sqs,
     aws_ssm as ssm,
     aws_stepfunctions as sfn,
 )
 from constructs import Construct
 
 
-class SdlfStageLambda(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfStageLambda(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
 
@@ -44,9 +33,11 @@ class SdlfStageLambda(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_rawbucket = CfnParameter(
             self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}"
         )
+        p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
             self,
             "pStageBucket",
@@ -54,6 +45,7 @@ class SdlfStageLambda(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
         )
+        p_stagebucket.override_logical_id("pStageBucket")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -61,6 +53,7 @@ class SdlfStageLambda(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,12}",
         )
+        p_teamname.override_logical_id("pTeamName")
         p_pipeline = CfnParameter(
             self,
             "pPipeline",
@@ -68,6 +61,7 @@ class SdlfStageLambda(Stack):
             type="String",
             allowed_pattern="[a-z0-9]*",
         )
+        p_pipeline.override_logical_id("pPipeline")
         p_stagename = CfnParameter(
             self,
             "pStageName",
@@ -75,12 +69,14 @@ class SdlfStageLambda(Stack):
             type="String",
             allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
         )
+        p_stagename.override_logical_id("pStageName")
         p_enabletracing = CfnParameter(
             self,
             "pEnableTracing",
             description="Flag for whether XRay tracing is enabled",
             type="String",
         )
+        p_enabletracing.override_logical_id("pEnableTracing")
 
         ######## IAM #########
         common_policy = iam.ManagedPolicy(
@@ -91,7 +87,7 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -102,7 +98,7 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["ssm:GetParameter", "ssm:GetParameters"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -125,7 +121,7 @@ class SdlfStageLambda(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -155,14 +151,14 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["s3:ListBucket", "s3:GetBucketVersioning"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_rawbucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_stagebucket.value_as_string,
                             region="",
@@ -174,14 +170,14 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["s3:GetObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -193,7 +189,7 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["s3:PutObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -267,14 +263,14 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_rawbucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_stagebucket.value_as_string,
                             region="",
@@ -286,7 +282,7 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["s3:GetObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -357,7 +353,7 @@ class SdlfStageLambda(Stack):
                         "sqs:SendMessage",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -496,7 +492,7 @@ class SdlfStageLambda(Stack):
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -520,8 +516,8 @@ class SdlfStageLambda(Stack):
             self,
             "rStatesExecutionRole",
             assumed_by=iam.PrincipalWithConditions(
-                iam.ServicePrincipal("states.amazonaws.com", region=self.region),
-                conditions={"StringEquals": {"aws:SourceAccount": self.account}},
+                iam.ServicePrincipal("states.amazonaws.com", region=scope.region),
+                conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
             ),
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
@@ -561,7 +557,7 @@ class SdlfStageLambda(Stack):
                     actions=["states:StartExecution", "states:DescribeExecution", "states:StopExecution"],
                     resources=[
                         statemachine.state_machine_arn,
-                        self.format_arn(
+                        scope.format_arn(
                             service="states",
                             resource="execution",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -590,12 +586,12 @@ class SdlfStageLambda(Stack):
                         "sqs:SendMessage",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-queue-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
