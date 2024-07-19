@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 from aws_cdk import (
-    Stack,
-    CfnParameter,
     CfnOutput,
+    CfnParameter,
     aws_glue as glue,
     aws_glue_alpha as glue_a,
     aws_lakeformation as lakeformation,
@@ -13,9 +12,9 @@ from aws_cdk import (
 from constructs import Construct
 
 
-class SdlfDataset(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfDataset(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
@@ -25,6 +24,7 @@ class SdlfDataset(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_org = CfnParameter(
             self,
             "pOrg",
@@ -32,6 +32,7 @@ class SdlfDataset(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
         )
+        p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
             self,
             "pDomain",
@@ -39,6 +40,7 @@ class SdlfDataset(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
+        p_domain.override_logical_id("pDomain")
         p_environment = CfnParameter(
             self,
             "pEnvironment",
@@ -46,6 +48,7 @@ class SdlfDataset(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}",
         )
+        p_environment.override_logical_id("pEnvironment")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -53,6 +56,7 @@ class SdlfDataset(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,12}",
         )
+        p_teamname.override_logical_id("pTeamName")
         p_datasetname = CfnParameter(
             self,
             "pDatasetName",
@@ -60,6 +64,7 @@ class SdlfDataset(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,14}",
         )
+        p_datasetname.override_logical_id("pDatasetName")
         p_stagebucket = CfnParameter(
             self,
             "pStageBucket",
@@ -67,6 +72,7 @@ class SdlfDataset(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
         )
+        p_stagebucket.override_logical_id("pStageBucket")
         p_pipelinedetails = CfnParameter(
             self,
             "pPipelineDetails",
@@ -87,6 +93,7 @@ class SdlfDataset(Stack):
                 }
             """,
         )
+        p_pipelinedetails.override_logical_id("pPipelineDetails")
 
         ######## GLUE #########
         glue_catalog = glue_a.Database(
@@ -130,7 +137,7 @@ class SdlfDataset(Stack):
         )
 
         team_lf_tag_pair_property = lakeformation.CfnTagAssociation.LFTagPairProperty(
-            catalog_id=self.account,
+            catalog_id=scope.account,
             tag_key=f"sdlf:team:{p_teamname.value_as_string}",
             tag_values=[p_teamname.value_as_string],
         )
@@ -140,7 +147,7 @@ class SdlfDataset(Stack):
             lf_tags=[team_lf_tag_pair_property],
             resource=lakeformation.CfnTagAssociation.ResourceProperty(
                 database=lakeformation.CfnTagAssociation.DatabaseResourceProperty(
-                    catalog_id=self.account, name=glue_catalog.database_name
+                    catalog_id=scope.account, name=glue_catalog.database_name
                 )
             ),
         )

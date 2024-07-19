@@ -8,11 +8,9 @@ from aws_cdk import (
     ArnFormat,
     Duration,
     RemovalPolicy,
-    Stack,
     CfnParameter,
     CfnOutput,
     aws_athena as athena,
-    aws_dynamodb as ddb,
     aws_emr as emr,
     aws_events as events,
     aws_events_targets as targets,
@@ -24,15 +22,14 @@ from aws_cdk import (
     aws_logs as logs,
     aws_scheduler as scheduler,
     aws_sns as sns,
-    aws_sqs as sqs,
     aws_ssm as ssm,
 )
 from constructs import Construct
 
 
-class SdlfTeam(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfTeam(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
         run_in_vpc = False
@@ -45,6 +42,7 @@ class SdlfTeam(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_org = CfnParameter(
             self,
             "pOrg",
@@ -52,6 +50,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
         )
+        p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
             self,
             "pDomain",
@@ -59,6 +58,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
+        p_domain.override_logical_id("pDomain")
         p_environment = CfnParameter(
             self,
             "pEnvironment",
@@ -66,6 +66,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}",
         )
+        p_environment.override_logical_id("pEnvironment")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -73,6 +74,7 @@ class SdlfTeam(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,12}",
         )
+        p_teamname.override_logical_id("pTeamName")
         p_lakeformationdataaccessrole = CfnParameter(
             self,
             "pLakeFormationDataAccessRole",
@@ -80,6 +82,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn:1}}",
         )
+        p_lakeformationdataaccessrole.override_logical_id("pLakeFormationDataAccessRole")
         p_artifactsbucket = CfnParameter(
             self,
             "pArtifactsBucket",
@@ -87,6 +90,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:2}}",
         )
+        p_artifactsbucket.override_logical_id("pArtifactsBucket")
         p_athenabucket = CfnParameter(
             self,
             "pAthenaBucket",
@@ -94,6 +98,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/AthenaBucket:2}}",
         )
+        p_athenabucket.override_logical_id("pAthenaBucket")
         p_rawbucket = CfnParameter(
             self,
             "pRawBucket",
@@ -101,6 +106,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}",
         )
+        p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
             self,
             "pStageBucket",
@@ -108,6 +114,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
         )
+        p_stagebucket.override_logical_id("pStageBucket")
         p_analyticsbucket = CfnParameter(
             self,
             "pAnalyticsBucket",
@@ -115,6 +122,7 @@ class SdlfTeam(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:2}}",
         )
+        p_analyticsbucket.override_logical_id("pAnalyticsBucket")
 
         ######## KMS #########
         infra_kms_key_policy = iam.PolicyDocument(
@@ -140,7 +148,7 @@ class SdlfTeam(Stack):
                     sid="Allow logs access",
                     effect=iam.Effect.ALLOW,
                     principals=[
-                        iam.ServicePrincipal("logs.amazonaws.com", region=self.region),
+                        iam.ServicePrincipal("logs.amazonaws.com", region=scope.region),
                     ],
                     actions=[
                         "kms:CreateGrant",
@@ -160,8 +168,8 @@ class SdlfTeam(Stack):
                     resources=["*"],
                     conditions={
                         "StringEquals": {
-                            "kms:CallerAccount": self.account,
-                            "kms:ViaService": f"sns.{self.region}.amazonaws.com",
+                            "kms:CallerAccount": scope.account,
+                            "kms:ViaService": f"sns.{scope.region}.amazonaws.com",
                         }
                     },
                 ),
@@ -175,7 +183,9 @@ class SdlfTeam(Stack):
             description=f"SDLF {p_teamname.value_as_string} Infrastructure KMS Key",
             policy=infra_kms_key_policy,
         )
-        infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
+        infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key").apply_removal_policy(
+            RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
+        )
 
         ssm.StringParameter(
             self,
@@ -214,7 +224,9 @@ class SdlfTeam(Stack):
             description=f"SDLF {p_teamname.value_as_string} Data KMS Key",
             policy=data_kms_key_policy,
         )
-        data_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-data-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
+        data_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-data-key").apply_removal_policy(
+            RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
+        )
 
         ssm.StringParameter(
             self,
@@ -252,7 +264,7 @@ class SdlfTeam(Stack):
             self,
             "rForwardEventBusRule",
             event_pattern=events.EventPattern(
-                source=events.Match.prefix("aws."), account=[self.account], region=[self.region]
+                source=events.Match.prefix("aws."), account=[scope.account], region=[scope.region]
             ),
             targets=[targets.EventBus(bus, role=forwardeventbustrigger_role)],
         )
@@ -336,7 +348,7 @@ class SdlfTeam(Stack):
                         "s3:ListAllMyBuckets",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="*",
                             region="",
@@ -349,28 +361,28 @@ class SdlfTeam(Stack):
                     sid="AllowTeamBucketList",
                     actions=["s3:ListBucket"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_artifactsbucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_rawbucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_stagebucket.value_as_string,
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=p_analyticsbucket.value_as_string,
                             region="",
@@ -383,42 +395,42 @@ class SdlfTeam(Stack):
                     sid="AllowTeamPrefixActions",
                     actions=["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_artifactsbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/pre-stage/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/post-stage/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_analyticsbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -451,7 +463,7 @@ class SdlfTeam(Stack):
                         "codecommit:Git*",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="codecommit",
                             resource=f"sdlf-{p_teamname.value_as_string}-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -473,7 +485,7 @@ class SdlfTeam(Stack):
                 iam.PolicyStatement(
                     actions=["ssm:GetParameter", "ssm:GetParameters"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -496,7 +508,7 @@ class SdlfTeam(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -515,7 +527,7 @@ class SdlfTeam(Stack):
                         "sqs:SendMessage",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="sqs",
                             resource=f"sdlf-{p_teamname.value_as_string}-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -525,7 +537,7 @@ class SdlfTeam(Stack):
                 iam.PolicyStatement(
                     actions=["states:StartExecution"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="states",
                             resource="stateMachine",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -536,7 +548,7 @@ class SdlfTeam(Stack):
                 iam.PolicyStatement(
                     actions=["iam:PassRole"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="iam",
                             resource="role",
                             region="",
@@ -562,53 +574,53 @@ class SdlfTeam(Stack):
                         "glue:GetDataQualityRule*",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="catalog",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="database",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_teamname.value_as_string}_*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="crawler",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{p_teamname.value_as_string}-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="glue",
                             resource="dataQualityRuleset",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"*",  # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
+                            resource_name="*",  # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
                         ),
                     ],
                 ),
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -624,19 +636,19 @@ class SdlfTeam(Stack):
                         "logs:AssociateKmsKey",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name=f"/aws/codebuild/sdlf-{p_teamname.value_as_string}-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -653,7 +665,7 @@ class SdlfTeam(Stack):
                         "cloudformation:DescribeStackResources",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="cloudformation",
                             resource="stack",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -666,7 +678,7 @@ class SdlfTeam(Stack):
                         "lambda:InvokeFunction",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -677,7 +689,7 @@ class SdlfTeam(Stack):
                 iam.PolicyStatement(
                     actions=["events:PutTargets", "events:PutRule", "events:DescribeRule"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="events",
                             resource="rule",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -691,7 +703,7 @@ class SdlfTeam(Stack):
                         "emr-serverless:GetApplication",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="emr-serverless",
                             resource="/applications/*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -718,7 +730,7 @@ class SdlfTeam(Stack):
                         "s3:CreateBucket",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="aws-glue-*",
                             region="",
@@ -730,14 +742,14 @@ class SdlfTeam(Stack):
                 iam.PolicyStatement(
                     actions=["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="aws-glue-*/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="*/*aws-glue-*/*",
                             region="",
@@ -751,14 +763,14 @@ class SdlfTeam(Stack):
                         "s3:GetObject",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="crawler-public*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource="aws-glue-*",
                             region="",
@@ -779,35 +791,35 @@ class SdlfTeam(Stack):
                         "s3:PutObjectVersion",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/pre-stage/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_stagebucket.value_as_string}/post-stage/{p_teamname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="s3",
                             resource=f"{p_analyticsbucket.value_as_string}/{p_teamname.value_as_string}/*",
                             region="",
@@ -841,7 +853,7 @@ class SdlfTeam(Stack):
                         "logs:AssociateKmsKey",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -916,13 +928,13 @@ class SdlfTeam(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"octagon-Pipelines-{p_environment.value_as_string}",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -944,13 +956,13 @@ class SdlfTeam(Stack):
                         "logs:PutLogEvents",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-datasets-dynamodb",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -967,7 +979,7 @@ class SdlfTeam(Stack):
                         "cloudwatch:SetAlarmState",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="cloudwatch",
                             resource="alarm",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -980,13 +992,13 @@ class SdlfTeam(Stack):
                         "ssm:GetParametersByPath",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1038,7 +1050,7 @@ class SdlfTeam(Stack):
                 source=["aws.cloudformation"],
                 detail_type=["CloudFormation Stack Status Change"],
                 resources=events.Match.prefix(
-                    self.format_arn(
+                    scope.format_arn(
                         service="cloudformation",
                         resource="stack",
                         arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1048,7 +1060,7 @@ class SdlfTeam(Stack):
                 detail={
                     "stack-id": [
                         {
-                            "prefix": self.format_arn(
+                            "prefix": scope.format_arn(
                                 service="cloudformation",
                                 resource="stack",
                                 arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1076,13 +1088,13 @@ class SdlfTeam(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"octagon-Pipelines-{p_environment.value_as_string}",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1104,13 +1116,13 @@ class SdlfTeam(Stack):
                         "logs:PutLogEvents",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-pipelines-dynamodb",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -1127,7 +1139,7 @@ class SdlfTeam(Stack):
                         "cloudwatch:SetAlarmState",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="cloudwatch",
                             resource="alarm",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -1140,13 +1152,13 @@ class SdlfTeam(Stack):
                         "ssm:GetParametersByPath",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"/SDLF/Pipelines/{p_teamname.value_as_string}",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1198,7 +1210,7 @@ class SdlfTeam(Stack):
                 source=["aws.cloudformation"],
                 detail_type=["CloudFormation Stack Status Change"],
                 resources=events.Match.prefix(
-                    self.format_arn(
+                    scope.format_arn(
                         service="cloudformation",
                         resource="stack",
                         arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1208,7 +1220,7 @@ class SdlfTeam(Stack):
                 detail={
                     "stack-id": [
                         {
-                            "prefix": self.format_arn(
+                            "prefix": scope.format_arn(
                                 service="cloudformation",
                                 resource="stack",
                                 arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -1235,7 +1247,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
                 data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=self.format_arn(
+                    s3_resource=scope.format_arn(
                         service="s3",
                         resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/",
                         region="",
@@ -1255,7 +1267,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
                 data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=self.format_arn(
+                    s3_resource=scope.format_arn(
                         service="s3",
                         resource=f"{p_stagebucket.value_as_string}/pre-stage/{p_teamname.value_as_string}/",
                         region="",
@@ -1275,7 +1287,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
                 data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=self.format_arn(
+                    s3_resource=scope.format_arn(
                         service="s3",
                         resource=f"{p_stagebucket.value_as_string}/post-stage/{p_teamname.value_as_string}/",
                         region="",
@@ -1295,7 +1307,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
                 data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=self.format_arn(
+                    s3_resource=scope.format_arn(
                         service="s3",
                         resource=f"{p_analyticsbucket.value_as_string}/{p_teamname.value_as_string}/",
                         region="",
@@ -1310,7 +1322,7 @@ class SdlfTeam(Stack):
         tag = lakeformation.CfnTag(
             self,
             "rTeamLakeFormationTag",
-            catalog_id=self.account,
+            catalog_id=scope.account,
             # sdlf:team as key and team names as values would be best but impossible here
             tag_key=f"sdlf:team:{p_teamname.value_as_string}",
             tag_values=[p_teamname.value_as_string],
@@ -1322,7 +1334,7 @@ class SdlfTeam(Stack):
             permissions=["ASSOCIATE"],
             permissions_with_grant_option=[],
             principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=self.format_arn(
+                data_lake_principal_identifier=scope.format_arn(
                     service="iam",
                     resource="role",
                     region="",
@@ -1332,7 +1344,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
                 lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
-                    catalog_id=self.account, tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
+                    catalog_id=scope.account, tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
                 ),
             ),
         )
@@ -1343,7 +1355,7 @@ class SdlfTeam(Stack):
             permissions=["ALL"],
             permissions_with_grant_option=["ALL"],
             principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=self.format_arn(
+                data_lake_principal_identifier=scope.format_arn(
                     service="iam",
                     resource="role",
                     region="",
@@ -1353,7 +1365,7 @@ class SdlfTeam(Stack):
             ),
             resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
                 lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
-                    catalog_id=self.account,
+                    catalog_id=scope.account,
                     expression=[
                         lakeformation.CfnPrincipalPermissions.LFTagProperty(
                             tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]

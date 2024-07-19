@@ -6,31 +6,23 @@ import json
 from aws_cdk import (
     ArnFormat,
     Duration,
-    Stack,
     CfnParameter,
     CfnOutput,
-    aws_athena as athena,
-    aws_dynamodb as ddb,
-    aws_emr as emr,
+    RemovalPolicy,
     aws_events as events,
     aws_events_targets as targets,
-    aws_glue_alpha as glue,
     aws_iam as iam,
     aws_kms as kms,
-    aws_lakeformation as lakeformation,
-    aws_lambda as _lambda,
-    aws_logs as logs,
     aws_scheduler_alpha as scheduler,
-    aws_sns as sns,
     aws_sqs as sqs,
     aws_ssm as ssm,
 )
 from constructs import Construct
 
 
-class SdlfPipeline(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfPipeline(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
@@ -40,6 +32,7 @@ class SdlfPipeline(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_org = CfnParameter(
             self,
             "pOrg",
@@ -47,6 +40,7 @@ class SdlfPipeline(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
         )
+        p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
             self,
             "pDomain",
@@ -54,9 +48,11 @@ class SdlfPipeline(Stack):
             type="String",
             default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
+        p_domain.override_logical_id("pDomain")
         p_env = CfnParameter(
             self, "pEnv", description="Environment name", type="String", default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
         )
+        p_env.override_logical_id("pEnv")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -64,6 +60,7 @@ class SdlfPipeline(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,12}",
         )
+        p_teamname.override_logical_id("pTeamName")
         p_pipelinename = CfnParameter(
             self,
             "pPipelineName",
@@ -71,6 +68,7 @@ class SdlfPipeline(Stack):
             type="String",
             allowed_pattern="[a-z0-9]*",
         )
+        p_pipelinename.override_logical_id("pPipelineName")
         p_stagename = CfnParameter(
             self,
             "pStageName",
@@ -78,6 +76,7 @@ class SdlfPipeline(Stack):
             type="String",
             allowed_pattern="[a-zA-Z0-9\\-]{2,12}",
         )
+        p_stagename.override_logical_id("pStageName")
         p_stageenabled = CfnParameter(
             self,
             "pStageEnabled",
@@ -85,6 +84,7 @@ class SdlfPipeline(Stack):
             type="String",
             allowed_values=["true", "false"],
         )
+        p_stageenabled.override_logical_id("pStageEnabled")
         p_triggertype = CfnParameter(
             self,
             "pTriggerType",
@@ -93,6 +93,7 @@ class SdlfPipeline(Stack):
             allowed_values=["event", "schedule"],
             default="event",
         )
+        p_triggertype.override_logical_id("pTriggerType")
         p_schedule = CfnParameter(
             self,
             "pSchedule",
@@ -100,6 +101,7 @@ class SdlfPipeline(Stack):
             type="String",
             default="cron(*/5 * * * ? *)",
         )
+        p_schedule.override_logical_id("pSchedule")
         p_eventpattern = CfnParameter(
             self,
             "pEventPattern",
@@ -107,12 +109,14 @@ class SdlfPipeline(Stack):
             type="String",
             default="",
         )
+        p_eventpattern.override_logical_id("pEventPattern")
         p_lambdaroutingstep = CfnParameter(
             self,
             "pLambdaRoutingStep",
             description="Routing Lambda function ARN",
             type="String",
         )
+        p_lambdaroutingstep.override_logical_id("pLambdaRoutingStep")
 
         routing_dlq = sqs.Queue(
             self,
@@ -235,7 +239,7 @@ class SdlfPipeline(Stack):
             ),
             state="ENABLED" if p_stageenabled.value_as_string.lower() == "true" else "DISABLED",
             target=scheduler.CfnSchedule.TargetProperty(
-                arn=f"arn:{self.partition}:scheduler:::aws-sdk:lambda:invoke",
+                arn=f"arn:{scope.partition}:scheduler:::aws-sdk:lambda:invoke",
                 role_arn=poststateschedule_role.role_arn,
                 # input=f'''
                 #     {

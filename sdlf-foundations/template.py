@@ -7,9 +7,8 @@ from aws_cdk import (
     ArnFormat,
     Duration,
     RemovalPolicy,
-    Stack,
-    CfnParameter,
     CfnOutput,
+    CfnParameter,
     aws_dynamodb as ddb,
     aws_events as events,
     aws_events_targets as targets,
@@ -26,9 +25,9 @@ from aws_cdk import (
 from constructs import Construct
 
 
-class SdlfFoundations(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+class SdlfFoundations(Construct):
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+        super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
         run_in_vpc = False
@@ -41,6 +40,7 @@ class SdlfFoundations(Stack):
             type="String",
             default="none",
         )
+        p_pipelinereference.override_logical_id("pPipelineReference")
         p_childaccountid = CfnParameter(
             self,
             "pChildAccountId",
@@ -49,6 +49,7 @@ class SdlfFoundations(Stack):
             allowed_pattern="(\\d{12}|^$)",
             constraint_description="Must be an AWS account ID",
         )
+        p_childaccountid.override_logical_id("pChildAccountId")
         p_org = CfnParameter(
             self,
             "pOrg",
@@ -56,18 +57,21 @@ class SdlfFoundations(Stack):
             type="String",
             allowed_pattern="[a-z0-9]{2,9}",
         )
+        p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
             self,
             "pDomain",
             description="Data domain name",
             type="String",
         )
+        p_domain.override_logical_id("pDomain")
         p_environment = CfnParameter(
             self,
             "pEnvironment",
             description="Environment name",
             type="String",
         )
+        p_environment.override_logical_id("pEnvironment")
         # p_cloudwatchlogsretentionindays = CfnParameter(self, "pCloudWatchLogsRetentionInDays",
         #     description="The number of days log events are kept in CloudWatch Logs",
         #     type="Number",
@@ -119,25 +123,25 @@ class SdlfFoundations(Stack):
                         "logs:AssociateKmsKey",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name="/aws/lambda/sdlf-glue-replication",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name="/aws/glue/*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name="/aws/codebuild/sdlf-*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -159,7 +163,7 @@ class SdlfFoundations(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -174,13 +178,13 @@ class SdlfFoundations(Stack):
                         "ssm:GetParameters",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name="/SDLF/IAM/DataLakeAdminRoleArn",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -232,13 +236,13 @@ class SdlfFoundations(Stack):
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
                             resource_name="/aws-lakeformation-acceleration/*",
                         ),
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -299,7 +303,7 @@ class SdlfFoundations(Stack):
                     sid="Allow logs access",
                     effect=iam.Effect.ALLOW,
                     principals=[
-                        iam.ServicePrincipal("logs.amazonaws.com", region=self.region),
+                        iam.ServicePrincipal("logs.amazonaws.com", region=scope.region),
                     ],
                     actions=[
                         "kms:CreateGrant",
@@ -319,8 +323,8 @@ class SdlfFoundations(Stack):
                     resources=["*"],
                     conditions={
                         "StringEquals": {
-                            "kms:CallerAccount": self.account,
-                            "kms:ViaService": f"sns.{self.region}.amazonaws.com",
+                            "kms:CallerAccount": scope.account,
+                            "kms:ViaService": f"sns.{scope.region}.amazonaws.com",
                         }
                     },
                 ),
@@ -348,8 +352,8 @@ class SdlfFoundations(Stack):
                     resources=["*"],
                     conditions={
                         "StringEquals": {
-                            "kms:CallerAccount": self.account,
-                            "kms:ViaService": f"dynamodb.{self.region}.amazonaws.com",
+                            "kms:CallerAccount": scope.account,
+                            "kms:ViaService": f"dynamodb.{scope.region}.amazonaws.com",
                         }
                     },
                 ),
@@ -368,8 +372,8 @@ class SdlfFoundations(Stack):
                     resources=["*"],
                     conditions={
                         "StringEquals": {
-                            "kms:CallerAccount": self.account,
-                            "kms:ViaService": f"es.{self.region}.amazonaws.com",
+                            "kms:CallerAccount": scope.account,
+                            "kms:ViaService": f"es.{scope.region}.amazonaws.com",
                         },
                         "Bool": {"kms:GrantIsForAWSResource": "true"},
                     },
@@ -405,7 +409,7 @@ class SdlfFoundations(Stack):
 
         ######## S3 #########
         ####### Access Logging Bucket ######
-        access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-s3logs"
+        access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-s3logs"
         access_logs_bucket = s3.Bucket(
             self,
             "rS3AccessLogsBucket",
@@ -443,7 +447,7 @@ class SdlfFoundations(Stack):
             string_value=access_logs_bucket.bucket_name,
         )
 
-        artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-artifacts"
+        artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-artifacts"
         artifacts_bucket = s3.Bucket(
             self,
             "rArtifactsBucket",
@@ -464,7 +468,7 @@ class SdlfFoundations(Stack):
             string_value=artifacts_bucket.bucket_name,
         )
 
-        raw_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-raw"
+        raw_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-raw"
         raw_bucket = s3.Bucket(
             self,
             "rRawBucket",
@@ -501,7 +505,7 @@ class SdlfFoundations(Stack):
             string_value=raw_bucket.bucket_name,
         )
 
-        stage_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-stage"
+        stage_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-stage"
         stage_bucket = s3.Bucket(
             self,
             "rStageBucket",
@@ -531,7 +535,7 @@ class SdlfFoundations(Stack):
             string_value=stage_bucket.bucket_name,
         )
 
-        analytics_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-analytics"
+        analytics_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-analytics"
         analytics_bucket = s3.Bucket(
             self,
             "rAnalyticsBucket",
@@ -561,7 +565,7 @@ class SdlfFoundations(Stack):
             string_value=analytics_bucket.bucket_name,
         )
 
-        athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{self.region}-{self.account}-athena"
+        athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-athena"
         athena_bucket = s3.Bucket(
             self,
             "rAthenaBucket",
@@ -698,7 +702,7 @@ class SdlfFoundations(Stack):
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
@@ -736,7 +740,7 @@ class SdlfFoundations(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -761,7 +765,7 @@ class SdlfFoundations(Stack):
                         "ssm:GetParameters",
                     ],
                     resources=[
-                        self.format_arn(
+                        scope.format_arn(
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
