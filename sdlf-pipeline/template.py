@@ -13,7 +13,7 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_iam as iam,
     aws_kms as kms,
-    aws_scheduler_alpha as scheduler,
+    aws_scheduler as scheduler,
     aws_sqs as sqs,
     aws_ssm as ssm,
 )
@@ -127,7 +127,9 @@ class SdlfPipeline(Construct):
             retention_period=Duration.days(14),
             visibility_timeout=Duration.seconds(60),
             encryption_master_key=kms.Key.from_key_arn(
-                self, "chaipakms1", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rDeadLetterQueueRoutingStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
         ssm.StringParameter(
@@ -149,7 +151,9 @@ class SdlfPipeline(Construct):
             retention_period=Duration.days(7),
             visibility_timeout=Duration.seconds(60),
             encryption_master_key=kms.Key.from_key_arn(
-                self, "chaipakms2", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rQueueRoutingStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=1,
@@ -170,9 +174,13 @@ class SdlfPipeline(Construct):
             "rStageRule",
             rule_name=f"sdlf-{p_teamname.value_as_string}-{p_pipelinename.value_as_string}-rule-{p_stagename.value_as_string}",
             description=f"Send events to {p_stagename.value_as_string} queue",
-            event_bus=f"{{{{resolve:ssm:/SDLF/EventBridge/{p_teamname.value_as_string}/EventBusName}}}}",
+            event_bus=events.EventBus.from_event_bus_arn(
+                self,
+                "rStageRuleEventBus",
+                f"{{{{resolve:ssm:/SDLF/EventBridge/{p_teamname.value_as_string}/EventBusName}}}}",
+            ),
             enabled=True if p_stageenabled.value_as_string.lower() == "true" else False,
-            event_pattern=json.loads(p_eventpattern.value_as_string),
+            event_pattern=json.loads(p_eventpattern.value_as_string),  # TODO
             targets=[
                 targets.SqsQueue(
                     routing_queue,
@@ -222,7 +230,11 @@ class SdlfPipeline(Construct):
             "rPostStateScheduleRole",
             path=f"/sdlf-{p_teamname.value_as_string}/",
             assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",  # TODO
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rPostStateScheduleRolePermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
         )
         poststateschedule_role.attach_inline_policy(poststateschedule_role_policy)
 

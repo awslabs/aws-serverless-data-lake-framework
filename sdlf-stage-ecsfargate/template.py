@@ -195,7 +195,11 @@ class SdlfStageEcsfargate(Construct):
             "rRoleLambdaExecutionMetadataStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             path=f"/sdlf-{p_teamname.value_as_string}/",
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rRoleLambdaExecutionMetadataStepPermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
         )
         postmetadatastep_role.attach_inline_policy(postmetadatastep_role_policy)
         postmetadatastep_role.add_managed_policy(common_policy)
@@ -212,7 +216,9 @@ class SdlfStageEcsfargate(Construct):
             timeout=Duration.seconds(300),
             role=postmetadatastep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaPostMetadataStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -258,7 +264,11 @@ class SdlfStageEcsfargate(Construct):
             "rRoleLambdaExecutionErrorStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             path=f"/sdlf-{p_teamname.value_as_string}/",
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rRoleLambdaExecutionErrorStepPermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
         )
         errorstep_role.attach_inline_policy(errorstep_role_policy)
         errorstep_role.add_managed_policy(common_policy)
@@ -275,7 +285,9 @@ class SdlfStageEcsfargate(Construct):
             timeout=Duration.seconds(300),
             role=errorstep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaErrorStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -427,7 +439,11 @@ class SdlfStageEcsfargate(Construct):
                 conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
             ),
             path=f"/sdlf-{p_teamname.value_as_string}/",
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rStatesExecutionRolePermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
         )
         statemachine_role.attach_inline_policy(statemachine_role_policy)
 
@@ -511,7 +527,11 @@ class SdlfStageEcsfargate(Construct):
             "rRoleLambdaExecutionRoutingStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             path=f"/sdlf-{p_teamname.value_as_string}/",
-            permissions_boundary=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rRoleLambdaExecutionRoutingStepPermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
         )
         routingstep_role.attach_inline_policy(routingstep_role_policy)
         routingstep_role.add_managed_policy(common_policy)
@@ -531,7 +551,9 @@ class SdlfStageEcsfargate(Construct):
                 "STAGE_TRANSFORM": "",
             },
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRoutingStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -566,7 +588,9 @@ class SdlfStageEcsfargate(Construct):
             timeout=Duration.seconds(300),
             role=routingstep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRedriveStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )

@@ -219,7 +219,7 @@ class SdlfStageLambda(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "chaipa4",
+                "rRoleLambdaExecutionProcessingStepPermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -238,7 +238,9 @@ class SdlfStageLambda(Construct):
             timeout=Duration.seconds(600),
             role=transformstep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaTransformStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -251,7 +253,9 @@ class SdlfStageLambda(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
             encryption_key=kms.Key.from_key_arn(
-                self, "chaipakms2", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaTransformStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
@@ -301,7 +305,7 @@ class SdlfStageLambda(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "chaipa1",
+                "rRoleLambdaExecutionMetadataStepPermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -320,7 +324,9 @@ class SdlfStageLambda(Construct):
             timeout=Duration.seconds(300),
             role=postmetadatastep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms3", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaPostMetadataStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -333,7 +339,9 @@ class SdlfStageLambda(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
             encryption_key=kms.Key.from_key_arn(
-                self, "chaipakms4", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaPostMetadataStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
@@ -370,7 +378,7 @@ class SdlfStageLambda(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "chaipa2",
+                "rRoleLambdaExecutionErrorStepPermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -389,7 +397,9 @@ class SdlfStageLambda(Construct):
             timeout=Duration.seconds(300),
             role=errorstep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms5", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaErrorStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -402,7 +412,9 @@ class SdlfStageLambda(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
             encryption_key=kms.Key.from_key_arn(
-                self, "chaipakms6", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaErrorStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
@@ -522,7 +534,7 @@ class SdlfStageLambda(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "chaipa3",
+                "rStatesExecutionRolePermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -609,7 +621,7 @@ class SdlfStageLambda(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "chaipa5",
+                "rRoleLambdaExecutionRoutingStepPermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -631,7 +643,9 @@ class SdlfStageLambda(Construct):
                 "STAGE_TRANSFORM": transformstep_function.function_arn,
             },
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms7", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRoutingStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -652,7 +666,9 @@ class SdlfStageLambda(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
             encryption_key=kms.Key.from_key_arn(
-                self, "chaipakms8", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRoutingStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
@@ -668,7 +684,9 @@ class SdlfStageLambda(Construct):
             timeout=Duration.seconds(300),
             role=routingstep_role,
             environment_encryption=kms.Key.from_key_arn(
-                self, "chaipakms9", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRedriveStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -681,7 +699,9 @@ class SdlfStageLambda(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
             encryption_key=kms.Key.from_key_arn(
-                self, "chaipakms10", key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"
+                self,
+                "rLambdaRedriveStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
