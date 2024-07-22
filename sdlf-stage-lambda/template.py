@@ -35,7 +35,7 @@ class SdlfStageLambda(Construct):
         )
         p_pipelinereference.override_logical_id("pPipelineReference")
         p_rawbucket = CfnParameter(
-            self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}"
+            self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}"
         )
         p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
@@ -43,7 +43,7 @@ class SdlfStageLambda(Construct):
             "pStageBucket",
             description="Stage Bucket",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
         p_teamname = CfnParameter(

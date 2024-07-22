@@ -88,7 +88,7 @@ class SdlfTeam(Construct):
             "pArtifactsBucket",
             description="The artifacts bucket used by CodeBuild and CodePipeline",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:1}}",
         )
         p_artifactsbucket.override_logical_id("pArtifactsBucket")
         p_athenabucket = CfnParameter(
@@ -96,7 +96,7 @@ class SdlfTeam(Construct):
             "pAthenaBucket",
             description="Athena bucket",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/AthenaBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/AthenaBucket:1}}",
         )
         p_athenabucket.override_logical_id("pAthenaBucket")
         p_rawbucket = CfnParameter(
@@ -104,7 +104,7 @@ class SdlfTeam(Construct):
             "pRawBucket",
             description="The raw bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/RawBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}",
         )
         p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
@@ -112,7 +112,7 @@ class SdlfTeam(Construct):
             "pStageBucket",
             description="The stage bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
         p_analyticsbucket = CfnParameter(
@@ -120,7 +120,7 @@ class SdlfTeam(Construct):
             "pAnalyticsBucket",
             description="The analytics bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:1}}",
         )
         p_analyticsbucket.override_logical_id("pAnalyticsBucket")
 
@@ -1328,53 +1328,55 @@ class SdlfTeam(Construct):
             tag_values=[p_teamname.value_as_string],
         )
 
-        tag_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
-            self,
-            "rTeamLakeFormationTagPermissions",  # allows associating this lf-tag to datasets in sdlf-dataset
-            permissions=["ASSOCIATE"],
-            permissions_with_grant_option=[],
-            principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=scope.format_arn(
-                    service="iam",
-                    resource="role",
-                    region="",
-                    arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
-                ),
-            ),
-            resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
-                lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
-                    catalog_id=scope.account, tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
-                ),
-            ),
-        )
+        # TODO
+        # tag_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
+        #     self,
+        #     "rTeamLakeFormationTagPermissions",  # allows associating this lf-tag to datasets in sdlf-dataset
+        #     permissions=["ASSOCIATE"],
+        #     permissions_with_grant_option=[],
+        #     principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
+        #         data_lake_principal_identifier=scope.format_arn(
+        #             service="iam",
+        #             resource="role",
+        #             region="",
+        #             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+        #             resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
+        #         ),
+        #     ),
+        #     resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
+        #         lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
+        #             catalog_id=scope.account, tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
+        #         ),
+        #     ),
+        # )
 
-        tag_tables_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
-            self,
-            "rTeamLakeFormationTagTablesPermissions",  # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
-            permissions=["ALL"],
-            permissions_with_grant_option=["ALL"],
-            principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=scope.format_arn(
-                    service="iam",
-                    resource="role",
-                    region="",
-                    arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                    resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
-                ),
-            ),
-            resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
-                lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
-                    catalog_id=scope.account,
-                    expression=[
-                        lakeformation.CfnPrincipalPermissions.LFTagProperty(
-                            tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
-                        )
-                    ],
-                    resource_type="TABLE",
-                ),
-            ),
-        )
+        # TODO
+        # tag_tables_lakeformation_permissions = lakeformation.CfnPrincipalPermissions(
+        #     self,
+        #     "rTeamLakeFormationTagTablesPermissions",  # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
+        #     permissions=["ALL"],
+        #     permissions_with_grant_option=["ALL"],
+        #     principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
+        #         data_lake_principal_identifier=scope.format_arn(
+        #             service="iam",
+        #             resource="role",
+        #             region="",
+        #             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+        #             resource_name=f"sdlf-cicd-team-{p_teamname.value_as_string}",
+        #         ),
+        #     ),
+        #     resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
+        #         lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
+        #             catalog_id=scope.account,
+        #             expression=[
+        #                 lakeformation.CfnPrincipalPermissions.LFTagProperty(
+        #                     tag_key=tag.tag_key, tag_values=[p_teamname.value_as_string]
+        #                 )
+        #             ],
+        #             resource_type="TABLE",
+        #         ),
+        #     ),
+        # )
 
         athena_workgroup = athena.CfnWorkGroup(
             self,

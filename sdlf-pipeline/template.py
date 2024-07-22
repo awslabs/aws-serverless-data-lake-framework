@@ -74,7 +74,7 @@ class SdlfPipeline(Construct):
             "pStageName",
             description="Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)",
             type="String",
-            allowed_pattern="[a-zA-Z0-9\\-]{2,12}",
+            allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
         )
         p_stagename.override_logical_id("pStageName")
         p_stageenabled = CfnParameter(
@@ -180,12 +180,12 @@ class SdlfPipeline(Construct):
                 f"{{{{resolve:ssm:/SDLF/EventBridge/{p_teamname.value_as_string}/EventBusName}}}}",
             ),
             enabled=True if p_stageenabled.value_as_string.lower() == "true" else False,
-            event_pattern=json.loads(p_eventpattern.value_as_string),  # TODO
+            event_pattern=json.loads(p_eventpattern.value_as_string),  # TODO { "source": ["aws.states"] }
             targets=[
                 targets.SqsQueue(
                     routing_queue,
                     message_group_id=f"{p_teamname.value_as_string}-{p_pipelinename.value_as_string}",
-                    # InputPath: "$.detail" ? TODO
+                    message=events.RuleTargetInput.from_event_path("$.detail"),
                 )
             ],
         )

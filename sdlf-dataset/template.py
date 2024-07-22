@@ -70,7 +70,7 @@ class SdlfDataset(Construct):
             "pStageBucket",
             description="The stage bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:2}}",
+            default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
         p_pipelinedetails = CfnParameter(

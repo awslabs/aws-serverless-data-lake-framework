@@ -29,7 +29,7 @@ Parameters:
   pStageName:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
-    AllowedPattern: "[a-zA-Z0-9\\-]{2,12}"
+    AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
   pStageEnabled:
     Description: Whether the stage is enabled or not
     Type: String
