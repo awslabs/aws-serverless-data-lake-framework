@@ -110,7 +110,7 @@ deploy:
           app = cdk.App()
 
           stack = cdk.Stack(app, "Stack", stack_name="$SEEDFARMER_MODULE_NAME")
-          construct.SdlfFoundations(stack, "$SEEDFARMER_MODULE_NAME")
+          construct.SdlfTeam(stack, "$SEEDFARMER_MODULE_NAME")
 
           app.synth()
           EOL
