@@ -41,7 +41,7 @@ def create_domain_cicd_stack(domain, environment, template_body_url, child_accou
     response = {}
     cloudformation_waiter_type = None
     stack_name = f"sdlf-cicd-domain-{domain}-{environment}"
-    stack_parameters= [
+    stack_parameters = [
         {
             "ParameterKey": "pChildAccountId",
             "ParameterValue": child_account,
