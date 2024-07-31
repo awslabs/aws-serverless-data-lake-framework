@@ -1,0 +1,157 @@
+publishGenericEnvVariables: true
+deploy:
+  phases:
+    install:
+      runtime-versions:
+        python: 3.12
+      commands:
+        - |-
+            export ARTIFACTS_BUCKET=$(aws cloudformation describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
+
+            aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py || {
+              curl -L -O https://raw.githubusercontent.com/aws/serverless-application-model/develop/bin/sam-translate.py
+              aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py --body sam-translate.py
+            }
+
+            aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip aws-sam-cli-linux-x86_64.zip || {
+              curl -L -O https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip
+              aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key aws-sam-cli-linux-x86_64.zip --body aws-sam-cli-linux-x86_64.zip
+            }
+
+            aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key template-cfn-module.yaml template-cfn-module.yaml || {
+              curl -L https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/main/sdlf-cicd/template-generic-cfn-module.yaml -o template-cfn-module.yaml
+              aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key template-cfn-module.yaml --body template-cfn-module.yaml
+            }
+        - |-
+            pip3 uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
+            ./sam-installation/install \
+            && sam --version
+            pip3 install "cfn-lint<1"
+            pip3 install cloudformation-cli
+            npm install -g aws-cdk@2.149.0
+        - pip3 install -r requirements.txt
+    build:
+      commands:
+        - |-
+          # deployment-type possible values: cfn-module, cdk-construct, cdk-stack
+          # cfn-module creates a CloudFormation Registry module out of template.yaml
+          # cdk-construct publishes a pip library out of template.py on CodeArtifact
+          # cdk-stack deploys the infrastructure directly as a CloudFormation stack
+
+          if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cfn-module" ]; then
+            echo "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE"
+            # SEEDFARMER_PARAMETER_LIBRARY_MODULE can be used to pass the module name. If not, the module name is inferred from SEEDFARMER_MODULE_NAME
+            # by removing everything up to the first hyphen, then anything that isn't a letter/number, and lower-casing everything.
+            seedfarmer_module_name_without_prefix="${SEEDFARMER_MODULE_NAME#*-}"
+            seedfarmer_module_name_alnum="${seedfarmer_module_name_without_prefix//[^[:alnum:]]/}"
+            MODULE="${seedfarmer_module_name_alnum,,}"
+
+            : "${SEEDFARMER_PARAMETER_LIBRARY_ORG:=awslabs}" "${SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK:=sdlf}" "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
+            sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+            python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
+
+            CFN_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
+            SSM_ENDPOINT_URL="https://ssm.$AWS_REGION.amazonaws.com"
+            STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
+            TEMPLATE_BASE_FILE_PATH="modules/$SEEDFARMER_PARAMETER_LIBRARY_ORG/$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK/$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
+            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+              --key "$TEMPLATE_BASE_FILE_PATH/translated-template.json" \
+              --body translated-template.json
+            TEMPLATE_URL="https://$ARTIFACTS_BUCKET.s3.$AWS_REGION.amazonaws.com/$TEMPLATE_BASE_FILE_PATH/translated-template.json"
+            aws cloudformation --endpoint-url "$CFN_ENDPOINT_URL" validate-template --template-url "$TEMPLATE_URL"
+
+            mkdir module
+            cd module || exit
+            cfn init --artifact-type MODULE --type-name "$SEEDFARMER_PARAMETER_LIBRARY_ORG::$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK::$SEEDFARMER_PARAMETER_LIBRARY_MODULE::MODULE" && rm fragments/sample.json
+            cp -i -a ../translated-template.json fragments/
+            cfn generate
+            zip --quiet -r "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" .rpdk-config fragments/ schema.json
+
+            NEW_MODULE="$(sha256sum "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" | cut -c1-12)"
+            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+                                  --key "$TEMPLATE_BASE_FILE_PATH-$NEW_MODULE.zip" \
+                                  --body "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip"
+
+            # compare hashes to avoid creating a new module version when there is no change
+            if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT_URL" get-parameter --name "/SDLF/CFN/$SEEDFARMER_PARAMETER_LIBRARY_ORG-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE-MODULE" --query "Parameter.Value" --output text); then
+              echo "Current module version commit id: $CURRENT_MODULE"
+              echo "New module version commit id: $NEW_MODULE"
+              if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
+                echo "No change since last build, exiting module creation."
+                exit 0
+              fi
+            fi
+
+            STACK_NAME="sdlf-cfn-module-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
+            aws cloudformation --endpoint-url "$CFN_ENDPOINT_URL" deploy \
+                --stack-name "$STACK_NAME" \
+                --template-file ../template-cfn-module.yaml \
+                --parameter-overrides \
+                    pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                    pLibraryOrg="$SEEDFARMER_PARAMETER_LIBRARY_ORG" \
+                    pLibraryFramework="$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK" \
+                    pLibraryModule="$SEEDFARMER_PARAMETER_LIBRARY_MODULE" \
+                    pModuleGitRef="$NEW_MODULE" \
+                --tags Framework=sdlf || exit 1
+            echo "done"
+            cd .. && rm -Rf module
+          fi
+        - |-
+          if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cdk-stack" ]; then
+            echo "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE"
+            unset SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE
+
+            cat >app.py <<EOL
+          #!/usr/bin/env python3
+          import importlib
+          import aws_cdk as cdk
+          construct = importlib.import_module("template")
+
+          app = cdk.App()
+
+          stack = cdk.Stack(app, "Stack", stack_name="$SEEDFARMER_MODULE_NAME")
+          construct.SdlfDataset(stack, "$SEEDFARMER_MODULE_NAME")
+
+          app.synth()
+          EOL
+
+            cat app.py
+            mapfile -t available_parameters < <(printenv -0 | awk -v RS='\0' -F= '/^SEEDFARMER_PARAMETER_/{print $1}')
+            STACK_PARAMETERS=()
+            for available_p in "${available_parameters[@]}"; do
+              p_without_prefix="${available_p#SEEDFARMER_PARAMETER_}"
+              p_without_prefix_array=( ${p_without_prefix//_/ } )
+              p_without_prefix_array_lc=( "${p_without_prefix_array[@],,}" )
+              p_without_prefix_lc=$(printf "%s" "${p_without_prefix_array_lc[@]^}")
+              p_cfn=$(printf -- "--parameters p%s=${!available_p}" "$p_without_prefix_lc")
+              STACK_PARAMETERS+=($p_cfn)
+            done
+            echo "STACK PARAMETERS: ${STACK_PARAMETERS[@]}"
+            cdk --no-previous-parameters \
+                "${STACK_PARAMETERS[@]}" \
+                deploy --require-approval never --progress events --app "python3 app.py" --outputs-file ./cdk-exports.json || exit 1
+            seedfarmer metadata convert -f cdk-exports.json || true
+          fi
+    post_build:
+      commands:
+      - echo "Deploy successful"
+destroy:
+  phases:
+    build:
+      commands:
+      - echo "DESTROY!"
+      - |-
+          # deployment-type possible values: cfn-module, cdk-construct, cdk-stack
+          if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cfn-module" ]; then
+            echo "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE"
+            STACK_NAME="sdlf-cfn-module-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
+            aws cloudformation delete-stack --stack-name "$STACK_NAME"
+          fi
+          if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cdk-stack" ]; then
+            echo "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE"
+            cdk destroy --force --app "python3 app.py"
+          fi
+    post_build:
+      commands:
+      - echo "Destroy successful"
+build_type: BUILD_GENERAL1_SMALL
