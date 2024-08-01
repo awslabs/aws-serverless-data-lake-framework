@@ -15,6 +15,11 @@ Parameters:
 Resources:
   Policy:
     Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
       PolicyDocument:
         Statement:
