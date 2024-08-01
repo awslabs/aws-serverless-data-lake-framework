@@ -71,5 +71,5 @@ Resources:
             Resource:
               - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
         Version: "2012-10-17"
-      PolicyName: "sdlf-module-policy"
+      PolicyName: !Sub sdlf-${DeploymentName}-${ModuleName}
       Roles: [!Ref RoleName]
