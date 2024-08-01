@@ -179,12 +179,10 @@ Resources:
                             echo "Moving into dir..."
                             echo "Current directory contents:"
                             ls
-                            TRANSFORM_HASH=$(sha256sum "$TRANSFORM_NAME.py")
-                            S3_BASE_OBJECT_NAME="$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}"
                             aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                                  --key "$TEAM/transforms/$TRANSFORM_NAME-${TRANSFORM_HASH:0:7}.py" \
+                                                  --key "$TEAM/transforms/$TRANSFORM_NAME.py" \
                                                   --body "$TRANSFORM_NAME.py" || exit 1
-                            TRANSFORMS+=("$S3_BASE_OBJECT_NAME")
+                            TRANSFORMS+=("$TRANSFORM_NAME")
                             popd || exit
                             echo "============= COMPLETED DIRECTORY BUILD ============="
                         done
