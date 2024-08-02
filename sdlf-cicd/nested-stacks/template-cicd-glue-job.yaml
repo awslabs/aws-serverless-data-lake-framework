@@ -182,7 +182,25 @@ Resources:
                             aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
                                                   --key "$TEAM/transforms/$TRANSFORM_NAME.py" \
                                                   --body "$TRANSFORM_NAME.py" || exit 1
-                            TRANSFORMS+=("$TRANSFORM_NAME")
+
+                            # if there is a user-provided template, use it and do not add the glue job to the list of transforms
+                            # it must be called template.yaml and accept two parameters called pTeamName and pGlueJob.
+                            if [ -f "template.yaml" ]; then
+                                CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
+                                STACK_NAME="sdlf-$TEAM-gluejob-$TRANSFORM_NAME-$ENVIRONMENT"
+                                aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" deploy \
+                                    --stack-name "$STACK_NAME" \
+                                    --template-file template.yaml \
+                                    --parameter-overrides \
+                                        pTeamName="$TEAM" \
+                                        pGlueJob="$TRANSFORM_NAME" \
+                                    --tags Framework=sdlf \
+                                    --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                                    --role-arn "$CROSSACCOUNT_TEAM_ROLE" || exit 1
+                            else
+                                TRANSFORMS+=("$TRANSFORM_NAME")
+                            fi
+
                             popd || exit
                             echo "============= COMPLETED DIRECTORY BUILD ============="
                         done
