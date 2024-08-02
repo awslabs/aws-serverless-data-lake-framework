@@ -496,7 +496,8 @@ Resources:
                     PrimarySource: TemplateSource
                     ProjectName: "{{resolve:ssm:/SDLF/CodeBuild/PrepareGlueJobPackage}}"
                     EnvironmentVariables: !Sub >-
-                      [{"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
+                      [{"name":"CROSSACCOUNT_TEAM_ROLE", "value":"${pCrossAccountTeamRole}", "type":"PLAINTEXT"},
+                      {"name":"ENVIRONMENT", "value":"${pEnvironment}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN", "value":"${pDomain}", "type":"PLAINTEXT"},
                       {"name":"TEAM", "value":"${pTeamName}", "type":"PLAINTEXT"},
                       {"name":"DOMAIN_ACCOUNT_ID", "value":"${pChildAccountId}", "type":"PLAINTEXT"}]
