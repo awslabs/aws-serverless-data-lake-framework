@@ -29,7 +29,7 @@ Parameters:
   pGitPlatform:
     Description: Platform used to host git repositories
     Type: String
-    AllowedValues: [CodeCommit, GitLab]
+    AllowedValues: [CodeCommit, GitLab, GitHub]
 
 Mappings:
   pCodeCommitBranch:
@@ -41,8 +41,8 @@ Mappings:
       branch: main
 
 Conditions:
-  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitPlatformNoCodeCommit: !Not [!Equals [!Ref pGitPlatform, "CodeCommit"]]
 
 Resources:
   rMainRepositoryCodePipelineRole:
@@ -60,10 +60,10 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - !If
-                - CodeCommitNoGitLab
+                - GitPlatformCodeCommit
                 - Effect: Allow
                   Action:
                     - codecommit:GetBranch
@@ -78,7 +78,7 @@ Resources:
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pCicdRepository}
                 - !Ref "AWS::NoValue"
               - !If
-                - GitLabNoCodeCommit
+                - GitPlatformNoCodeCommit
                 - Effect: Allow
                   Action:
                     - codeconnections:UseConnection
@@ -88,11 +88,11 @@ Resources:
                   Condition:
                     "ForAllValues:StringLikeIfExists":
                       "codeconnections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
                       "codestar-connections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
                 - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
@@ -112,7 +112,7 @@ Resources:
                 Resource: !Ref pKMSKey
         - PolicyName: lambda-stages
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -135,7 +135,7 @@ Resources:
       Stages:
         - Name: Sources
           Actions: !If
-            - CodeCommitNoGitLab
+            - GitPlatformCodeCommit
             - - Name: SourceMain
                 ActionTypeId:
                   Category: Source
@@ -172,7 +172,7 @@ Resources:
                   - Name: SourceMainArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -186,7 +186,7 @@ Resources:
                   - Name: SourceCicdArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -261,10 +261,10 @@ Resources:
 
   rMainRepositoryCodeCommitTriggerRole:
     Type: AWS::IAM::Role
-    Condition: CodeCommitNoGitLab
+    Condition: GitPlatformCodeCommit
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -274,7 +274,7 @@ Resources:
       Policies:
         - PolicyName: sdlf-cicd-events-trigger
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: codepipeline:StartPipelineExecution
@@ -283,7 +283,7 @@ Resources:
 
   rMainRepositoryCodePipelineTriggerRule:
     Type: AWS::Events::Rule
-    Condition: CodeCommitNoGitLab
+    Condition: GitPlatformCodeCommit
     Properties:
       EventPattern:
         source:

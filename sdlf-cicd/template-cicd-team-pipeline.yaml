@@ -102,8 +102,8 @@ Mappings:
       branch: main
 
 Conditions:
-  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitPlatformNoCodeCommit: !Not [!Equals [!Ref pGitPlatform, "CodeCommit"]]
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
   EnableOptionalFeatures: !Or [!Condition EnableLambdaLayerBuilder, !Condition EnableGlueJobDeployer]
@@ -129,7 +129,7 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - !If
-                - CodeCommitNoGitLab
+                - GitPlatformCodeCommit
                 - Effect: Allow
                   Action:
                     - codecommit:GetBranch
@@ -151,7 +151,7 @@ Resources:
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pDatasetRepository}
                 - !Ref "AWS::NoValue"
               - !If
-                - GitLabNoCodeCommit
+                - GitPlatformNoCodeCommit
                 - Effect: Allow
                   Action:
                     - codeconnections:UseConnection
@@ -161,25 +161,25 @@ Resources:
                   Condition:
                     "ForAllValues:StringLikeIfExists":
                       "codeconnections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatalakeLibraryRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pPipelineRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageLambdaRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageGlueRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatasetRepository}"
                       "codestar-connections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatalakeLibraryRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pPipelineRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageARepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageLambdaRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageBRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageGlueRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatasetRepository}"
                 - !Ref "AWS::NoValue"
               - Effect: Allow
                 Action:
@@ -230,7 +230,7 @@ Resources:
       Stages:
         - Name: Sources
           Actions: !If
-            - CodeCommitNoGitLab
+            - GitPlatformCodeCommit
             - - Name: Source
                 ActionTypeId:
                   Category: Source
@@ -358,7 +358,7 @@ Resources:
                   - Name: TemplateSource
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}}}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -372,7 +372,7 @@ Resources:
                   - Name: SourceCicdArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -386,7 +386,7 @@ Resources:
                   - Name: SourceDatalakeLibraryArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatalakeLibraryRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatalakeLibraryRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -400,7 +400,7 @@ Resources:
                   - Name: SourcePipelineArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pPipelineRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pPipelineRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -414,7 +414,7 @@ Resources:
                   - Name: SourceStageAArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageARepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageARepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -428,7 +428,7 @@ Resources:
                   - Name: SourceStageLambdaArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageLambdaRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageLambdaRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -442,7 +442,7 @@ Resources:
                   - Name: SourceStageBArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageBRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageBRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -456,7 +456,7 @@ Resources:
                   - Name: SourceStageGlueArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pStageGlueRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pStageGlueRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -470,7 +470,7 @@ Resources:
                   - Name: SourceDatasetArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pDatasetRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pDatasetRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -837,7 +837,7 @@ Resources:
 
   rTeamMainCodeCommitTriggerRole:
     Type: AWS::IAM::Role
-    Condition: CodeCommitNoGitLab
+    Condition: GitPlatformCodeCommit
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -859,7 +859,7 @@ Resources:
 
   rTeamMainCodeCommitTriggerRule:
     Type: AWS::Events::Rule
-    Condition: CodeCommitNoGitLab
+    Condition: GitPlatformCodeCommit
     Properties:
       State: ENABLED
       EventPattern:

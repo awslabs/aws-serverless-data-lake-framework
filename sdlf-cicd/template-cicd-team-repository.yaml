@@ -22,13 +22,14 @@ Parameters:
     Default: sdlf-main-
 
 Conditions:
-  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitPlatformGitLab: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformGitHub: !Equals [!Ref pGitPlatform, "GitHub"]
 
 Resources:
   rTeamMainCodeCommit:
     Type: AWS::CodeCommit::Repository
-    Condition: CodeCommitNoGitLab
+    Condition: GitPlatformCodeCommit
     Metadata:
       cfn-lint:
         config:
@@ -49,10 +50,25 @@ Resources:
         config:
           ignore_checks:
           - E3001
-    Condition: GitLabNoCodeCommit
+    Condition: GitPlatformGitLab
     Properties:
       Name: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
-#      Path: !Ref pSdlfGitLabGroup
+#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+
+  rTeamMainGitHub:
+    Type: GitHub::Repositories::Repository
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+          - E3001
+    Condition: GitPlatformGitHub
+    Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Name: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
+      Private: true
+      Visibility: private
+      Archived: false
 
   rTeamMainCodeCommitSsm:
     Type: AWS::SSM::Parameter
@@ -60,7 +76,7 @@ Resources:
       Name: !Sub /SDLF/${pGitPlatform}/${pTeamName}/Main${pGitPlatform}
       Type: String
       Value: !If
-        - CodeCommitNoGitLab
+        - GitPlatformCodeCommit
         - !GetAtt rTeamMainCodeCommit.Name
         - !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName} # !GetAtt rTeamMainGitLab.Name
       Description: !Sub Name of the ${pDomain} ${pTeamName} main repository

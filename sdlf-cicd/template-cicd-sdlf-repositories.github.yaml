@@ -6,6 +6,10 @@ Parameters:
     Description: The KMS key used by CodeBuild and CodePipeline
     Type: AWS::SSM::Parameter::Value<String>
     Default: /SDLF/KMS/CICDKeyId
+  pGitPlatform:
+    Description: Platform used to host git repositories
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /SDLF/Misc/GitPlatform
   pCicdRepository:
     Type: String
     Default: sdlf-cicd
@@ -54,136 +58,162 @@ Conditions:
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
-  ######## GITLAB #########
-  # rSdlfGitLabGroup:
-  #   Type: GitLab::Groups::Group
-  #   Properties:
-  #     Name: SDLF
-  #     Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
-
-  rCicdGitLab:
-    Type: GitLab::Projects::Project
+  rCicdGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pCicdRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rFoundationsGitLab:
-    Type: GitLab::Projects::Project
+  rFoundationsGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pFoundationsRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rTeamGitLab:
-    Type: GitLab::Projects::Project
+  rTeamGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pTeamRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rPipelineGitLab:
-    Type: GitLab::Projects::Project
+  rPipelineGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pPipelineRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rDatasetGitLab:
-    Type: GitLab::Projects::Project
+  rDatasetGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pDatasetRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rStageAGitLab:
-    Type: GitLab::Projects::Project
+  rStageAGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pStageARepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rStageLambdaGitLab:
-    Type: GitLab::Projects::Project
+  rStageLambdaGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pStageLambdaRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rStageBGitLab:
-    Type: GitLab::Projects::Project
+  rStageBGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pStageBRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rStageGlueGitLab:
-    Type: GitLab::Projects::Project
+  rStageGlueGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pStageGlueRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rDatalakeLibraryGitLab:
-    Type: GitLab::Projects::Project
+  rDatalakeLibraryGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pDatalakeLibraryRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rMainGitLab:
-    Type: GitLab::Projects::Project
+  rMainGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
           ignore_checks:
           - E3001
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pMainRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rMonitoringGitLab:
-    Type: GitLab::Projects::Project
+  rMonitoringGitHub:
+    Type: GitHub::Repositories::Repository
     Metadata:
       cfn-lint:
         config:
@@ -191,112 +221,115 @@ Resources:
           - E3001
     Condition: EnableMonitoring
     Properties:
+      Org: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
       Name: !Ref pMonitoringRepository
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      Private: true
+      Visibility: private
+      Archived: false
 
-  rCicdGitLabSsm:
+  rCicdGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/CicdGitLab
+      Name: /SDLF/GitHub/CicdGitHub
       Type: String
-      Value: !Ref pCicdRepository # !GetAtt rCicdGitLab.Name
+      Value: !Ref pCicdRepository # !GetAtt rCicdGitHub.Name
       Description: Name of the Cicd repository
 
-  rFoundationsGitLabSsm:
+  rFoundationsGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/FoundationsGitLab
+      Name: /SDLF/GitHub/FoundationsGitHub
       Type: String
-      Value: !Ref pFoundationsRepository # !GetAtt rFoundationsGitLab.Name
+      Value: !Ref pFoundationsRepository # !GetAtt rFoundationsGitHub.Name
       Description: Name of the Foundations repository
 
-  rTeamGitLabSsm:
+  rTeamGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/TeamGitLab
+      Name: /SDLF/GitHub/TeamGitHub
       Type: String
-      Value: !Ref pTeamRepository # !GetAtt rTeamGitLab.Name
+      Value: !Ref pTeamRepository # !GetAtt rTeamGitHub.Name
       Description: Name of the Team repository
 
-  rPipelineGitLabSsm:
+  rPipelineGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/PipelineGitLab
+      Name: /SDLF/GitHub/PipelineGitHub
       Type: String
-      Value: !Ref pPipelineRepository # !GetAtt rPipelineGitLab.Name
+      Value: !Ref pPipelineRepository # !GetAtt rPipelineGitHub.Name
       Description: Name of the Pipeline repository
 
-  rDatasetGitLabSsm:
+  rDatasetGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/DatasetGitLab
+      Name: /SDLF/GitHub/DatasetGitHub
       Type: String
-      Value: !Ref pDatasetRepository # !GetAtt rDatasetGitLab.Name
+      Value: !Ref pDatasetRepository # !GetAtt rDatasetGitHub.Name
       Description: Name of the Dataset repository
 
-  rStageAGitLabSsm:
+  rStageAGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/StageAGitLab
+      Name: /SDLF/GitHub/StageAGitHub
       Type: String
-      Value: !Ref pStageARepository # !GetAtt rStageAGitLab.Name
+      Value: !Ref pStageARepository # !GetAtt rStageAGitHub.Name
       Description: Name of the StageA repository
 
-  rStageLambdaGitLabSsm:
+  rStageLambdaGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/StageLambdaGitLab
+      Name: /SDLF/GitHub/StageLambdaGitHub
       Type: String
-      Value: !Ref pStageLambdaRepository # !GetAtt rStageLambdaGitLab.Name
+      Value: !Ref pStageLambdaRepository # !GetAtt rStageLambdaGitHub.Name
       Description: Name of the Stage-Lambda repository
 
-  rStageBGitLabSsm:
+  rStageBGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/StageBGitLab
+      Name: /SDLF/GitHub/StageBGitHub
       Type: String
-      Value: !Ref pStageBRepository # !GetAtt rStageBGitLab.Name
+      Value: !Ref pStageBRepository # !GetAtt rStageBGitHub.Name
       Description: Name of the StageB repository
 
-  rStageGlueGitLabSsm:
+  rStageGlueGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/StageGlueGitLab
+      Name: /SDLF/GitHub/StageGlueGitHub
       Type: String
-      Value: !Ref pStageGlueRepository # !GetAtt rStageGlueGitLab.Name
+      Value: !Ref pStageGlueRepository # !GetAtt rStageGlueGitHub.Name
       Description: Name of the Stage-Glue repository
 
-  rDatalakeLibraryGitLabSsm:
+  rDatalakeLibraryGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/DatalakeLibraryGitLab
+      Name: /SDLF/GitHub/DatalakeLibraryGitHub
       Type: String
-      Value: !Ref pDatalakeLibraryRepository # !GetAtt rDatalakeLibraryGitLab.Name
+      Value: !Ref pDatalakeLibraryRepository # !GetAtt rDatalakeLibraryGitHub.Name
       Description: Name of the DatalakeLibrary repository
 
-  rUtilsGitLabSsm:
+  rUtilsGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/UtilsGitLab
+      Name: /SDLF/GitHub/UtilsGitHub
       Type: String
       Value: !Ref pUtilsRepository
       Description: Name of the Utils repository
 
-  rMainGitLabSsm:
+  rMainGitHubSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/GitLab/MainGitLab
+      Name: /SDLF/GitHub/MainGitHub
       Type: String
-      Value: !Ref pMainRepository # !GetAtt rMainGitLab.Name
+      Value: !Ref pMainRepository # !GetAtt rMainGitHub.Name
       Description: Name of the main repository
 
-  rMonitoringGitLabSsm:
+  rMonitoringGitHubSsm:
     Type: AWS::SSM::Parameter
     Condition: EnableMonitoring
     Properties:
-      Name: /SDLF/GitLab/MonitoringGitLab
+      Name: /SDLF/GitHub/MonitoringGitHub
       Type: String
-      Value: !Ref pMonitoringRepository # !GetAtt rMonitoringGitLab.Name
+      Value: !Ref pMonitoringRepository # !GetAtt rMonitoringGitHub.Name
       Description: Name of the monitoring repository
 
 Outputs:

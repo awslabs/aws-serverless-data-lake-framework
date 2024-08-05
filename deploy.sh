@@ -170,6 +170,7 @@ devops_account () {
     then
         GIT_PLATFORM=CodeCommit
         GITLAB=false
+        GITHUB=false
         GLUE_JOB_DEPLOYER=false
         LAMBDA_LAYER_BUILDER=false
         MONITORING=false
@@ -179,6 +180,12 @@ devops_account () {
             GIT_PLATFORM=GitLab
             GITLAB=true
             echo "Optional feature: GitLab"
+        fi
+        if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "github"
+        then
+            GIT_PLATFORM=GitHub
+            GITHUB=true
+            echo "Optional feature: GitHub"
         fi
         if printf "%s\0" "${FEATURES[@]}" | grep -Fxqz -- "gluejobdeployer"
         then
@@ -204,6 +211,7 @@ devops_account () {
         echo "-f not specified, set all features to false by default" >&2
         GIT_PLATFORM=CodeCommit
         GITLAB=false
+        GITHUB=false
         GLUE_JOB_DEPLOYER=false
         LAMBDA_LAYER_BUILDER=false
         MONITORING=false
@@ -223,7 +231,6 @@ devops_account () {
         --parameter-overrides \
             pDomainAccounts="$DOMAIN_ACCOUNTS" \
             pGitPlatform="$GIT_PLATFORM" \
-            pEnableGitlab="$GITLAB" \
             pEnableGlueJobDeployer="$GLUE_JOB_DEPLOYER" \
             pEnableLambdaLayerBuilder="$LAMBDA_LAYER_BUILDER" \
             pEnableMonitoring="$MONITORING" \
@@ -235,7 +242,7 @@ devops_account () {
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
     ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
-    REPOSITORIES_TEMPLATE_FILE=$(test "$GITLAB" = true && echo "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.gitlab.yaml || echo "$DIRNAME"/sdlf-cicd/template-cicd-sdlf-repositories.yaml)
+    REPOSITORIES_TEMPLATE_FILE="$DIRNAME/sdlf-cicd/template-cicd-sdlf-repositories.${GIT_PLATFORM,,}.yaml"
     mkdir "$DIRNAME"/output
     aws cloudformation package \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories \
@@ -280,6 +287,28 @@ devops_account () {
             then
                 git init
                 git remote add origin "$GITLAB_REPOSITORY_URL" || exit 1
+                git add .
+                git commit -m "initial commit"
+                git push origin main || exit 1
+                git push origin main:dev
+                git push origin main:test
+            fi
+            popd || exit
+        elif "$GITHUB"
+        then
+            #GITHUB_ACCESSTOKEN=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --with-decryption --name /SDLF/GitHub/AccessToken --query "Parameter.Value" --output text)
+            GITHUB_REPOSITORY_URL="https://github.com/$REPOSITORY.git"
+
+            if [ "$REPOSITORY" = "sdlf-main" ]
+            then
+                mkdir sdlf-main
+                cp sdlf-cicd/README.md sdlf-main/
+            fi
+            pushd "$REPOSITORY" || exit
+            if [ ! -d .git ] # if .git exists, deploy.sh has likely been run before - do not try to push the base repositories
+            then
+                git init
+                git remote add origin "$GITHUB_REPOSITORY_URL" || exit 1
                 git add .
                 git commit -m "initial commit"
                 git push origin main || exit 1
