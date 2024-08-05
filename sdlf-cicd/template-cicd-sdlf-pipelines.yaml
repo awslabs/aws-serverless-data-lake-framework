@@ -45,8 +45,8 @@ Parameters:
     Default: /SDLF/GlueJobDeployer/Enabled
 
 Conditions:
-  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitPlatformNoCodeCommit: !Not [!Equals [!Ref pGitPlatform, "CodeCommit"]]
   EnableLambdaLayerBuilder: !Equals [!Ref pEnableLambdaLayerBuilder, true]
   EnableGlueJobDeployer: !Equals [!Ref pEnableGlueJobDeployer, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
@@ -411,7 +411,7 @@ Resources:
                   - codecommit:ListRepositories # W11 exception
                 Resource: "*"
               - !If
-                - CodeCommitNoGitLab
+                - GitPlatformCodeCommit
                 - Effect: Allow
                   Action:
                     - codecommit:GetRepository
@@ -426,7 +426,7 @@ Resources:
                     - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${pMainRepositoriesPrefix}*
                 - !Ref "AWS::NoValue"
               - !If
-                - GitLabNoCodeCommit
+                - GitPlatformNoCodeCommit
                 - Effect: Allow
                   Action:
                     - codeconnections:PassConnection
@@ -520,6 +520,7 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Monitoring/Enabled
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CodeCommit/*
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GitLab/*
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GitHub/*
               - Effect: Allow
                 Action:
                   - codepipeline:GetPipelineState

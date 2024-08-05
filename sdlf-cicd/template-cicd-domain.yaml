@@ -70,8 +70,8 @@ Mappings:
       branch: main
 
 Conditions:
-  CodeCommitNoGitLab: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitLabNoCodeCommit: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
+  GitPlatformNoCodeCommit: !Not [!Equals [!Ref pGitPlatform, "CodeCommit"]]
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
@@ -94,7 +94,7 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - !If
-                - CodeCommitNoGitLab
+                - GitPlatformCodeCommit
                 - Effect: Allow
                   Action:
                     - codecommit:GetBranch
@@ -115,7 +115,7 @@ Resources:
                       - !Ref AWS::NoValue
                 - !Ref "AWS::NoValue"
               - !If
-                - GitLabNoCodeCommit
+                - GitPlatformNoCodeCommit
                 - Effect: Allow
                   Action:
                     - codeconnections:UseConnection
@@ -125,22 +125,22 @@ Resources:
                   Condition:
                     "ForAllValues:StringLikeIfExists":
                       "codeconnections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pFoundationsRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pTeamRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
                         - !If
                           - EnableMonitoring
-                          - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                          - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
                           - !Ref AWS::NoValue
                       "codestar-connections:FullRepositoryId":
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
-                        - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pFoundationsRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pTeamRepository}"
+                        - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
                         - !If
                           - EnableMonitoring
-                          - !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                          - !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
                           - !Ref AWS::NoValue
                 - !Ref "AWS::NoValue"
               - Effect: Allow
@@ -182,7 +182,7 @@ Resources:
       Stages:
         - Name: Sources
           Actions: !If
-            - CodeCommitNoGitLab
+            - GitPlatformCodeCommit
             - - Name: sdlf-main
                 ActionTypeId:
                   Category: Source
@@ -264,7 +264,7 @@ Resources:
                   - Name: TemplateSource
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pMainRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pMainRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -278,7 +278,7 @@ Resources:
                   - Name: SourceCicdArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pCicdRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pCicdRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -292,7 +292,7 @@ Resources:
                   - Name: SourceFoundationsArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pFoundationsRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pFoundationsRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -306,7 +306,7 @@ Resources:
                   - Name: SourceTeamArtifact
                 Configuration:
                   ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/${pTeamRepository}"
+                  FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/${pTeamRepository}"
                   BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                   OutputArtifactFormat: CODE_ZIP
                 RunOrder: 1
@@ -322,7 +322,7 @@ Resources:
                       - Name: SourceMonitoringArtifact
                     Configuration:
                       ConnectionArn: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/CodeConnection}}"
-                      FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/GitLab/SdlfGitLabGroup}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
+                      FullRepositoryId: !Sub "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}/{{resolve:ssm:/SDLF/${pGitPlatform}/Monitoring${pGitPlatform}}}"
                       BranchName: !FindInMap [pCodeCommitBranch, !Ref pEnvironment, branch]
                       OutputArtifactFormat: CODE_ZIP
                     RunOrder: 1

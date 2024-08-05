@@ -12,12 +12,8 @@ Parameters:
   pGitPlatform:
     Description: Platform used to host git repositories
     Type: String
-    AllowedValues: [CodeCommit, GitLab]
+    AllowedValues: [CodeCommit, GitLab, GitHub]
     Default: CodeCommit
-  pEnableGitlab:
-    Description: Use GitLab instead of CodeCommit for SDLF repositories
-    Type: String
-    Default: false
   pEnableGlueJobDeployer:
     Description: Enable Glue Job Deployer optional feature
     Type: String
@@ -41,18 +37,36 @@ Conditions:
   GovCloudPartition: !Equals
     - !Sub ${AWS::Partition}
     - aws-us-gov
+  GitPlatformGitLab: !Equals [!Ref pGitPlatform, "GitLab"]
+  GitPlatformGitHub: !Equals [!Ref pGitPlatform, "GitHub"]
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
-  # when enabling Gitlab support, /SDLF/GitLab/Url and /SDLF/GitLab/AccessToken are required too (as secure strings)
+  # when enabling GitLab support, /SDLF/GitLab/Url, /SDLF/GitLab/Group (containing the group or user name) and /SDLF/GitLab/AccessToken are required too (as secure strings)
   # then enable GitLab::Projects::Project third-party resource type in CloudFormation Registry
   rGitlabFeatureSsm:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/GitLab/Enabled
       Type: String
-      Value: !Ref pEnableGitlab
+      Value: !If
+        - GitPlatformGitLab
+        - true
+        - false
       Description: Create repositories on GitLab instead of CodeCommit
+
+  # when enabling GitHub support, /SDLF/GitHub/Group (containing the org or user name) and /SDLF/GitHub/AccessToken are required too (as secure strings)
+  # then enable GitHub::Repositories::Repository third-party resource type in CloudFormation Registry
+  rGithubFeatureSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /SDLF/GitHub/Enabled
+      Type: String
+      Value: !If
+        - GitPlatformGitHub
+        - true
+        - false
+      Description: Create repositories on GitHub instead of CodeCommit
 
   rGitPlatformSsm:
     Type: AWS::SSM::Parameter
