@@ -608,7 +608,7 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-states-execution
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-${pStageName}-states-execution
           PolicyDocument:
             Version: "2012-10-17"
             Statement:

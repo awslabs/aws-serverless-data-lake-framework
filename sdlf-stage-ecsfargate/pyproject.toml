@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "sdlf.stage-ecsfargate"
+version = "2.5.0-alpha.2"
+description = "AWS Serverless Data Lake Framework"
+authors = ["Amazon Web Services"]
+license = "MIT-0"
+readme = "README.md"
+repository = "https://github.com/awslabs/aws-serverless-data-lake-framework/"
+documentation = "https://sdlf.readthedocs.io/en/latest/"
+
+packages = [
+    { include = "**/*", from = "src", to = "sdlf/stage" },
+]
+
+exclude = ["**/*.yaml"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aws-cdk-lib = "^2.151.0"
+constructs = ">=10.0.0,<11.0.0"
+sdlf-pipeline = "^2.5.0a2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

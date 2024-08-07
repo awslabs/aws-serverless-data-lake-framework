@@ -27,7 +27,7 @@ from aws_cdk import (
 from constructs import Construct
 
 
-class SdlfTeam(Construct):
+class Team(Construct):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
