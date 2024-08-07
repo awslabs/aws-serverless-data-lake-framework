@@ -17,9 +17,10 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
 )
 from constructs import Construct
+from sdlf import pipeline
 
 
-class SdlfStageGlue(Construct):
+class StageLambda(Construct):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
@@ -27,13 +28,6 @@ class SdlfStageGlue(Construct):
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
-        p_pipelinereference = CfnParameter(
-            self,
-            "pPipelineReference",
-            type="String",
-            default="none",
-        )
-        p_pipelinereference.override_logical_id("pPipelineReference")
         p_rawbucket = CfnParameter(
             self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}"
         )
@@ -46,30 +40,6 @@ class SdlfStageGlue(Construct):
             default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
-        p_teamname = CfnParameter(
-            self,
-            "pTeamName",
-            description="Name of the team (all lowercase, no symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-z0-9]{2,12}",
-        )
-        p_teamname.override_logical_id("pTeamName")
-        p_pipeline = CfnParameter(
-            self,
-            "pPipeline",
-            description="The name of the pipeline (all lowercase, no symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-z0-9]*",
-        )
-        p_pipeline.override_logical_id("pPipeline")
-        p_stagename = CfnParameter(
-            self,
-            "pStageName",
-            description="Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
-        )
-        p_stagename.override_logical_id("pStageName")
         p_enabletracing = CfnParameter(
             self,
             "pEnableTracing",
@@ -77,6 +47,11 @@ class SdlfStageGlue(Construct):
             type="String",
         )
         p_enabletracing.override_logical_id("pEnableTracing")
+
+        pipeline_interface = pipeline.Pipeline(scope, f"{id}Pipeline")
+        p_pipeline = pipeline_interface.p_pipeline
+        p_stagename = pipeline_interface.p_stagename
+        p_teamname = pipeline_interface.p_teamname
 
         ######## IAM #########
         common_policy = iam.ManagedPolicy(
@@ -144,10 +119,127 @@ class SdlfStageGlue(Construct):
         )
 
         ######## LAMBDA FUNCTIONS #########
+        transformstep_role_policy = iam.Policy(
+            self,
+            "rRoleLambdaExecutionProcessingStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-transform",
+            statements=[
+                iam.PolicyStatement(
+                    actions=["s3:ListBucket", "s3:GetBucketVersioning"],
+                    resources=[
+                        scope.format_arn(
+                            service="s3",
+                            resource=p_rawbucket.value_as_string,
+                            region="",
+                            account="",
+                            arn_format=ArnFormat.NO_RESOURCE_NAME,
+                        ),
+                        scope.format_arn(
+                            service="s3",
+                            resource=p_stagebucket.value_as_string,
+                            region="",
+                            account="",
+                            arn_format=ArnFormat.NO_RESOURCE_NAME,
+                        ),
+                    ],
+                ),
+                iam.PolicyStatement(
+                    actions=["s3:GetObject"],
+                    resources=[
+                        scope.format_arn(
+                            service="s3",
+                            resource=f"{p_rawbucket.value_as_string}/{p_teamname.value_as_string}/*",
+                            region="",
+                            account="",
+                            arn_format=ArnFormat.NO_RESOURCE_NAME,
+                        ),
+                        scope.format_arn(
+                            service="s3",
+                            resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
+                            region="",
+                            account="",
+                            arn_format=ArnFormat.NO_RESOURCE_NAME,
+                        ),
+                    ],
+                ),
+                iam.PolicyStatement(
+                    actions=["s3:PutObject"],
+                    resources=[
+                        scope.format_arn(
+                            service="s3",
+                            resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
+                            region="",
+                            account="",
+                            arn_format=ArnFormat.NO_RESOURCE_NAME,
+                        ),
+                    ],
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "kms:DescribeKey",
+                        "kms:Encrypt",
+                        "kms:Decrypt",
+                        "kms:ReEncrypt*",
+                        "kms:GenerateDataKey*",
+                        "kms:CreateGrant",
+                    ],
+                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/DataKeyId}}}}"],
+                ),
+            ],
+        )
+
+        transformstep_role = iam.Role(
+            self,
+            "rRoleLambdaExecutionProcessingStep",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            path=f"/sdlf-{p_teamname.value_as_string}/",
+            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
+                self,
+                "rRoleLambdaExecutionProcessingStepPermissionsBoundary",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+            ),
+        )
+        transformstep_role.attach_inline_policy(transformstep_role_policy)
+        transformstep_role.add_managed_policy(common_policy)
+
+        transformstep_function = _lambda.Function(
+            self,
+            "rLambdaTransformStep",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/process-object/src")),
+            handler="lambda_function.lambda_handler",
+            function_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-process-{p_stagename.value_as_string}",
+            description="Processing pipeline",
+            memory_size=1536,
+            timeout=Duration.seconds(600),
+            role=transformstep_role,
+            environment_encryption=kms.Key.from_key_arn(
+                self,
+                "rLambdaTransformStepEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
+            # vpcconfig TODO
+        )
+
+        logs.LogGroup(
+            self,
+            "rLambdaTransformStepLogGroup",
+            removal_policy=RemovalPolicy.DESTROY,
+            log_group_name=f"/aws/lambda/{transformstep_function.function_name}",
+            retention=logs.RetentionDays.ONE_MONTH,
+            #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaTransformStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
+        )
+
         # Metadata Step Role (fetch metadata, update pipeline execution history...)
         postmetadatastep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-metadata-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionMetadataStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-metadata",
             statements=[
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
@@ -223,12 +315,17 @@ class SdlfStageGlue(Construct):
             log_group_name=f"/aws/lambda/{postmetadatastep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaPostMetadataStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
 
         errorstep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-error-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionErrorStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-error",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -292,7 +389,11 @@ class SdlfStageGlue(Construct):
             log_group_name=f"/aws/lambda/{errorstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaErrorStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
 
         ######## CLOUDWATCH #########
@@ -376,7 +477,8 @@ class SdlfStageGlue(Construct):
         ######## STATE MACHINE #########
         statemachine_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-states-execution",
+            "rStatesExecutionRolePolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-states-execution",
             statements=[
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
@@ -385,36 +487,6 @@ class SdlfStageGlue(Construct):
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
-                        ),
-                    ],
-                ),
-                iam.PolicyStatement(
-                    actions=[
-                        "glue:StartJobRun",
-                        "glue:GetJobRun",
-                        "glue:GetJobRuns",
-                        "glue:BatchStopJobRun",
-                    ],
-                    resources=[
-                        scope.format_arn(
-                            service="glue",
-                            resource="job",
-                            arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
-                        ),
-                    ],
-                ),
-                iam.PolicyStatement(
-                    actions=[
-                        "glue:StartCrawler",
-                        "glue:GetCrawler",
-                    ],
-                    resources=[
-                        scope.format_arn(
-                            service="glue",
-                            resource="crawler",
-                            arn_format=ArnFormat.SLASH_RESOURCE_NAME,
                             resource_name=f"sdlf-{p_teamname.value_as_string}-*",
                         ),
                     ],
@@ -452,7 +524,7 @@ class SdlfStageGlue(Construct):
             "rStateMachine",
             state_machine_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-sm-{p_stagename.value_as_string}",
             role=statemachine_role,
-            definition_body=sfn.DefinitionBody.from_file(os.path.join(dirname, "state-machine/stage-glue.asl.json")),
+            definition_body=sfn.DefinitionBody.from_file(os.path.join(dirname, "state-machine/stage-lambda.asl.json")),
             definition_substitutions={
                 "lPostMetadata": postmetadatastep_function.function_arn,
                 "lError": errorstep_function.function_arn,
@@ -470,7 +542,8 @@ class SdlfStageGlue(Construct):
 
         statemachine_map_role_policy = iam.Policy(
             self,
-            "sfn-map",
+            "rStatesExecutionMapRolePolicy",
+            policy_name="sfn-map",
             statements=[
                 iam.PolicyStatement(
                     actions=["states:StartExecution", "states:DescribeExecution", "states:StopExecution"],
@@ -488,9 +561,11 @@ class SdlfStageGlue(Construct):
         )
         statemachine_role.attach_inline_policy(statemachine_map_role_policy)
 
+        ### Routing/Redrive
         routingstep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-routing-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionRoutingStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-routing",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -527,7 +602,7 @@ class SdlfStageGlue(Construct):
             path=f"/sdlf-{p_teamname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
-                "rRoleLambdaExecutionRoutingStepBoundary",
+                "rRoleLambdaExecutionRoutingStepPermissionsBoundary",
                 managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
@@ -546,7 +621,7 @@ class SdlfStageGlue(Construct):
             timeout=Duration.seconds(60),
             role=routingstep_role,
             environment={
-                "STAGE_TRANSFORM": "",
+                "STAGE_TRANSFORM": transformstep_function.function_arn,
             },
             environment_encryption=kms.Key.from_key_arn(
                 self,
@@ -571,8 +646,13 @@ class SdlfStageGlue(Construct):
             log_group_name=f"/aws/lambda/{routingstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaRoutingStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
+        pipeline_interface.resources(scope, routingstep_function.function_arn)
 
         redrivestep_function = _lambda.Function(
             self,
@@ -600,13 +680,9 @@ class SdlfStageGlue(Construct):
             log_group_name=f"/aws/lambda/{redrivestep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
-        )
-
-        # CloudFormation Outputs TODO
-        CfnOutput(
-            self,
-            "oPipelineReference",
-            description="CodePipeline reference this stack has been deployed with",
-            value=p_pipelinereference.value_as_string,
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaRedriveStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )

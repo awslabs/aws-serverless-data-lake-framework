@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Simple EMR Serverless-based Transform
+Description: Simple Glue job-based Transform
 
 Parameters:
   pPipelineReference:
@@ -20,7 +20,7 @@ Parameters:
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pStageBucket:
-    Description: Stage bucket
+    Description: Stage Bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
   pTeamName:
@@ -147,6 +147,7 @@ Globals:
         SubnetIds: !Split [",", !Ref pVpcSubnetIds]
       - !Ref "AWS::NoValue"
 
+
 Resources:
   rPipelineInterface:
     Type: awslabs::sdlf::pipeline::MODULE
@@ -209,7 +210,7 @@ Resources:
             Resource:
               - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  # Routing Step Role
+  # Routing Role
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
@@ -272,7 +273,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-postupdate-${pStageName}
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-metadata-${pStageName}
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -286,7 +287,6 @@ Resources:
                 Action:
                   - s3:GetObject
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pTeamName}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pTeamName}/*
 
   # Error Handling Lambda Role
@@ -417,11 +417,11 @@ Resources:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Errors
       EvaluationPeriods: 5
-      Period: 300
+      Period: 60
       ComparisonOperator: GreaterThanThreshold
       Namespace: AWS/Lambda
       Statistic: Sum
-      Threshold: 1
+      Threshold: 5
       Unit: Count
       Dimensions:
         - Name: FunctionName
@@ -489,11 +489,11 @@ Resources:
         - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
       MetricName: Invocations
       EvaluationPeriods: 5
-      Period: 300
+      Period: 60
       ComparisonOperator: GreaterThanThreshold
       Namespace: AWS/Lambda
       Statistic: Sum
-      Threshold: 1
+      Threshold: 5
       Unit: Count
       Dimensions:
         - Name: FunctionName
@@ -522,7 +522,7 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
-        - PolicyName: !Sub sdlf-${pTeamName}-states-execution
+        - PolicyName: !Sub sdlf-${pTeamName}-${pPipeline}-${pStageName}-states-execution
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -532,19 +532,18 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pTeamName}-${pPipeline}-*
               - Effect: Allow
                 Action:
-                  - emr-serverless:StartJobRun
-                  - emr-serverless:GetJobRun
-                  - emr-serverless:CreateApplication
-                  - emr-serverless:GetApplication
+                  - glue:StartJobRun
+                  - glue:GetJobRun
+                  - glue:GetJobRuns
+                  - glue:BatchStopJobRun
                 Resource:
-                  - !Sub arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
-                  - events:PutTargets
-                  - events:PutRule
-                  - events:DescribeRule
+                  - glue:StartCrawler
+                  - glue:GetCrawler
                 Resource:
-                  - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForEMRServerless*
+                  - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pTeamName}-*
               - Effect: Allow
                 Action:
                   - xray:PutTraceSegments # W11 exception
@@ -553,30 +552,29 @@ Resources:
                   - xray:GetSamplingTargets # W11 exception
                 Resource: "*"
 
-  rEmrServerlessExecutionRole:
-    Type: AWS::IAM::Role
+  rStatesExecutionRoleMap:
+    Type: AWS::IAM::RolePolicy
     Properties:
-      Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
-      AssumeRolePolicyDocument:
+      PolicyName: sfn-map
+      PolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Principal:
-              Service:
-                - emr-serverless.amazonaws.com
-            Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Sub ${AWS::AccountId}
+            Action:
+              - states:StartExecution
+              - states:DescribeExecution
+              - states:StopExecution
+            Resource:
+              - !Ref rStateMachine
+              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:execution:${rStateMachine.Name}:*
+      RoleName: !Ref rStatesExecutionRole
 
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
-      DefinitionUri: ./state-machine/stage-emrserverless.asl.json
+      DefinitionUri: ./state-machine/stage-glue.asl.json
       DefinitionSubstitutions:
-        lJobStepRole: !GetAtt rEmrServerlessExecutionRole.Arn
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
@@ -584,6 +582,14 @@ Resources:
         Enabled: !If [EnableTracing, true, false]
 
   ######## SSM OUTPUTS #########
+  rRoutingLambdaSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Lambda/${pTeamName}/${pPipeline}${pStageName}RoutingLambda
+      Type: String
+      Value: !GetAtt rLambdaRoutingStep.Arn
+      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda"
+
   rStateMachineSsm:
     Type: AWS::SSM::Parameter
     Properties:

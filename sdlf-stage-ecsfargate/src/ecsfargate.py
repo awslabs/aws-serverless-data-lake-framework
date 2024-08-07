@@ -17,9 +17,10 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
 )
 from constructs import Construct
+from sdlf import pipeline
 
 
-class SdlfStageEmrserverless(Construct):
+class StageEcsfargate(Construct):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
@@ -27,13 +28,6 @@ class SdlfStageEmrserverless(Construct):
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
-        p_pipelinereference = CfnParameter(
-            self,
-            "pPipelineReference",
-            type="String",
-            default="none",
-        )
-        p_pipelinereference.override_logical_id("pPipelineReference")
         p_rawbucket = CfnParameter(
             self, "pRawBucket", description="Raw bucket", type="String", default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}"
         )
@@ -46,30 +40,6 @@ class SdlfStageEmrserverless(Construct):
             default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
-        p_teamname = CfnParameter(
-            self,
-            "pTeamName",
-            description="Name of the team (all lowercase, no symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-z0-9]{2,12}",
-        )
-        p_teamname.override_logical_id("pTeamName")
-        p_pipeline = CfnParameter(
-            self,
-            "pPipeline",
-            description="The name of the pipeline (all lowercase, no symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-z0-9]*",
-        )
-        p_pipeline.override_logical_id("pPipeline")
-        p_stagename = CfnParameter(
-            self,
-            "pStageName",
-            description="Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)",
-            type="String",
-            allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
-        )
-        p_stagename.override_logical_id("pStageName")
         p_enabletracing = CfnParameter(
             self,
             "pEnableTracing",
@@ -77,6 +47,11 @@ class SdlfStageEmrserverless(Construct):
             type="String",
         )
         p_enabletracing.override_logical_id("pEnableTracing")
+
+        pipeline_interface = pipeline.Pipeline(scope, f"{id}Pipeline")
+        p_pipeline = pipeline_interface.p_pipeline
+        p_stagename = pipeline_interface.p_stagename
+        p_teamname = pipeline_interface.p_teamname
 
         ######## IAM #########
         common_policy = iam.ManagedPolicy(
@@ -147,7 +122,8 @@ class SdlfStageEmrserverless(Construct):
         # Metadata Step Role (fetch metadata, update pipeline execution history...)
         postmetadatastep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-postupdate-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionMetadataStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-metadata",
             statements=[
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
@@ -230,12 +206,17 @@ class SdlfStageEmrserverless(Construct):
             log_group_name=f"/aws/lambda/{postmetadatastep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaPostMetadataStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
 
         errorstep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-error-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionErrorStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-error",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -299,7 +280,11 @@ class SdlfStageEmrserverless(Construct):
             log_group_name=f"/aws/lambda/{errorstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaErrorStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
 
         ######## CLOUDWATCH #########
@@ -383,7 +368,8 @@ class SdlfStageEmrserverless(Construct):
         ######## STATE MACHINE #########
         statemachine_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-states-execution",
+            "rStatesExecutionRolePolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-states-execution",
             statements=[
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
@@ -398,18 +384,11 @@ class SdlfStageEmrserverless(Construct):
                 ),
                 iam.PolicyStatement(
                     actions=[
-                        "emr-serverless:StartJobRun",
-                        "emr-serverless:GetJobRun",
-                        "emr-serverless:CreateApplication",
-                        "emr-serverless:GetApplication",
+                        "ecs:RunTask",  # W11 TaskId is not known until the task is submitted
+                        "ecs:StopTask",  # W11 TaskId is not known until the task is submitted
+                        "ecs:DescribeTasks",  # W11 TaskId is not known until the task is submitted
                     ],
-                    resources=[
-                        scope.format_arn(
-                            service="emr-serverless",
-                            resource="/applications/*",
-                            arn_format=ArnFormat.NO_RESOURCE_NAME,
-                        ),
-                    ],
+                    resources=["*"],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -422,8 +401,8 @@ class SdlfStageEmrserverless(Construct):
                             service="events",
                             resource="rule",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="StepFunctionsGetEventsForEMRServerless*",
-                        ),
+                            resource_name="StepFunctionsGetEventsForECSTaskRule",
+                        )
                     ],
                 ),
                 iam.PolicyStatement(
@@ -454,31 +433,15 @@ class SdlfStageEmrserverless(Construct):
         )
         statemachine_role.attach_inline_policy(statemachine_role_policy)
 
-        emrserverless_role = iam.Role(
-            self,
-            "rEmrServerlessExecutionRole",
-            assumed_by=iam.PrincipalWithConditions(
-                iam.ServicePrincipal("emr-serverless.amazonaws.com"),
-                conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
-            ),
-            path=f"/sdlf-{p_teamname.value_as_string}/",
-            permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
-                self,
-                "rEmrServerlessExecutionRolePermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
-            ),
-        )
-
         statemachine = sfn.StateMachine(
             self,
             "rStateMachine",
             state_machine_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-sm-{p_stagename.value_as_string}",
             role=statemachine_role,
             definition_body=sfn.DefinitionBody.from_file(
-                os.path.join(dirname, "state-machine/stage-emrserverless.asl.json")
+                os.path.join(dirname, "state-machine/stage-ecsfargate.asl.json")
             ),
             definition_substitutions={
-                "lJobStepRole": emrserverless_role.role_arn,
                 "lPostMetadata": postmetadatastep_function.function_arn,
                 "lError": errorstep_function.function_arn,
             },
@@ -493,9 +456,31 @@ class SdlfStageEmrserverless(Construct):
             string_value=statemachine.state_machine_name,
         )
 
+        statemachine_map_role_policy = iam.Policy(
+            self,
+            "rStatesExecutionMapRolePolicy",
+            policy_name="sfn-map",
+            statements=[
+                iam.PolicyStatement(
+                    actions=["states:StartExecution", "states:DescribeExecution", "states:StopExecution"],
+                    resources=[
+                        statemachine.state_machine_arn,
+                        scope.format_arn(
+                            service="states",
+                            resource="execution",
+                            arn_format=ArnFormat.COLON_RESOURCE_NAME,
+                            resource_name=f"sdlf-{statemachine.state_machine_name}:*",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        statemachine_role.attach_inline_policy(statemachine_map_role_policy)
+
         routingstep_role_policy = iam.Policy(
             self,
-            f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-routing-{p_stagename.value_as_string}",
+            "rRoleLambdaExecutionRoutingStepPolicy",
+            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-routing",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -576,8 +561,13 @@ class SdlfStageEmrserverless(Construct):
             log_group_name=f"/aws/lambda/{routingstep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaRoutingStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
+        pipeline_interface.resources(scope, routingstep_function.function_arn)
 
         redrivestep_function = _lambda.Function(
             self,
@@ -605,13 +595,9 @@ class SdlfStageEmrserverless(Construct):
             log_group_name=f"/aws/lambda/{redrivestep_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
-        )
-
-        # CloudFormation Outputs TODO
-        CfnOutput(
-            self,
-            "oPipelineReference",
-            description="CodePipeline reference this stack has been deployed with",
-            value=p_pipelinereference.value_as_string,
+            encryption_key=kms.Key.from_key_arn(
+                self,
+                "rLambdaRedriveStepLogGroupEncryption",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+            ),
         )
