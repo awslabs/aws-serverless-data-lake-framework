@@ -48,7 +48,7 @@ Parameters:
       }
       
 Conditions:
-  UseExistingGlueDatabase: !Not !Equals [!Ref pDatasetName, default]
+  UseExistingGlueDatabase: !Not [!Equals [!Ref pDatasetName, default]]
 
 Resources:
   ######## GLUE #########
