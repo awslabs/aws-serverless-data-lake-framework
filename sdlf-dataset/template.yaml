@@ -17,7 +17,7 @@ Parameters:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,14}"
-    Default: "legistators"
+    Default: "default"
   pEnvironment:
     Description: Environment name
     Type: String
@@ -48,7 +48,7 @@ Parameters:
       }
       
 Conditions:
-  UseExistingGlueDatabase: !Not !Equals [!Ref pDatasetName, legistators]
+  UseExistingGlueDatabase: !Not !Equals [!Ref pDatasetName, default]
 
 Resources:
   ######## GLUE #########
