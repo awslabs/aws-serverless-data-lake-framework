@@ -17,6 +17,7 @@ Parameters:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,14}"
+    Default: "legistators"
   pEnvironment:
     Description: Environment name
     Type: String
@@ -45,10 +46,15 @@ Parameters:
           }
         }
       }
+      
+Conditions:
+  UseExistingGlueDatabase: !Not !Equals [!Ref pDatasetName, legistators]
 
 Resources:
   ######## GLUE #########
   rGlueDataCatalog:
+    !if
+      - UseExistingGlueDatabase
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
@@ -57,6 +63,8 @@ Resources:
         Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueDataCatalogLakeFormationTag:
+    !if
+      - UseExistingGlueDatabase
       Type: AWS::LakeFormation::TagAssociation
       Properties:
         Resource:
@@ -70,6 +78,8 @@ Resources:
               - !Sub ${pTeamName}
 
   rGlueCrawler:
+    !if
+      - UseExistingGlueDatabase
     Type: AWS::Glue::Crawler
     Properties:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
@@ -81,6 +91,8 @@ Resources:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
+    !if
+      - UseExistingGlueDatabase
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
