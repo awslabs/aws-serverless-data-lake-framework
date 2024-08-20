@@ -53,8 +53,7 @@ Conditions:
 Resources:
   ######## GLUE #########
   rGlueDataCatalog:
-    !if
-      - UseExistingGlueDatabase
+    Condition: UseExistingGlueDatabase
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
@@ -63,8 +62,7 @@ Resources:
         Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueDataCatalogLakeFormationTag:
-    !if
-      - UseExistingGlueDatabase
+    Condition: UseExistingGlueDatabase
       Type: AWS::LakeFormation::TagAssociation
       Properties:
         Resource:
@@ -78,8 +76,7 @@ Resources:
               - !Sub ${pTeamName}
 
   rGlueCrawler:
-    !if
-      - UseExistingGlueDatabase
+    Condition: UseExistingGlueDatabase
     Type: AWS::Glue::Crawler
     Properties:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
@@ -91,8 +88,7 @@ Resources:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
-    !if
-      - UseExistingGlueDatabase
+    Condition: UseExistingGlueDatabase
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
