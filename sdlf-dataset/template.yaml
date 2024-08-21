@@ -17,6 +17,7 @@ Parameters:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,14}"
+    Default: "default"
   pEnvironment:
     Description: Environment name
     Type: String
@@ -45,10 +46,14 @@ Parameters:
           }
         }
       }
+      
+Conditions:
+  UseExistingGlueDatabase: !Not [!Equals [!Ref pDatasetName, default]]
 
 Resources:
   ######## GLUE #########
   rGlueDataCatalog:
+    Condition: UseExistingGlueDatabase
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
@@ -57,8 +62,9 @@ Resources:
         Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
   rGlueDataCatalogLakeFormationTag:
-      Type: AWS::LakeFormation::TagAssociation
-      Properties:
+    Condition: UseExistingGlueDatabase
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
         Resource:
           Database:
             CatalogId: !Ref AWS::AccountId
@@ -70,6 +76,7 @@ Resources:
               - !Sub ${pTeamName}
 
   rGlueCrawler:
+    Condition: UseExistingGlueDatabase
     Type: AWS::Glue::Crawler
     Properties:
       Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
@@ -81,6 +88,7 @@ Resources:
           - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
+    Condition: UseExistingGlueDatabase
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
@@ -95,6 +103,7 @@ Resources:
 
   ######## SSM #########
   rGlueDataCatalogSsm:
+    Condition: UseExistingGlueDatabase
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog
@@ -103,6 +112,7 @@ Resources:
       Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
 
   rGlueCrawlerSsm:
+    Condition: UseExistingGlueDatabase
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/GlueCrawler
