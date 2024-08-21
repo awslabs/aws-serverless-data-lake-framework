@@ -63,8 +63,8 @@ Resources:
 
   rGlueDataCatalogLakeFormationTag:
     Condition: UseExistingGlueDatabase
-      Type: AWS::LakeFormation::TagAssociation
-      Properties:
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
         Resource:
           Database:
             CatalogId: !Ref AWS::AccountId
@@ -103,6 +103,7 @@ Resources:
 
   ######## SSM #########
   rGlueDataCatalogSsm:
+    Condition: UseExistingGlueDatabase
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog
@@ -111,6 +112,7 @@ Resources:
       Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
 
   rGlueCrawlerSsm:
+    Condition: UseExistingGlueDatabase
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/GlueCrawler
