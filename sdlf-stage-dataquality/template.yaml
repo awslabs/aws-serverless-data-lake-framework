@@ -71,6 +71,9 @@ Parameters:
         1827,
         3653,
       ]
+  pEnableTracing:
+    Description: Flag for whether XRay tracing is enabled
+    Type: String
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
@@ -91,6 +94,7 @@ Parameters:
     Default: ""
 
 Conditions:
+  EnableTracing: !Equals [!Ref pEnableTracing, "true"]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -99,6 +103,15 @@ Globals:
     Handler: lambda_function.lambda_handler
     Layers:
       - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
+    Environment:
+      Variables:
+        TEAM: !Ref pTeamName
+        DATASET: !Ref pDataset
+        PIPELINE: !Ref pPipeline
+        PIPELINE_STAGE: !Ref pStageName
+        ORG: !Ref pOrg
+        DOMAIN: !Ref pDomain
+        ENV: !Ref pEnv
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
     VpcConfig: !If
       - RunInVpc
@@ -210,40 +223,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
 
-  # Step1 Role
-  rRoleLambdaExecutionStep1:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: !Sub /sdlf-${pTeamName}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}"
-      ManagedPolicyArns:
-        - !Ref rLambdaCommonPolicy
-        - !If
-          - RunInVpc
-          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-          - !Ref "AWS::NoValue"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: sdlf-data-quality-initial-check
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Glue/*
-              - Effect: Allow
-                Action:
-                  - dynamodb:GetItem
-                Resource:
-                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
-
   rStatesExecutionRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -328,7 +307,7 @@ Resources:
         - SELECT
       PermissionsWithGrantOption: []
 
-  ######## LAMBDA #########
+  ######## LAMBDA FUNCTIONS #########
   rLambdaRoutingStep:
     Type: AWS::Serverless::Function
     Metadata:
@@ -389,30 +368,6 @@ Resources:
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
 
-  rLambdaStep1:
-    Type: AWS::Serverless::Function
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
-    Properties:
-      CodeUri: ./lambda/initial-check/src
-      FunctionName: !Sub sdlf-${pTeamName}-${pPipeline}-dataquality-initial-check-${pStageName}
-      Description: Performs checks and determines which Data Quality job to run
-      MemorySize: 256
-      Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionStep1.Arn
-
-  rLambdaStep1LogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaStep1}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId}}"
-
   ######## STEP FUNCTIONS #########
   rStateMachine:
     Type: AWS::Serverless::StateMachine
@@ -420,10 +375,11 @@ Resources:
       Name: !Sub sdlf-${pTeamName}-${pPipeline}-sm-${pStageName}
       DefinitionUri: ./state-machine/data-quality.asl.json
       DefinitionSubstitutions:
-        lStep1: !GetAtt rLambdaStep1.Arn
         dataQualityRole: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
         s3DataQualityResults: !Sub "s3://${pStageBucket}/post-stage/${pTeamName}/"
       Role: !GetAtt rStatesExecutionRole.Arn
+      Tracing:
+        Enabled: !If [EnableTracing, true, false]
 
   ######## SSM #########
   rStateMachineSsm:
