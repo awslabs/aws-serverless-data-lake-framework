@@ -10,7 +10,7 @@ deploy:
             python3 -m venv ~/.venv
             . ~/.venv/bin/activate
             pip3 install --upgrade pip setuptools
-            pip3 install aws-codeseeder~=1.0.0 seed-farmer==4.0.4
+            pip3 install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
         - |-
             CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
             ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
@@ -117,7 +117,7 @@ destroy:
             python3 -m venv ~/.venv
             . ~/.venv/bin/activate
             pip3 install --upgrade pip setuptools
-            pip3 install aws-codeseeder~=1.0.0 seed-farmer==4.0.4
+            pip3 install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
             pip3 install poetry
             poetry config virtualenvs.create false --local
     build:
