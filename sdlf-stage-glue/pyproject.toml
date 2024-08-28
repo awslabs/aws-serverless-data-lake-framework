@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdlf.stage-glue"
-version = "2.5.0-alpha.2"
+version = "2.5.0-beta.0"
 description = "AWS Serverless Data Lake Framework"
 authors = ["Amazon Web Services"]
 license = "MIT-0"
@@ -18,7 +18,7 @@ exclude = ["**/*.yaml"]
 python = "^3.12"
 aws-cdk-lib = "^2.151.0"
 constructs = ">=10.0.0,<11.0.0"
-sdlf-pipeline = "^2.5.0a2"
+sdlf-pipeline = "^2.5.0b0"
 
 [build-system]
 requires = ["poetry-core"]
