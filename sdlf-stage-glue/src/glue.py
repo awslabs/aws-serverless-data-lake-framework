@@ -5,7 +5,6 @@ import os.path
 
 from aws_cdk import (
     ArnFormat,
-    CfnOutput,
     CfnParameter,
     Duration,
     RemovalPolicy,
