@@ -23,7 +23,7 @@ deploy:
             for u in "${deps[@]}"; do
               aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
                 curl -L -O "$u"
-                aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
+                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
               }
             done
         - |-
@@ -32,11 +32,6 @@ deploy:
             pip3 install "cfn-lint<1" cloudformation-cli poetry
             npm install -g aws-cdk@2.151.0
             poetry config virtualenvs.create false --local
-            CA_ENDPOINT="https://codeartifact.$AWS_REGION.amazonaws.com"
-            CA_REPOSITORY_ENDPOINT=$(aws codeartifact --endpoint-url "$CA_ENDPOINT" get-repository-endpoint --domain "$SEEDFARMER_PARAMETER_CODEARTIFACT_DOMAIN" --domain-owner "$AWS_ACCOUNT_ID" --repository "$SEEDFARMER_PARAMETER_CODEARTIFACT_REPOSITORY" --region "$AWS_REGION" --format pypi --query repositoryEndpoint --output text)
-            CA_TOKEN=$(aws codeartifact --endpoint-url "$CA_ENDPOINT" get-authorization-token --domain "$SEEDFARMER_PARAMETER_CODEARTIFACT_DOMAIN" --domain-owner "$AWS_ACCOUNT_ID" --region "$AWS_REGION" --query authorizationToken --output text)
-            poetry source add private "https://aws:${CA_TOKEN}@${CA_REPOSITORY_ENDPOINT#https://}simple/"
-            poetry install -v
     build:
       commands:
         - |-
@@ -99,6 +94,11 @@ deploy:
           fi
         - |-
           if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cdk-construct" ]; then
+            CA_ENDPOINT="https://codeartifact.$AWS_REGION.amazonaws.com"
+            CA_REPOSITORY_ENDPOINT=$(aws codeartifact --endpoint-url "$CA_ENDPOINT" get-repository-endpoint --domain "$SEEDFARMER_PARAMETER_CODEARTIFACT_DOMAIN" --domain-owner "$AWS_ACCOUNT_ID" --repository "$SEEDFARMER_PARAMETER_CODEARTIFACT_REPOSITORY" --format pypi --query repositoryEndpoint --output text)
+            CA_TOKEN=$(aws codeartifact --endpoint-url "$CA_ENDPOINT" get-authorization-token --domain "$SEEDFARMER_PARAMETER_CODEARTIFACT_DOMAIN" --domain-owner "$AWS_ACCOUNT_ID" --query authorizationToken --output text)
+            poetry source add private "https://aws:${CA_TOKEN}@${CA_REPOSITORY_ENDPOINT#https://}simple/"
+            poetry install -v
             poetry config repositories.private "$CA_REPOSITORY_ENDPOINT"
             poetry config http-basic.private aws "$CA_TOKEN"
             poetry publish --skip-existing --build -r private || exit 1

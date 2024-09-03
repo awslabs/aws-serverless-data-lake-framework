@@ -13,7 +13,7 @@ deploy:
             for u in "${deps[@]}"; do
               aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
                 curl -L -O "$u"
-                aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
+                aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
               }
             done
             pip3 install setuptools
