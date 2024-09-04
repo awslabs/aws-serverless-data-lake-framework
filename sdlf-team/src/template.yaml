@@ -984,21 +984,6 @@ Resources:
       TagValues:
         - !Sub ${pTeamName}
 
-  rTeamLakeFormationTagPermissions: # allows associating this lf-tag to datasets in sdlf-dataset
-      Type: AWS::LakeFormation::PrincipalPermissions
-      Properties:
-        Principal:
-          DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
-        Resource:
-          LFTag:
-            CatalogId: !Ref AWS::AccountId
-            TagKey: !Ref rTeamLakeFormationTag
-            TagValues:
-              - !Sub ${pTeamName}
-        Permissions:
-          - ASSOCIATE
-        PermissionsWithGrantOption: []
-
   rTeamLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
     Type: AWS::LakeFormation::PrincipalPermissions
     Properties:
