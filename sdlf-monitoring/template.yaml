@@ -503,7 +503,7 @@ Resources:
               "kms:ViaService": !Sub "s3.${AWS::Region}.amazonaws.com"
             StringLike:
               "kms:EncryptionContext:aws:s3:arn":
-              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rCloudwatchLogsFirehoseBucket}
         - !If
             - RunInVpc
             - Effect: Allow
