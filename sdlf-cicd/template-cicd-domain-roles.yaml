@@ -685,6 +685,12 @@ Resources:
                 "iam:PassedToService":
                   - cloudtrail.amazonaws.com
                   - firehose.amazonaws.com
+                  - logs.amazonaws.com
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-domain-*--*rCloudwatch* # no iam:PassedToService for CloudWatchLogs
           - Effect: Allow
             Action:
               - s3:CreateStorageLensGroup
