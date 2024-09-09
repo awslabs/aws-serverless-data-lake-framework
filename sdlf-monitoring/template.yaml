@@ -348,6 +348,16 @@ Resources:
             Resource: !GetAtt rCloudwatchLogsFirehose.Arn
       RoleName: !Ref rCloudwatchLogsFirehoseLambdaRole
 
+  rCloudwatchLogsFirehoseLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: cLogsForwardingEnabled
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${rCloudwatchLogsFirehoseLambda}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+
   rCloudwatchLogsFirehoseLambda:
     Type: AWS::Serverless::Function
     Condition: cLogsForwardingEnabled
