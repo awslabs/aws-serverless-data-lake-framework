@@ -91,6 +91,16 @@ Parameters:
     Description: Deploy SDLF resources in a VPC
     Type: String
     Default: false
+  # pVpcSecurityGroupIds and pVpcSubnetIds are passed explicitly (unlike in sdlf-cicd/template-cicd-sdlf-repositories.yaml for example)
+  # due to Fn::ImportValue not being accepted in CloudFormation modules template fragments
+  pVpcSecurityGroupIds:
+    Description: VPC Security Groups Ids
+    Type: String
+    Default: ""
+  pVpcSubnetIds:
+    Description: VPC Subnet Ids
+    Type: String
+    Default: ""
 
 Conditions:
   cTeamLevel: !And
@@ -125,6 +135,17 @@ Conditions:
   cIsS3DataEvents: !Equals [!Ref pS3DataEvents, true]
   cUseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, "sdlf"]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Handler: lambda_function.lambda_handler
+    KmsKeyArn: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+    VpcConfig: !If
+      - RunInVpc
+      - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
+        SubnetIds: !Split [",", !Ref pVpcSubnetIds]
+      - !Ref "AWS::NoValue"
 
 Resources:
   ######## CLOUDTRAIL (FOUNDATIONS-LEVEL ONLY) #########
@@ -164,7 +185,7 @@ Resources:
     Properties:
       Bucket: !Ref rTrailBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AWSCloudTrailAclCheck
             Effect: Allow
@@ -212,7 +233,7 @@ Resources:
     Condition: cCloudtrailEnabled
     Properties:
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AssumeRole1
             Effect: Allow
@@ -222,7 +243,7 @@ Resources:
       Policies:
         - PolicyName: cloudtrail-policy
           PolicyDocument:
-            Version: 2012-10-17
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -290,6 +311,57 @@ Resources:
       Description: Name of the CloudTrail S3 bucket
 
   ######## CLOUDWATCH LOGS FORWARDING (FOUNDATIONS-LEVEL ONLY) #########
+  rCloudwatchLogsFirehoseLambdaRole:
+    Type: AWS::IAM::Role
+    Condition: cLogsForwardingEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-cwlogs-to-os*
+
+  rCloudwatchLogsFirehoseLambdaRolePolicy:
+    Type: AWS::IAM::RolePolicy
+    Condition: cLogsForwardingEnabled
+    Properties:
+      PolicyName: firehose-subscriptionfilter
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - firehose:PutRecord
+            Resource: !GetAtt rCloudwatchLogsFirehose.Arn
+      RoleName: !Ref rCloudwatchLogsFirehoseLambdaRole
+
+  rCloudwatchLogsFirehoseLambda:
+    Type: AWS::Serverless::Function
+    Condition: cLogsForwardingEnabled
+    Properties:
+      CodeUri: ./lambda/cloudwatchlogs-transformer/src
+      FunctionName: sdlf-cwlogs-to-os
+      Environment:
+        Variables:
+          ENV: !Ref pEnvironment
+      Description: Uncompress, then unaggregate CloudWatch Logs records
+      MemorySize: 256
+      Timeout: 120
+      Role: !GetAtt rCloudwatchLogsFirehoseLambdaRole.Arn
+
   rCloudwatchLogsFirehoseRole:
     Type: AWS::IAM::Role
     Condition: cLogsForwardingEnabled
@@ -340,7 +412,7 @@ Resources:
     Properties:
       Bucket: !Ref rCloudwatchLogsFirehoseBucket
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowSSLRequestsOnly
             Action: s3:*
@@ -369,7 +441,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub /aws/kinesisfirehose/sdlf-cwlogs-to-os
+      LogGroupName: /aws/kinesisfirehose/sdlf-cwlogs-to-os
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
 
@@ -483,6 +555,13 @@ Resources:
             - !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}/cwl-kinesis/_stats
         - Effect: Allow
           Action:
+            - lambda:InvokeFunction
+            - lambda:GetFunctionConfiguration
+          Resource:
+            - !GetAtt rCloudwatchLogsFirehoseLambda.Arn
+            - !Sub "${rCloudwatchLogsFirehoseLambda.Arn}:*"
+        - Effect: Allow
+          Action:
             - logs:PutLogEvents
             - logs:CreateLogStream
           Resource:
@@ -505,6 +584,13 @@ Resources:
           Enabled: true
           LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
           LogStreamName: !Ref rCloudwatchLogsFirehoseLogStream
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Parameters:
+                - ParameterName: LambdaArn
+                  ParameterValue: !GetAtt rCloudwatchLogsFirehoseLambda.Arn
+              Type: Lambda
         DomainARN: !Sub arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${pOpenSearchDomain}
         IndexName: cwl
         IndexRotationPeriod: OneDay
@@ -520,6 +606,40 @@ Resources:
             LogGroupName: !Ref rCloudwatchLogsFirehoseLogGroup
             LogStreamName: !Ref rCloudwatchLogsFirehoseS3LogStream
           RoleARN: !GetAtt rCloudwatchLogsFirehoseRole.Arn
+
+  rCloudwatchLogsSubscriptionFilterRole:
+    Type: AWS::IAM::Role
+    Condition: cLogsForwardingEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: logs.amazonaws.com
+          Action: "sts:AssumeRole"
+          Condition:
+            StringLike:
+              "aws:SourceArn": !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: firehose-subscriptionfilter
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - firehose:PutRecord
+                Resource: !GetAtt rCloudwatchLogsFirehose.Arn
+
+  rCloudwatchLogsSubscriptionFilter:
+    Type: AWS::Logs::AccountPolicy
+    Condition: cLogsForwardingEnabled
+    Properties:
+      PolicyName: firehose-subscriptionfilter
+      PolicyDocument: !Sub "{\"RoleArn\":\"${rCloudwatchLogsSubscriptionFilterRole.Arn}\", \"DestinationArn\":\"${rCloudwatchLogsFirehose.Arn}\", \"FilterPattern\": \"\"}"
+      SelectionCriteria: !Sub "LogGroupName NOT IN [\"/aws/kinesisfirehose/sdlf-cwlogs-to-os\"]"
+      PolicyType: "SUBSCRIPTION_FILTER_POLICY"
+      Scope: "ALL"
 
   ######## SNS (TEAM-LEVEL OR DATASET-LEVEL) #########
   rSnsTopic:

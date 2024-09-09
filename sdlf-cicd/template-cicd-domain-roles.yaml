@@ -672,6 +672,7 @@ Resources:
               - firehose:DeleteDeliveryStream
               - firehose:TagDeliveryStream
               - firehose:UntagDeliveryStream
+              - firehose:UpdateDestination
             Resource:
               - !Sub arn:${AWS::Partition}:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/sdlf-cwlogs-to-os
           - Effect: Allow
@@ -696,6 +697,16 @@ Resources:
               - s3:ListTagsForResource
             Resource:
               - !Sub arn:${AWS::Partition}:s3:${AWS::Region}:${AWS::AccountId}:storage-lens-group/sdlf-*
+          - Effect: Allow
+            Action:
+              - logs:DescribeAccountPolicies
+              - logs:PutAccountPolicy
+              - logs:PutSubscriptionFilter
+              - logs:DeleteSubscriptionFilter
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:log-stream:*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*:*
       Roles:
         - !Ref rDomainCloudFormationRole
 
