@@ -27,7 +27,10 @@
                   "Execute Lambda Transformation": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
-                    "OutputPath": "$.Payload",
+                    "ResultSelector": {
+                      "run_output.$": "$.Payload"
+                    },
+                    "ResultPath": "$",
                     "Parameters": {
                       "Payload.$": "$.Items",
                       "FunctionName.$": "$.Items[0].transform.transform"

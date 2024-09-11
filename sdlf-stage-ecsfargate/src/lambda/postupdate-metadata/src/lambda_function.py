@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
         octagon_client = octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(env).build()
-        peh_id = event[0][0]["peh_id"]
+        peh_id = event[0]["Items"][0]["transform"]["peh_id"]
         peh.PipelineExecutionHistoryAPI(octagon_client).retrieve_pipeline_execution(peh_id)
 
         partial_failure = False
