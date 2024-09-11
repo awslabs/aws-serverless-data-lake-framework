@@ -1,0 +1,67 @@
+publishGenericEnvVariables: true
+deploy:
+  phases:
+    install:
+      commands:
+        - |-
+            CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
+            ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
+
+            deps=(
+              "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/main/sdlf-cicd/template-lambda-layer.yaml"
+            )
+            for u in "${deps[@]}"; do
+              aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
+                curl -L -O "$u"
+                aws --region "$AWS_REGION" s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
+              }
+            done
+            pip3 install setuptools
+    build:
+      commands:
+        - |-
+            # SEEDFARMER_PARAMETER_LIBRARY_MODULE can be used to pass the module name. If not, the module name is inferred from SEEDFARMER_MODULE_NAME
+            # by removing everything up to the first hyphen, then anything that isn't a letter/number, and lower-casing everything.
+            sf_module_name_without_prefix="${SEEDFARMER_MODULE_NAME#*-}"
+            sf_module_name_alnum="${sf_module_name_without_prefix//[^[:alnum:]]/}"
+            MODULE="${sf_module_name_alnum,,}"
+            MODULE="DatalakeLibrary" # TODO
+            : "${SEEDFARMER_PARAMETER_LIBRARY_ORG:=awslabs}" "${SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK:=sdlf}" "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
+            mkdir artifacts
+            zip -r artifacts/datalake_library.zip ./python -x \*__pycache__\*
+            LAYER_HASH="$(sha256sum artifacts/datalake_library.zip | cut -c1-12)"
+            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
+              --key "layers/$SEEDFARMER_PARAMETER_LIBRARY_ORG/dev/$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK/$SEEDFARMER_PARAMETER_LIBRARY_MODULE-$LAYER_HASH.zip" \
+              --body artifacts/datalake_library.zip
+        - |-
+            STACK_NAME="sdlf-lambdalayers-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
+            aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
+                --stack-name "$STACK_NAME" \
+                --template-file ./template-lambda-layer.yaml \
+                --parameter-overrides \
+                    pArtifactsBucket="$ARTIFACTS_BUCKET" \
+                    pEnvironment="dev" \
+                    pDomain="$SEEDFARMER_PARAMETER_LIBRARY_ORG" \
+                    pTeamName="$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK" \
+                    pLayers="$SEEDFARMER_PARAMETER_LIBRARY_MODULE" \
+                    pGitRef="$LAYER_HASH" \
+                --tags Framework=sdlf \
+                --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" || exit 1
+            echo "done"
+    post_build:
+      commands:
+      - echo "Deploy successful"
+destroy:
+  phases:
+    build:
+      commands:
+      - |-
+          CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
+          MODULE="DatalakeLibrary"
+          : "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
+          STACK_NAME="sdlf-lambdalayers-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
+          aws cloudformation --endpoint-url "$CFN_ENDPOINT" delete-stack --stack-name "$STACK_NAME"
+    post_build:
+      commands:
+      - echo "Destroy successful"
+build_type: BUILD_GENERAL1_SMALL

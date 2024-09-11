@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template deploys a Module specific IAM permissions
+
+Parameters:
+  DeploymentName:
+    Type: String
+    Description: The name of the deployment
+  ModuleName:
+    Type: String
+    Description: The name of the Module
+  RoleName:
+    Type: String
+    Description: The name of the IAM Role
+
+Resources:
+  Policy:
+    Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: The actions with "*" are all ones that only support the all resources wildcard
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudformation:ListStacks # W11 exception
+              - cloudformation:ValidateTemplate # W11 exception
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateChangeSet
+              - cloudformation:CreateStack
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeChangeSet
+              - cloudformation:DescribeStackEvents
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:SetStackPolicy
+              - cloudformation:UpdateStack
+              - cloudformation:GetTemplateSummary
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+          - Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sdlf-lambdalayers-*
+          - Effect: Allow
+            Action:
+              - lambda:PublishLayerVersion
+              - lambda:DeleteLayerVersion
+            Resource:
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-DatalakeLibrary
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:sdlf-DatalakeLibrary:*
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssm:PutParameter
+              - ssm:AddTagsToResource
+              - ssm:ListTagsForResource
+              - ssm:RemoveTagsFromResource
+              - ssm:DeleteParameter
+            Resource:
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/Lambda/LatestDatalakeLibraryLayer
+        Version: "2012-10-17"
+      PolicyName: !Sub sdlf-${DeploymentName}-${ModuleName}
+      Roles: [!Ref RoleName]
