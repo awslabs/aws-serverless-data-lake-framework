@@ -27,7 +27,7 @@
                   "Execute Glue Transformation": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                    "ResultPath": "$.glue.run_output",
+                    "ResultPath": "$.run_output",
                     "Parameters": {
                       "JobName.$": "$.Items[0].transform.transform",
                       "WorkerType.$": "$.Items[0].transform.WorkerType",
@@ -52,21 +52,21 @@
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "ResultPath": null,
               "Parameters": {
-                "Name.$": "$.transform.crawler_name"
+                "Name.$": "$[0].Items[0].transform.crawler_name"
               },
               "Next": "Wait X Seconds"
             },
             "Wait X Seconds": {
               "Type": "Wait",
-              "SecondsPath": "$.transform.wait_time",
+              "SecondsPath": "$[0].Items[0].transform.wait_time",
               "Next": "GetCrawler"
             },
             "GetCrawler": {
               "Type": "Task",
               "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
-              "ResultPath": "$.glue.crawler_response",
+              "ResultPath": "$[0].run_output.crawler_response",
               "Parameters": {
-                "Name.$": "$.transform.crawler_name"
+                "Name.$": "$[0].Items[0].transform.crawler_name"
               },
               "Next": "Crawler Complete?"
             },
@@ -74,7 +74,7 @@
               "Type": "Choice",
               "Choices": [
                 {
-                  "Variable": "$.glue.crawler_response.Crawler.State",
+                  "Variable": "$[0].run_output.crawler_response.Crawler.State",
                   "StringEquals": "READY",
                   "Next": "Post-update Catalog"
                 }
