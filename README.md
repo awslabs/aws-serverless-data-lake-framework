@@ -4,6 +4,8 @@ An [AWS Professional Service](https://aws.amazon.com/professional-services/) ope
 
 <img align="left" src="docs/_static/sail-icon.png" width="50" height="44"> The Serverless Data Lake Framework (SDLF) is a collection of reusable artifacts aimed at accelerating the delivery of enterprise data lakes on AWS, shortening the deployment time to production from several months to a few weeks. It can be used by AWS teams, partners and customers to implement the foundational structure of a data lake following best practices.
 
+**It is recommended to use the [latest stable release](https://github.com/awslabs/aws-serverless-data-lake-framework/releases) when setting up SDLF.**
+
 **For users of SDLF 1.x, version 1 is still available on the [master branch](https://github.com/awslabs/aws-serverless-data-lake-framework/tree/master). Development of newer versions of SDLF (2.x) happens on branch main. The workshop still contains sections for version 1 as well.**
 
 ## Motivation
