@@ -25,6 +25,10 @@ Parameters:
   pEnvironment:
     Description: Environment name
     Type: String
+  pCicdRole:
+    Description: Name of the IAM role used to deploy SDLF constructs
+    Type: String
+    Default: sdlf-cicd-domain
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -151,7 +155,7 @@ Resources:
     Properties:
       Admins:
         - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
-        - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-domain
+        - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
       CreateDatabaseDefaultPermissions: []
       CreateTableDefaultPermissions: []
       MutationType: REPLACE
