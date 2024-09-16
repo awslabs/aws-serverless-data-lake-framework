@@ -49,6 +49,10 @@ Parameters:
   pLakeFormationDataAccessRole:
     Type: String
     Default: "{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn}}"
+  pCicdRole:
+    Description: Name of the IAM role used to deploy SDLF constructs
+    Type: String
+    Default: ""
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -93,6 +97,7 @@ Parameters:
     Default: ""
 
 Conditions:
+  CicdRoleProvided: !Not [!Equals [!Ref pCicdRole, ""]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -998,7 +1003,10 @@ Resources:
     Type: AWS::LakeFormation::PrincipalPermissions
     Properties:
       Principal:
-        DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
+        DataLakePrincipalIdentifier: !If
+          - CicdRoleProvided
+          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
+          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
       Resource:
         LFTagPolicy:
           CatalogId: !Ref AWS::AccountId
