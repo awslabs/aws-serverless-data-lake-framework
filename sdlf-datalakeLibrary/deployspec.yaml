@@ -4,6 +4,7 @@ deploy:
     install:
       commands:
         - |-
+            pip3 install --upgrade pip setuptools
             CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
             ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
 
@@ -16,7 +17,6 @@ deploy:
                 aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
               }
             done
-            pip3 install setuptools
     build:
       commands:
         - |-
@@ -56,6 +56,7 @@ destroy:
     build:
       commands:
       - |-
+          pip3 install --upgrade pip setuptools
           CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
           MODULE="DatalakeLibrary"
           : "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
