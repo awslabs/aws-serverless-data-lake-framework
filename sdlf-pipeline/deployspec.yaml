@@ -9,8 +9,8 @@ deploy:
             pyenv global 3.12
             python3 -m venv ~/.venv
             . ~/.venv/bin/activate
-            pip3 install --upgrade pip setuptools
-            pip3 install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
+            pip install --upgrade pip setuptools
+            pip install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
         - |-
             CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
             ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
@@ -27,9 +27,9 @@ deploy:
               }
             done
         - |-
-            pip3 uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
+            pip uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
             ./sam-installation/install && sam --version
-            pip3 install "cfn-lint<1" cloudformation-cli poetry
+            pip install "cfn-lint<1" cloudformation-cli poetry
             npm install -g aws-cdk@2.151.0
             poetry config virtualenvs.create false --local
     build:
@@ -66,9 +66,7 @@ deploy:
             zip -q -r "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" .rpdk-config fragments/ schema.json
 
             NEW_MODULE="$(sha256sum "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" | cut -c1-12)"
-            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" \
-                                  --key "$TEMPLATE_BASE_FILE_PATH-$NEW_MODULE.zip" \
-                                  --body "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip"
+            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "$TEMPLATE_BASE_FILE_PATH-$NEW_MODULE.zip" --body "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip"
 
             if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT" get-parameter --name "/SDLF/CFN/$SEEDFARMER_PARAMETER_LIBRARY_ORG-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE-MODULE" --query "Parameter.Value" --output text); then
               echo "Current module hash: $CURRENT_MODULE / New module hash: $NEW_MODULE"
@@ -111,25 +109,21 @@ destroy:
     install:
       commands:
         - |-
-            # force Python3.12
-            rm -Rf ~/.venv/
-            pyenv global 3.12
-            python3 -m venv ~/.venv
-            . ~/.venv/bin/activate
-            pip3 install --upgrade pip setuptools
-            pip3 install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
-            pip3 install poetry
-            poetry config virtualenvs.create false --local
+            pip install --upgrade pip setuptools
+            pip install poetry
     build:
       commands:
       - |-
-          # deployment-type possible values: cfn-module, cdk-construct
           echo "DESTROY! $SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE"
       - |-
           if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cfn-module" ]; then
             CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
+            sf_module_name_without_prefix="${SEEDFARMER_MODULE_NAME#*-}"
+            sf_module_name_alnum="${sf_module_name_without_prefix//[^[:alnum:]]/}"
+            MODULE="${sf_module_name_alnum,,}"
+            : "${SEEDFARMER_PARAMETER_LIBRARY_ORG:=awslabs}" "${SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK:=sdlf}" "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
             STACK_NAME="sdlf-cfn-module-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
-            aws cloudformation --endpoint-url "$CFN_ENDPOINT" delete-stack --stack-name "$STACK_NAME"
+            aws cloudformation --endpoint-url "$CFN_ENDPOINT" delete-stack --stack-name "$STACK_NAME" || exit 1
           fi
       - |-
           if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cdk-construct" ]; then
