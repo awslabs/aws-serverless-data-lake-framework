@@ -53,10 +53,12 @@ deploy:
       - echo "Deploy successful"
 destroy:
   phases:
+    install:
+      commands:
+        - pip3 install --upgrade pip setuptools
     build:
       commands:
       - |-
-          pip3 install --upgrade pip setuptools
           CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
           MODULE="DatalakeLibrary"
           : "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
