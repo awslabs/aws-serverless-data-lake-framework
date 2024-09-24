@@ -30,7 +30,7 @@ deploy:
             pip uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
             ./sam-installation/install && sam --version
             pip install "cfn-lint<1" cloudformation-cli poetry
-            npm install -g aws-cdk@2.151.0
+            npm install -g aws-cdk@2.159.1
             poetry config virtualenvs.create false --local
     build:
       commands:
