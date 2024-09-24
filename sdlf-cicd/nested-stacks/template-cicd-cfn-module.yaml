@@ -171,13 +171,14 @@ Resources:
                     pip3 install "cfn-lint<1"
                     pip3 install cloudformation-cli
                 - |-
-                    [ -d "src" ] && cd src/
+                    test -d "src" && cd src/
                     aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key sam-translate.py sam-translate.py
             build:
               commands:
-                - [ -d "src" ] && cd src/
-                - sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
-                - python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
+                - |-
+                    test -d "src" && cd src/
+                    sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+                    python3 sam-translate.py --template-file=template.yaml --output-template=translated-template.json
                 - |-
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
                     SSM_ENDPOINT_URL="https://ssm.$AWS_REGION.amazonaws.com"
