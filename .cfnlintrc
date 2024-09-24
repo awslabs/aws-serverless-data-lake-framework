@@ -1,3 +1,6 @@
+ignore_templates:
+  - "*/deployspec.yaml"
+  - "sdlf-utils/workshop-examples/60-seedfarmer/manifest-sdlf*.yaml"
 include_checks:
   - I
 ignore_checks:

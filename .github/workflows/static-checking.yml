@@ -28,8 +28,8 @@ jobs:
           gem install cfn-nag
       - name: cfn-lint
         run: |
-          find . -type f -name '*.yaml' ! -name 'deployspec.yaml' -print0 \
-          | xargs -0 cfn-lint
+          shopt -s globstar 
+          cfn-lint ./**/*.yaml
       - name: cfn-nag
         run: |
           cat <<EOT >> .cfn-nag-deny-list.yml

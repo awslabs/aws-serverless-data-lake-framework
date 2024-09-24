@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -ex
+shopt -s globstar
 
 # python
 ruff format --check .
@@ -12,8 +13,7 @@ find . -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.ksh' \) -print0 \
 | xargs -0 shellcheck -x --format gcc
 
 # cloudformation
-find . -type f -name '*.yaml' ! -name 'deployspec.yaml' -print0 \
-| xargs -0 cfn-lint
+cfn-lint ./**/*.yaml
 
 ## unfortunately cfn_nag doesn't support fn::foreach so we exclude files using it: https://github.com/stelligent/cfn_nag/issues/621
 find . -not \( -type f -name 'template-glue-job.yaml' -o -type f -name 'template-lambda-layer.yaml' \) -type f -name '*.yaml' -print0 \
