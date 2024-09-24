@@ -242,7 +242,7 @@ devops_account () {
     template_protection "$STACK_NAME" "$REGION" "$DEVOPS_AWS_PROFILE"
 
     ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$DEVOPS_AWS_PROFILE" ssm get-parameter --name /SDLF/S3/DevOpsArtifactsBucket --query "Parameter.Value" --output text)
-    REPOSITORIES_TEMPLATE_FILE="$DIRNAME/sdlf-cicd/template-cicd-sdlf-repositories.${GIT_PLATFORM,,}.yaml"
+    REPOSITORIES_TEMPLATE_FILE="$DIRNAME/sdlf-cicd/template-cicd-sdlf-repositories.$(tr "[:upper:]" "[:lower:]" <<< "$GIT_PLATFORM").yaml"
     mkdir "$DIRNAME"/output
     aws cloudformation package \
         --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix template-cicd-sdlf-repositories \
