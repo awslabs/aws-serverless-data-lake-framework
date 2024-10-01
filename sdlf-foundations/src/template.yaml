@@ -96,6 +96,7 @@ Resources:
   # Role defined upstream due to Lake Formation PutDataLakeSettings constraints
   rDataLakeAdminRole:
     Type: AWS::IAM::Role
+    Condition: UseLegacyTables
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -158,9 +159,11 @@ Resources:
   rDataLakeSettings:
     Type: AWS::LakeFormation::DataLakeSettings
     Properties:
-      Admins:
-        - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
-        - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
+      Admins: !If
+        - UseLegacyTables
+        - - DataLakePrincipalIdentifier: !GetAtt rDataLakeAdminRole.Arn
+          - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
+        - - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
       CreateDatabaseDefaultPermissions: []
       CreateTableDefaultPermissions: []
       MutationType: REPLACE
@@ -1563,6 +1566,7 @@ Resources:
 
   rDataLakeAdminRoleSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/IAM/DataLakeAdminRoleArn
       Type: String
