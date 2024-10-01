@@ -1069,6 +1069,7 @@ Resources:
 
   rDynamoOctagonMetrics:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
