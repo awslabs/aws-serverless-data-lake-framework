@@ -1375,6 +1375,7 @@ Resources:
 
   rDynamoOctagonSchemas:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1469,6 +1470,7 @@ Resources:
       Description: Name of the DynamoDB used to store teams metadata
   rDynamoDataSchemasSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/DataSchemas
       Type: String
@@ -1486,6 +1488,7 @@ Resources:
   ######## LAMBDA #########
   rLambdaReplicate:
     Type: AWS::Serverless::Function
+    Condition: UseLegacyTables
     Properties:
       FunctionName: sdlf-glue-replication
       Description: Replicates Glue Catalog Metadata and Data Quality to Octagon Schemas Table
@@ -1499,6 +1502,7 @@ Resources:
 
   rLambdaReplicateLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: UseLegacyTables
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
@@ -1508,6 +1512,7 @@ Resources:
 
   rEventsInvokeLambdaPermission:
     Type: AWS::Lambda::Permission
+    Condition: UseLegacyTables
     Properties:
       FunctionName: !Ref rLambdaReplicate
       Action: lambda:InvokeFunction
@@ -1517,6 +1522,7 @@ Resources:
   ######## EVENTS #########
   rLambdaEventsRule:
     Type: AWS::Events::Rule
+    Condition: UseLegacyTables
     Properties:
       Description: Triggers Glue replicate Lambda upon change to metadata catalog
       State: ENABLED
