@@ -53,6 +53,10 @@ Parameters:
     Description: Name of the IAM role used to deploy SDLF constructs
     Type: String
     Default: ""
+  pLegacyTeam:
+    Description: Dataset resources are still deployed with sdlf-team
+    Type: String
+    Default: true
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -98,6 +102,7 @@ Parameters:
 
 Conditions:
   CicdRoleProvided: !Not [!Equals [!Ref pCicdRole, ""]]
+  UseLegacyTeam: !Equals [!Ref pLegacyTeam, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -181,6 +186,7 @@ Resources:
 
   rKMSInfraKeySsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/KMS/${pTeamName}/InfraKeyId
       Type: String
@@ -189,6 +195,7 @@ Resources:
 
   rKMSDataKey:
     Type: AWS::KMS::Key
+    Condition: UseLegacyTeam
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
@@ -218,6 +225,7 @@ Resources:
 
   rKMSDataKeyAlias:
     Type: AWS::KMS::Alias
+    Condition: UseLegacyTeam
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
@@ -226,6 +234,7 @@ Resources:
 
   rKMSDataKeySsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/KMS/${pTeamName}/DataKeyId
       Type: String
@@ -234,11 +243,13 @@ Resources:
 
   rEventBus:
     Type: AWS::Events::EventBus
+    Condition: UseLegacyTeam
     Properties:
         Name: !Sub sdlf-${pTeamName}
 
   rEventBusSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/EventBridge/${pTeamName}/EventBusName
       Type: String
@@ -247,6 +258,7 @@ Resources:
 
   rForwardEventBusTriggerRole:
     Type: AWS::IAM::Role
+    Condition: UseLegacyTeam
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -268,6 +280,7 @@ Resources:
 
   rForwardEventBusRule:
     Type: AWS::Events::Rule
+    Condition: UseLegacyTeam
     Properties:
       EventPattern:
         source:
@@ -283,11 +296,13 @@ Resources:
 
   rScheduleGroup:
     Type: AWS::Scheduler::ScheduleGroup
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub sdlf-${pTeamName}
 
   rScheduleGroupSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/EventBridge/${pTeamName}/ScheduleGroupName
       Type: String
@@ -296,6 +311,7 @@ Resources:
 
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub sdlf-${pTeamName}-glue-security-config
       EncryptionConfiguration:
@@ -311,6 +327,7 @@ Resources:
 
   rGlueSecurityConfigurationSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/Glue/${pTeamName}/SecurityConfigurationId
       Type: String
@@ -319,6 +336,7 @@ Resources:
 
   rEMRSecurityConfiguration:
     Type: AWS::EMR::SecurityConfiguration
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub sdlf-${pTeamName}-emr-security-config
       SecurityConfiguration: !Sub |
@@ -347,6 +365,7 @@ Resources:
   ######## IAM #########
   rTeamIAMManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
+    Condition: UseLegacyTeam
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -571,6 +590,7 @@ Resources:
 
   rTeamIAMManagedPolicySsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/IAM/${pTeamName}/TeamPermissionsBoundary
       Type: String
@@ -579,6 +599,7 @@ Resources:
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
+    Condition: UseLegacyTeam
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -663,6 +684,7 @@ Resources:
 
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTeam
     Properties:
       Name: !Sub /SDLF/IAM/${pTeamName}/CrawlerRoleArn
       Type: String
@@ -694,7 +716,6 @@ Resources:
       Topics:
         - !Ref rSNSTopic
 
-  ######## SSM #########
   rSNSTopicSsm:
     Type: AWS::SSM::Parameter
     Properties:
@@ -705,6 +726,7 @@ Resources:
 
   rDatasetsDynamodbLambdaLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: UseLegacyTeam
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
@@ -714,6 +736,7 @@ Resources:
 
   rDatasetsDynamodbLambdaRole:
     Type: AWS::IAM::Role
+    Condition: UseLegacyTeam
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -774,6 +797,7 @@ Resources:
 
   rDatasetsDynamodbLambda:
     Type: AWS::Serverless::Function
+    Condition: UseLegacyTeam
     Properties:
       Description: !Sub Creates/updates DynamoDB entries for ${pTeamName} datasets
       FunctionName: !Sub sdlf-${pTeamName}-datasets-dynamodb
@@ -788,6 +812,7 @@ Resources:
 
   rPermissionForDatasetsEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
+    Condition: UseLegacyTeam
     Properties:
       FunctionName: !Ref rDatasetsDynamodbLambda
       Action: lambda:InvokeFunction
@@ -796,6 +821,7 @@ Resources:
 
   rDatasetsDynamodbTriggerEventRule:
     Type: AWS::Events::Rule
+    Condition: UseLegacyTeam
     Properties:
       Description: "Run Datasets DynamoDB update"
       EventPattern:
@@ -818,6 +844,7 @@ Resources:
 
   rPipelinesDynamodbLambdaLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: UseLegacyTeam
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
@@ -827,6 +854,7 @@ Resources:
 
   rPipelinesDynamodbLambdaRole:
     Type: AWS::IAM::Role
+    Condition: UseLegacyTeam
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -887,6 +915,7 @@ Resources:
 
   rPipelinesDynamodbLambda:
     Type: AWS::Serverless::Function
+    Condition: UseLegacyTeam
     Properties:
       Description: !Sub Creates/updates DynamoDB entries for ${pTeamName} pipelines
       FunctionName: !Sub sdlf-${pTeamName}-pipelines-dynamodb
@@ -901,6 +930,7 @@ Resources:
 
   rPermissionForPipelinesEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
+    Condition: UseLegacyTeam
     Properties:
       FunctionName: !Ref rPipelinesDynamodbLambda
       Action: lambda:InvokeFunction
@@ -909,6 +939,7 @@ Resources:
 
   rPipelinesDynamodbTriggerEventRule:
     Type: AWS::Events::Rule
+    Condition: UseLegacyTeam
     Properties:
       Description: "Run Pipelines DynamoDB update"
       EventPattern:
@@ -932,6 +963,7 @@ Resources:
   ######## LAKEFORMATION PERMISSIONS #########
   rCentralTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseLegacyTeam
     Properties:
       DataLakePrincipal:
         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
@@ -943,6 +975,7 @@ Resources:
 
   rStagePreTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseLegacyTeam
     Properties:
       DataLakePrincipal:
         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
@@ -954,6 +987,7 @@ Resources:
 
   rStagePostTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseLegacyTeam
     Properties:
       DataLakePrincipal:
         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
@@ -965,6 +999,7 @@ Resources:
 
   rAnalyticsTeamLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
+    Condition: UseLegacyTeam
     Properties:
       DataLakePrincipal:
         DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
@@ -976,6 +1011,7 @@ Resources:
 
   rTeamLakeFormationTag:
     Type: AWS::LakeFormation::Tag
+    Condition: UseLegacyTeam
     Properties:
       CatalogId: !Ref AWS::AccountId
       # sdlf:team as key and team names as values would be best but impossible here
@@ -984,22 +1020,24 @@ Resources:
         - !Sub ${pTeamName}
 
   rTeamLakeFormationTagPermissions: # allows associating this lf-tag to datasets in sdlf-dataset
-      Type: AWS::LakeFormation::PrincipalPermissions
-      Properties:
-        Principal:
-          DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
-        Resource:
-          LFTag:
-            CatalogId: !Ref AWS::AccountId
-            TagKey: !Ref rTeamLakeFormationTag
-            TagValues:
-              - !Sub ${pTeamName}
-        Permissions:
-          - ASSOCIATE
-        PermissionsWithGrantOption: []
+    Type: AWS::LakeFormation::PrincipalPermissions
+    Condition: UseLegacyTeam
+    Properties:
+      Principal:
+        DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pTeamName}
+      Resource:
+        LFTag:
+          CatalogId: !Ref AWS::AccountId
+          TagKey: !Ref rTeamLakeFormationTag
+          TagValues:
+            - !Sub ${pTeamName}
+      Permissions:
+        - ASSOCIATE
+      PermissionsWithGrantOption: []
 
   rTeamLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
     Type: AWS::LakeFormation::PrincipalPermissions
+    Condition: UseLegacyTeam
     Properties:
       Principal:
         DataLakePrincipalIdentifier: !If
@@ -1034,7 +1072,7 @@ Resources:
         ResultConfiguration:
           EncryptionConfiguration:
             EncryptionOption: SSE_KMS
-            KmsKey: !GetAtt rKMSDataKey.Arn
+            KmsKey: !GetAtt rKMSInfraKey.Arn
           OutputLocation: !Sub s3://${pAthenaBucket}/${pTeamName}/
 
   rAthenaWorkgroupSsm:
