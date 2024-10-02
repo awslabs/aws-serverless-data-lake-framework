@@ -8,7 +8,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-session_config = Config(user_agent_extra="awssdlf/2.5.0")
+session_config = Config(user_agent_extra="awssdlf/2.6.0")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
