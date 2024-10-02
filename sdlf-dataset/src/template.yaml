@@ -13,18 +13,45 @@ Parameters:
     Description: Data domain name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
-  pDatasetName:
-    Description: The name of the dataset (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,14}"
   pEnvironment:
     Description: Environment name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
+  pRawBucket:
+    Description: The raw bucket for the solution
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
   pStageBucket:
     Description: The stage bucket for the solution
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+  pAnalyticsBucket:
+    Description: The analytics bucket for the solution
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/AnalyticsBucket}}"
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/S3/ArtifactsBucket}}"
+  pLakeFormationDataAccessRole:
+    Type: String
+    Default: "{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn}}"
+  pDatasetName:
+    Description: The name of the dataset (all lowercase, no symbols or spaces)
+    Type: String
+    AllowedPattern: "[a-z0-9]{2,14}"
+  pLegacyTeam:
+    Description: Dataset resources are still deployed with sdlf-team
+    Type: String
+    Default: true
+  pS3Prefix:
+    Description: S3 prefix or full bucket
+    Type: String
+    AllowedPattern: ""
+  pCicdRole:
+    Description: Name of the IAM role used to deploy SDLF constructs
+    Type: String
+    Default: ""
   pTeamName:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
@@ -45,46 +72,382 @@ Parameters:
           }
         }
       }
+  # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
+  # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
+  # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
+  # {{resolve:}} being evaluated later than the Conditions block, options are limited.
+  pEnableVpc:
+    Description: Deploy SDLF resources in a VPC
+    Type: String
+    Default: false
+
+Conditions:
+  CicdRoleProvided: !Not [!Equals [!Ref pCicdRole, ""]]
+  NotUseLegacyTeam: !Not [!Equals [!Ref pLegacyTeam, true]]
+  IsS3Prefix: !And
+    - !Condition NotUseLegacyTeam
+    - !Not [!Equals [!Ref pS3Prefix, ""]]
+  RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Resources:
+  ######## KMS #########
+  rKMSInfraKey:
+    Type: AWS::KMS::Key
+    Condition: NotUseLegacyTeam
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F76
+            reason: Full access is allowed to Key admin and some AWS services
+    Properties:
+      Description: !Sub SDLF ${pDatasetName} Infrastructure KMS Key
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: !Sub sdlf-${pDatasetName}-infra-key-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: [!Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"]
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow CloudWatch alarms access
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudwatch.amazonaws.com
+                - events.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service:
+                - !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+          - Sid: Allow SNS access
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref AWS::AccountId
+                kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+
+  rKMSInfraKeyAlias:
+    Type: AWS::KMS::Alias
+    Condition: NotUseLegacyTeam
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
+    Properties:
+      AliasName: !Sub alias/sdlf-${pDatasetName}-kms-infra-key
+      TargetKeyId: !Ref rKMSInfraKey
+
+  rKMSInfraKeySsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/KMS/${pDatasetName}/InfraKeyId
+      Type: String
+      Value: !GetAtt rKMSInfraKey.Arn
+      Description: !Sub ${pDatasetName} KMS infrastructure key ARN
+
+  rKMSDataKey:
+    Type: AWS::KMS::Key
+    Condition: IsS3Prefix
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
+    Properties:
+      Description: !Sub SDLF ${pDatasetName} Data KMS Key
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: !Sub sdlf-${pDatasetName}-data-key-policy
+        Statement:
+          - Sid: Allow administration of the key
+            Action: kms:*
+            Effect: Allow
+            Principal:
+              AWS: [!Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"]
+            Resource: "*"
+          - Sid: Allow Lake Formation permissions
+            Action:
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Effect: Allow
+            Principal:
+              AWS: !Ref pLakeFormationDataAccessRole
+            Resource: "*"
+
+  rKMSDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Condition: IsS3Prefix
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
+    Properties:
+      AliasName: !Sub alias/sdlf-${pDatasetName}-kms-data-key
+      TargetKeyId: !Ref rKMSDataKey
+
+  rKMSDataKeySsm:
+    Type: AWS::SSM::Parameter
+    Condition: IsS3Prefix
+    Properties:
+      Name: !Sub /SDLF/KMS/${pDatasetName}/DataKeyId
+      Type: String
+      Value: !GetAtt rKMSDataKey.Arn
+      Description: !Sub ${pDatasetName} KMS data key ARN
+
   ######## GLUE #########
   rGlueDataCatalog:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
+      DatabaseInput: !If
+        - NotUseLegacyTeam
+        - Description: !Sub "${pDatasetName} metadata catalog"
+          Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}
+        - Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
+          Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
-  rGlueDataCatalogLakeFormationTag:
-      Type: AWS::LakeFormation::TagAssociation
-      Properties:
-        Resource:
-          Database:
-            CatalogId: !Ref AWS::AccountId
-            Name: !Ref rGlueDataCatalog
-        LFTags:
-          - CatalogId: !Ref AWS::AccountId
-            TagKey: !Sub "sdlf:team:${pTeamName}"
-            TagValues:
-              - !Sub ${pTeamName}
+  rGlueDataCatalogSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub /SDLF/Glue/${pDatasetName}/DataCatalog
+        - !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog
+      Type: String
+      Value: !Ref rGlueDataCatalog
+      Description: !If
+        - NotUseLegacyTeam
+        - !Sub "${pDatasetName} metadata catalog"
+        - !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
+
+  rGlueSecurityConfiguration:
+    Type: AWS::Glue::SecurityConfiguration
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub sdlf-${pDatasetName}-glue-security-config
+      EncryptionConfiguration:
+        CloudWatchEncryption:
+          CloudWatchEncryptionMode: SSE-KMS
+          KmsKeyArn: !GetAtt rKMSInfraKey.Arn
+        JobBookmarksEncryption:
+          JobBookmarksEncryptionMode: CSE-KMS
+          KmsKeyArn: !GetAtt rKMSInfraKey.Arn
+        S3Encryptions:
+          - S3EncryptionMode: SSE-KMS
+            KmsKeyArn: !If
+              - IsS3Prefix
+              - !GetAtt rKMSDataKey.Arn
+              - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+
+  rGlueSecurityConfigurationSsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/Glue/${pDatasetName}/SecurityConfigurationId
+      Type: String
+      Value: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      Description: !Sub Name of the ${pDatasetName} Glue security configuration
+
+  rEMRSecurityConfiguration:
+    Type: AWS::EMR::SecurityConfiguration
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub sdlf-${pDatasetName}-emr-security-config
+      SecurityConfiguration: !If
+        - IsS3Prefix
+        - !Sub |
+            {
+              "EncryptionConfiguration": {
+                "EnableInTransitEncryption" : false,
+                "EnableAtRestEncryption" : true,
+                "AtRestEncryptionConfiguration" : {
+                  "S3EncryptionConfiguration" : {
+                    "EncryptionMode" : "SSE-KMS",
+                    "AwsKmsKey": "${rKMSDataKey}"
+                  },
+                  "LocalDiskEncryptionConfiguration" : {
+                    "EncryptionKeyProviderType" : "AwsKms",
+                    "AwsKmsKey" : "${rKMSDataKey}",
+                    "EnableEbsEncryption" : true
+                  }
+                }
+              },
+              "InstanceMetadataServiceConfiguration":{
+                "MinimumInstanceMetadataServiceVersion": 2,
+                "HttpPutResponseHopLimit": 1
+              }
+            }
+        - |
+            {
+              "EncryptionConfiguration": {
+                "EnableInTransitEncryption" : false,
+                "EnableAtRestEncryption" : true,
+                "AtRestEncryptionConfiguration" : {
+                  "S3EncryptionConfiguration" : {
+                    "EncryptionMode" : "SSE-KMS",
+                    "AwsKmsKey": "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                  },
+                  "LocalDiskEncryptionConfiguration" : {
+                    "EncryptionKeyProviderType" : "AwsKms",
+                    "AwsKmsKey" : "{{resolve:ssm:/SDLF/KMS/KeyArn}}",
+                    "EnableEbsEncryption" : true
+                  }
+                }
+              },
+              "InstanceMetadataServiceConfiguration":{
+                "MinimumInstanceMetadataServiceVersion": 2,
+                "HttpPutResponseHopLimit": 1
+              }
+            }
+
+  rDatalakeCrawlerRole:
+    Type: AWS::IAM::Role
+    Condition: NotUseLegacyTeam
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The actions with "*" are all ones that only support the all resources wildcard
+    Properties:
+      Path: !Sub /sdlf-${pDatasetName}/
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: !Sub sdlf-${pDatasetName}-glue-crawler
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                Resource: !Sub arn:${AWS::Partition}:s3:::aws-glue-*
+              - Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::aws-glue-*/*
+                  - !Sub arn:${AWS::Partition}:s3:::*/*aws-glue-*/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::crawler-public*
+                  - !Sub arn:${AWS::Partition}:s3:::aws-glue-*
+              - Effect: Allow
+                Action:
+                  - s3:ListObjectsV2
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:PutObject
+                  - s3:PutObjectVersion
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/*
+              - Effect: Allow
+                Action:
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:CreateGrant
+                Resource: !If
+                  - IsS3Prefix
+                  - - !GetAtt rKMSInfraKey.Arn
+                    - !GetAtt rKMSDataKey.Arn
+                    - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                  - - !GetAtt rKMSInfraKey.Arn
+                    - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              - Effect: Allow
+                Action:
+                  - lakeformation:GetDataAccess # W11 exception
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:AssociateKmsKey
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/crawlers-role/sdlf-${pDatasetName}/*
+
+  rDatalakeCrawlerRoleArnSsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/IAM/${pDatasetName}/CrawlerRoleArn
+      Type: String
+      Value: !GetAtt rDatalakeCrawlerRole.Arn
+      Description: ARN of the Crawler role
 
   rGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
-      Role: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
-      CrawlerSecurityConfiguration: !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
+      Role: !If
+        - NotUseLegacyTeam
+        - !GetAtt rDatalakeCrawlerRole.Arn
+        - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+      CrawlerSecurityConfiguration: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+        - !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
       DatabaseName: !Ref rGlueDataCatalog
-      Name: !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-crawler
+        - !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
       Targets:
         S3Targets:
-          - Path: !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
+          - Path: !If
+            - NotUseLegacyTeam
+            - !Sub s3://${pStageBucket}/${pDatasetName}
+            - !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
-        DataLakePrincipalIdentifier: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+        DataLakePrincipalIdentifier: !If
+          - NotUseLegacyTeam
+          - !GetAtt rDatalakeCrawlerRole.Arn
+          - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
       Permissions:
         - CREATE_TABLE
         - ALTER
@@ -93,30 +456,422 @@ Resources:
         DatabaseResource:
           Name: !Ref rGlueDataCatalog
 
-  ######## SSM #########
-  rGlueDataCatalogSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/DataCatalog
-      Type: String
-      Value: !Ref rGlueDataCatalog
-      Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
-
   rGlueCrawlerSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/GlueCrawler
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub /SDLF/Glue/${pDatasetName}/GlueCrawler
+        - !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/GlueCrawler
       Type: String
       Value: !Ref rGlueCrawler
-      Description: !Sub "${pTeamName} team ${pDatasetName} Glue crawler"
+      Description: !If
+        - NotUseLegacyTeam
+        - !Sub "${pDatasetName} Glue crawler"
+        - !Sub "${pTeamName} team ${pDatasetName} Glue crawler"
+
+  rLakeFormationTag:
+    Type: AWS::LakeFormation::Tag
+    Condition: NotUseLegacyTeam
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      TagKey: "sdlf:dataset"
+      TagValues:
+        - !Ref pDatasetName
+
+  rLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
+    Type: AWS::LakeFormation::PrincipalPermissions
+    Condition: NotUseLegacyTeam
+    Properties:
+      Principal:
+        DataLakePrincipalIdentifier: !If
+          - CicdRoleProvided
+          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
+          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pDatasetName}
+      Resource:
+        LFTagPolicy:
+          CatalogId: !Ref AWS::AccountId
+          ResourceType: TABLE
+          Expression:
+            - TagKey: !Ref rLakeFormationTag
+              TagValues:
+                - !Ref pDatasetName
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+
+  rGlueDataCatalogLakeFormationTag:
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
+      Resource:
+        Database:
+          CatalogId: !Ref AWS::AccountId
+          Name: !Ref rGlueDataCatalog
+      LFTags:
+        - CatalogId: !Ref AWS::AccountId
+          TagKey: !If
+            - NotUseLegacyTeam
+            - "sdlf:dataset"
+            - !Sub "sdlf:team:${pTeamName}"
+          TagValues:
+            - !If
+              - NotUseLegacyTeam
+              - !Ref pDatasetName
+              - !Sub ${pTeamName}
+
+  ######## LAKEFORMATION PERMISSIONS #########
+  rRawLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Condition: NotUseLegacyTeam
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - DATA_LOCATION_ACCESS
+      Resource:
+        DataLocationResource:
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/
+
+  rStageLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Condition: NotUseLegacyTeam
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - DATA_LOCATION_ACCESS
+      Resource:
+        DataLocationResource:
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/
+
+  rAnalyticsLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Condition: NotUseLegacyTeam
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - DATA_LOCATION_ACCESS
+      Resource:
+        DataLocationResource:
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/
+
+  ######## EVENTBRIDGE #########
+  rEventBus:
+    Type: AWS::Events::EventBus
+    Condition: NotUseLegacyTeam
+    Properties:
+        Name: !Sub sdlf-${pDatasetName}
+
+  rEventBusSsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/EventBridge/${pDatasetName}/EventBusName
+      Type: String
+      Value: !Ref rEventBus
+      Description: !Sub Name of the ${pDatasetName} event bus
+
+  rScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub sdlf-${pDatasetName}
+
+  rScheduleGroupSsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/EventBridge/${pDatasetName}/ScheduleGroupName
+      Type: String
+      Value: !Ref rScheduleGroup
+      Description: !Sub Name of the ${pDatasetName} schedule group
+
+  rForwardEventBusTriggerRole:
+    Type: AWS::IAM::Role
+    Condition: NotUseLegacyTeam
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-cicd-events-trigger
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource:
+                  - !GetAtt rEventBus.Arn
+
+  rForwardEventBusRule:
+    Type: AWS::Events::Rule
+    Condition: NotUseLegacyTeam
+    Properties:
+      EventPattern:
+        source:
+          - prefix: aws.
+        account:
+          - !Ref AWS::AccountId
+        region:
+          - !Ref AWS::Region
+      Targets:
+        - Arn: !GetAtt rEventBus.Arn
+          RoleArn: !GetAtt rForwardEventBusTriggerRole.Arn
+          Id: default-to-sdlf-dataset
+
+  ######## IAM #########
+  rIamManagedPolicy:
+    Condition: NotUseLegacyTeam
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: |-
+              Condition applied to restrict access, and the KMS keys do not exist at this stage
+              The other actions with "*" are all ones that only support the all resources wildcard
+    Properties:
+      Path: !Sub /sdlf/${pDatasetName}/ # keep this path for the dataset's permissions boundary policy only
+      Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowConsoleListBuckets
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:ListAllMyBuckets
+            Resource: !Sub arn:${AWS::Partition}:s3:::*
+          - Sid: AllowTeamBucketList
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}
+          - Sid: AllowTeamPrefixActions
+            Effect: Allow
+            Action:
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:PutObject
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pDatasetName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/*
+          - Sid: AllowFullCodeCommitOnTeamRepositories
+            Effect: Allow
+            Action:
+              - codecommit:AssociateApprovalRuleTemplateWithRepository
+              - codecommit:Batch* # Get, Describe, ApprovalRuleTemplate
+              - codecommit:Create*
+              - codecommit:DeleteBranch
+              - codecommit:DeleteFile
+              - codecommit:Describe*
+              - codecommit:DisassociateApprovalRuleTemplateFromRepository
+              - codecommit:EvaluatePullRequestApprovalRules
+              - codecommit:Get*
+              - codecommit:List*
+              - codecommit:Merge*
+              - codecommit:OverridePullRequestApprovalRules
+              - codecommit:Put*
+              - codecommit:Post*
+              - codecommit:TagResource
+              - codecommit:Test*
+              - codecommit:UntagResource
+              - codecommit:Update*
+              - codecommit:Git*
+            Resource:
+              - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+          - Sid: AllowTeamKMSDataKeyUsage
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: !If
+              - IsS3Prefix
+              - - !GetAtt rKMSInfraKey.Arn
+                - !GetAtt rKMSDataKey.Arn
+                - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              - - !GetAtt rKMSInfraKey.Arn
+                - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+          - Sid: AllowOctagonDynamoAccess
+            Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+          - Sid: AllowSQSManagement
+            Effect: Allow
+            Action:
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:List*
+              - sqs:ReceiveMessage
+              - sqs:SendMessage
+            Resource:
+              - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDatasetName}-*
+          - Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource:
+              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pDatasetName}-*
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pDatasetName}/sdlf-*
+            Condition:
+              StringEquals:
+                "iam:PassedToService":
+                  - glue.amazonaws.com
+          - Effect: Allow
+            Action:
+              - glue:GetSecurityConfiguration # W13 exception
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - glue:GetTable
+              - glue:StartCrawler
+              - glue:GetCrawler
+              - glue:GetJobRun
+              - glue:GetJobRuns
+              - glue:StartJobRun
+              - glue:StartDataQualityRule*
+              - glue:GetDataQualityRule*
+            Resource:
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pEnvironment}-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:GetLogEvents
+              - logs:PutLogEvents
+              - logs:AssociateKmsKey
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/jobs/sdlf-${pDatasetName}-*
+          - Sid: AllowCloudFormationReadOnlyAccess
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResource
+              - cloudformation:DescribeStackResources
+            Resource:
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack:sdlf-${pDatasetName}:*
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pDatasetName}-*
+          - Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Resource:
+              - !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctions* # Step Functions managed rules: https://docs.aws.amazon.com/step-functions/latest/dg/service-integration-iam-templates.html#connect-iam-sync-async
+          - Effect: Allow
+            Action:
+              - emr-serverless:CreateApplication
+              - emr-serverless:GetApplication
+            Resource:
+              - !Sub arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface # W13 condition applied
+                - ec2:DescribeNetworkInterfaces # W13 exception
+                - ec2:DeleteNetworkInterface # W13 condition applied
+                - ec2:AssignPrivateIpAddresses # W13 condition applied
+                - ec2:UnassignPrivateIpAddresses # W13 condition applied
+                - ec2:DescribeSubnets # W13 exception
+                - ec2:DescribeSecurityGroups # W13 exception
+                - ec2:DescribeVpcEndpoints # W13 exception
+                - ec2:DescribeRouteTables # W13 exception
+                - ec2:CreateTags # W13 condition applied
+                - ec2:DeleteTags # W13 condition applied
+              Resource:
+                - "*"
+              Condition:
+                ArnEqualsIfExists:
+                  "ec2:Vpc":
+                    - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:{{resolve:ssm:/SDLF/VPC/VpcAccountId}}:vpc/{{resolve:ssm:/SDLF/VPC/VpcId}}"
+                "ForAllValues:StringEqualsIfExists":
+                  "aws:TagKeys":
+                    - aws-glue-service-resource
+            - !Ref "AWS::NoValue"
+          - !If
+            - RunInVpc
+            - Effect: Allow
+              Action:
+                - Glue:GetConnection
+              Resource:
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pDatasetName}-glue-conn-*
+            - !Ref "AWS::NoValue"
+
+  rIamManagedPolicySsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/IAM/${pDatasetName}/TeamPermissionsBoundary
+      Type: String
+      Value: !Ref rIamManagedPolicy
+      Description: The permissions boundary IAM Managed policy for the team
 
   rDatasetSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Datasets/${pTeamName}/${pDatasetName}
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub /SDLF/Datasets/${pDatasetName}
+        - !Sub /SDLF/Datasets/${pTeamName}/${pDatasetName}
       Type: String
       Value: !Ref pPipelineDetails # bit of a hack for datasets lambda
-      Description: !Sub "Placeholder ${pTeamName} ${pDatasetName}"
+      Description: !Sub "Placeholder ${pDatasetName}"
 
 Outputs:
   oPipelineReference:
