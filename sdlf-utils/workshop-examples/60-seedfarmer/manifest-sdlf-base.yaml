@@ -39,4 +39,4 @@ parameters:
     value: example
 ---
 name: datalakelibrary
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakelibrary/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakeLibrary/?ref=workshop
