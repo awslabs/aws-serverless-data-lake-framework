@@ -1,5 +1,5 @@
 name: lambda
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-lambda/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-lambda/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
@@ -9,7 +9,7 @@ parameters:
     value: example
 ---
 name: glue
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-glue/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-glue/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
