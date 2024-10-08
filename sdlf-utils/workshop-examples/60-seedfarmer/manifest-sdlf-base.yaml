@@ -1,5 +1,5 @@
 name: foundations
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-foundations/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-foundations/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
@@ -9,7 +9,7 @@ parameters:
     value: example
 ---
 name: team
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-team/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-team/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
@@ -19,7 +19,7 @@ parameters:
     value: example
 ---
 name: pipeline
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-pipeline/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-pipeline/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
@@ -29,7 +29,7 @@ parameters:
     value: example
 ---
 name: dataset
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-dataset/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-dataset/?ref=workshop2
 parameters:
   - name: deployment-type
     value: cfn-module
@@ -39,4 +39,4 @@ parameters:
     value: example
 ---
 name: datalakelibrary
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakeLibrary/?ref=workshop
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakeLibrary/?ref=workshop2
