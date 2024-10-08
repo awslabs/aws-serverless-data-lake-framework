@@ -954,6 +954,51 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: Delete
 
+  rDynamoPipelineExecutionHistorySsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/Dynamo/${pDatasetName}/PipelineExecutionHistory
+      Type: String
+      Value: !Ref rDynamoPipelineExecutionHistory
+      Description: Name of the DynamoDB used to store pipeline execution metadata
+
+  rDynamoManifests:
+    Type: AWS::DynamoDB::Table
+    Condition: NotUseLegacyTeam
+    Properties:
+      KeySchema:
+        - AttributeName: dataset_name
+          KeyType: HASH
+        - AttributeName: datafile_name
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: dataset_name
+          AttributeType: S
+        - AttributeName: datafile_name
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: True
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt rKMSInfraKey.Arn
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  rDynamoManifestsSsm:
+    Type: AWS::SSM::Parameter
+    Condition: NotUseLegacyTeam
+    Properties:
+      Name: !Sub /SDLF/Dynamo/${pDatasetName}/Manifests
+      Type: String
+      Value: !Ref rDynamoManifests
+      Description: Name of the DynamoDB used to store manifest process metadata
+
   rDatasetSsm:
     Type: AWS::SSM::Parameter
     Properties:

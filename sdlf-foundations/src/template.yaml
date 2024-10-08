@@ -1407,6 +1407,7 @@ Resources:
 
   rDynamoOctagonManifests:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1482,6 +1483,7 @@ Resources:
       Description: Name of the DynamoDB used to store data schemas
   rDynamoManifestsSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/Manifests
       Type: String
