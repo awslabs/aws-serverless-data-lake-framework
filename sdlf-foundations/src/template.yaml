@@ -969,6 +969,7 @@ Resources:
 
   rDynamoOctagonDatasets:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1169,6 +1170,7 @@ Resources:
 
   rDynamoOctagonTeams:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1194,6 +1196,7 @@ Resources:
 
   rDynamoOctagonPipelines:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1447,6 +1450,7 @@ Resources:
       Description: Name of the DynamoDB used to store metadata
   rDynamoTransformMappingSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/TransformMapping
       Type: String
@@ -1454,6 +1458,7 @@ Resources:
       Description: Name of the DynamoDB used to store mappings to transformation (same as /SDLF/Dynamo/Datasets)
   rDynamoDatasetsSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/Datasets
       Type: String
@@ -1461,6 +1466,7 @@ Resources:
       Description: Name of the DynamoDB used to store datasets metadata
   rDynamoPipelinesSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/Pipelines
       Type: String
@@ -1468,6 +1474,7 @@ Resources:
       Description: Name of the DynamoDB used to store pipelines metadata
   rDynamoTeamMetadataSsm:
     Type: AWS::SSM::Parameter
+    Condition: UseLegacyTables
     Properties:
       Name: /SDLF/Dynamo/TeamMetadata
       Type: String
