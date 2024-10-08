@@ -942,6 +942,7 @@ Resources:
   ######## DYNAMODB #########
   rDynamoOctagonObjectMetadata:
     Type: AWS::DynamoDB::Table
+    Condition: UseLegacyTables
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -956,6 +957,27 @@ Resources:
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
       TableName: !Sub octagon-ObjectMetadata-${pEnvironment}
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      SSESpecification:
+        SSEEnabled: True
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt rKMSKey.Arn
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  rObjectMetadata:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
       SSESpecification:
@@ -1446,7 +1468,10 @@ Resources:
     Properties:
       Name: /SDLF/Dynamo/ObjectCatalog
       Type: String
-      Value: !Ref rDynamoOctagonObjectMetadata
+      Value: !If
+        - UseLegacyTables
+        - !Ref rDynamoOctagonObjectMetadata
+        - !Ref rObjectMetadata
       Description: Name of the DynamoDB used to store metadata
   rDynamoTransformMappingSsm:
     Type: AWS::SSM::Parameter
