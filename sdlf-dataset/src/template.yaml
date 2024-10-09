@@ -510,6 +510,59 @@ Resources:
         - !Sub "${pDatasetName} Glue crawler"
         - !Sub "${pTeamName} team ${pDatasetName} Glue crawler"
 
+  rRawGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Role: !If
+        - NotUseLegacyTeam
+        - !GetAtt rDatalakeCrawlerRole.Arn
+        - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+      CrawlerSecurityConfiguration: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+        - !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
+      DatabaseName: !Ref rGlueDataCatalog
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-crawler-raw
+        - !Sub sdlf-${pTeamName}-${pDatasetName}-raw-crawler
+      Targets:
+        S3Targets:
+          - Path: !If
+            - NotUseLegacyTeam
+            - !Sub s3://${pRawBucket}/${pDatasetName}
+            - !Sub s3://${pRawBucket}/${pTeamName}/${pDatasetName}
+
+  rRawGlueCrawlerLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !If
+          - NotUseLegacyTeam
+          - !GetAtt rDatalakeCrawlerRole.Arn
+          - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+      Permissions:
+        - CREATE_TABLE
+        - ALTER
+        - DROP
+      Resource:
+        DatabaseResource:
+          Name: !Ref rRawGlueDataCatalog
+
+  rRawGlueCrawlerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub /SDLF/Glue/${pDatasetName}/RawGlueCrawler
+        - !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/RawGlueCrawler
+      Type: String
+      Value: !Ref rRawGlueCrawler
+      Description: !If
+        - NotUseLegacyTeam
+        - !Sub "${pDatasetName} Raw Glue crawler"
+        - !Sub "${pTeamName} team ${pDatasetName} Raw Glue crawler"
+
   rLakeFormationTag:
     Type: AWS::LakeFormation::Tag
     Condition: NotUseLegacyTeam
