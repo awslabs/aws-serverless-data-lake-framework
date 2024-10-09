@@ -239,8 +239,16 @@ Resources:
       Value: !Ref rGlueDataCatalog
       Description: !If
         - NotUseLegacyTeam
-        - !Sub "${pDatasetName} metadata catalog"
-        - !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
+        - !Sub "${pDatasetName} stage metadata catalog"
+        - !Sub "${pTeamName} team ${pDatasetName} stage metadata catalog"
+
+  rStageGlueDataCatalogSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Glue/${pDatasetName}/StageDataCatalog
+      Type: String
+      Value: !Ref rGlueDataCatalog
+      Description: !Sub "${pDatasetName} stage metadata catalog"
 
   rRawGlueDataCatalog:
     Type: AWS::Glue::Database
@@ -257,6 +265,22 @@ Resources:
       Type: String
       Value: !Ref rRawGlueDataCatalog
       Description: !Sub "${pDatasetName} raw metadata catalog"
+
+  rAnalyticsGlueDataCatalog:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: !Sub "${pDatasetName} analytics metadata catalog"
+        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_analytics
+
+  rAnalyticsGlueDataCatalogSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /SDLF/Glue/${pDatasetName}/AnalyticsDataCatalog
+      Type: String
+      Value: !Ref rAnalyticsGlueDataCatalog
+      Description: !Sub "${pDatasetName} analytics metadata catalog"
 
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
