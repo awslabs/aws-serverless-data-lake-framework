@@ -45,9 +45,10 @@ Parameters:
     Type: String
     Default: true
   pS3Prefix:
-    Description: S3 prefix or full bucket
+    Description: S3 prefix or full bucket if empty/not provided
     Type: String
-    AllowedPattern: ""
+    AllowedPattern: "[a-z0-9]*"
+    Default: ""
   pCicdRole:
     Description: Name of the IAM role used to deploy SDLF constructs
     Type: String
@@ -56,6 +57,7 @@ Parameters:
     Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
+    Default: ""
   pPipelineDetails:
     Type: String
     Default: >-
@@ -224,7 +226,7 @@ Resources:
       DatabaseInput: !If
         - NotUseLegacyTeam
         - Description: !Sub "${pDatasetName} metadata catalog"
-          Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}
+          Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_stage
         - Description: !Sub "${pTeamName} team ${pDatasetName} metadata catalog"
           Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pTeamName}_${pDatasetName}_db
 
@@ -417,9 +419,9 @@ Resources:
                   - s3:PutObject
                   - s3:PutObjectVersion
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pS3Prefix}/*
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -477,7 +479,7 @@ Resources:
         S3Targets:
           - Path: !If
             - NotUseLegacyTeam
-            - !Sub s3://${pStageBucket}/${pDatasetName}
+            - !Sub s3://${pStageBucket}/${pS3Prefix}
             - !Sub s3://${pStageBucket}/post-stage/${pTeamName}/${pDatasetName}
 
   rGlueCrawlerLakeFormationPermissions:
@@ -530,7 +532,7 @@ Resources:
         S3Targets:
           - Path: !If
             - NotUseLegacyTeam
-            - !Sub s3://${pRawBucket}/${pDatasetName}
+            - !Sub s3://${pRawBucket}/${pS3Prefix}
             - !Sub s3://${pRawBucket}/${pTeamName}/${pDatasetName}
 
   rRawGlueCrawlerLakeFormationPermissions:
@@ -583,7 +585,7 @@ Resources:
         S3Targets:
           - Path: !If
             - NotUseLegacyTeam
-            - !Sub s3://${pAnalyticsBucket}/${pDatasetName}
+            - !Sub s3://${pAnalyticsBucket}/${pS3Prefix}
             - !Sub s3://${pAnalyticsBucket}/${pTeamName}/${pDatasetName}
 
   rAnalyticsGlueCrawlerLakeFormationPermissions:
@@ -677,7 +679,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/
 
   rStageLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
@@ -689,7 +691,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/
 
   rAnalyticsLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
@@ -701,7 +703,7 @@ Resources:
         - DATA_LOCATION_ACCESS
       Resource:
         DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pS3Prefix}/
 
   ######## EVENTBRIDGE #########
   rEventBus:
@@ -811,10 +813,10 @@ Resources:
               - s3:GetObject
               - s3:PutObject
             Resource:
-              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pDatasetName}/*
-              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDatasetName}/*
-              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDatasetName}/*
-              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDatasetName}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pArtifactsBucket}/${pS3Prefix}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/*
+              - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pS3Prefix}/*
           - Sid: AllowFullCodeCommitOnTeamRepositories
             Effect: Allow
             Action:
@@ -838,7 +840,7 @@ Resources:
               - codecommit:Update*
               - codecommit:Git*
             Resource:
-              - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pTeamName}-*
+              - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pDatasetName}-*
           - Sid: AllowTeamKMSDataKeyUsage
             Effect: Allow
             Action:
