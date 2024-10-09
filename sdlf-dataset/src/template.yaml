@@ -521,7 +521,7 @@ Resources:
         - NotUseLegacyTeam
         - !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
         - !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
-      DatabaseName: !Ref rGlueDataCatalog
+      DatabaseName: !Ref rRawGlueDataCatalog
       Name: !If
         - NotUseLegacyTeam
         - !Sub sdlf-${pDatasetName}-crawler-raw
@@ -562,6 +562,59 @@ Resources:
         - NotUseLegacyTeam
         - !Sub "${pDatasetName} Raw Glue crawler"
         - !Sub "${pTeamName} team ${pDatasetName} Raw Glue crawler"
+
+  rAnalyticsGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Role: !If
+        - NotUseLegacyTeam
+        - !GetAtt rDatalakeCrawlerRole.Arn
+        - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+      CrawlerSecurityConfiguration: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+        - !Sub "{{resolve:ssm:/SDLF/Glue/${pTeamName}/SecurityConfigurationId}}"
+      DatabaseName: !Ref rAnalyticsGlueDataCatalog
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub sdlf-${pDatasetName}-crawler-analytics
+        - !Sub sdlf-${pTeamName}-${pDatasetName}-analytics-crawler
+      Targets:
+        S3Targets:
+          - Path: !If
+            - NotUseLegacyTeam
+            - !Sub s3://${pAnalyticsBucket}/${pDatasetName}
+            - !Sub s3://${pAnalyticsBucket}/${pTeamName}/${pDatasetName}
+
+  rAnalyticsGlueCrawlerLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !If
+          - NotUseLegacyTeam
+          - !GetAtt rDatalakeCrawlerRole.Arn
+          - !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/CrawlerRoleArn}}"
+      Permissions:
+        - CREATE_TABLE
+        - ALTER
+        - DROP
+      Resource:
+        DatabaseResource:
+          Name: !Ref rAnalyticsGlueDataCatalog
+
+  rAnalyticsGlueCrawlerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !If
+        - NotUseLegacyTeam
+        - !Sub /SDLF/Glue/${pDatasetName}/AnalyticsGlueCrawler
+        - !Sub /SDLF/Glue/${pTeamName}/${pDatasetName}/AnalyticsGlueCrawler
+      Type: String
+      Value: !Ref rAnalyticsGlueCrawler
+      Description: !If
+        - NotUseLegacyTeam
+        - !Sub "${pDatasetName} Analytics Glue crawler"
+        - !Sub "${pTeamName} team ${pDatasetName} Analytics Glue crawler"
 
   rLakeFormationTag:
     Type: AWS::LakeFormation::Tag
