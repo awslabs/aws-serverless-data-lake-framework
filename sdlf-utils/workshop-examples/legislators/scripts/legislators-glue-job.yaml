@@ -16,8 +16,8 @@ Parameters:
     Default: engineering
   pEnableVpc:
     Description: Deploy SDLF resources in a VPC
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/VPC/Enabled
+    Type: String
+    Default: false
 
 Conditions:
   RunInVpc: !Equals [!Ref pEnableVpc, true]

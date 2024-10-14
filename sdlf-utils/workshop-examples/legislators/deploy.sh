@@ -33,7 +33,7 @@ fi
 if ! "$tflag"
 then
     echo "-t not specified, using default value: engineering..." >&2
-    TEAM_NAME="engineering"
+    TEAM_NAME="legislators"
 else
     echo "Team name: $TEAM_NAME"
 fi
@@ -74,9 +74,9 @@ function send_legislators()
   do
     (( COUNT++ )) || true
     if [ "$RAW_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp "$FILE" "${S3_DESTINATION}raw/$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}raw/$TEAM_NAME/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     else
-      aws s3 cp "$FILE" "${S3_DESTINATION}$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}$TEAM_NAME/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     fi
     echo "transferred $COUNT files"
   done
