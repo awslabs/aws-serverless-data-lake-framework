@@ -4,6 +4,7 @@
 from aws_cdk import (
     CfnOutput,
     CfnParameter,
+    aws_dynamodb as ddb,
     aws_glue as glue,
     aws_glue_alpha as glue_a,
     aws_lakeformation as lakeformation,
@@ -172,6 +173,134 @@ class Dataset(Construct):
             simple_name=False,  # parameter name is a token
             string_value=p_pipelinedetails.value_as_string,  # bit of a hack for datasets lambda
         )
+
+        peh_table = ddb.Table(
+            self,
+            "rDynamoOctagonExecutionHistory",
+            removal_policy=RemovalPolicy.DESTROY,
+            partition_key=ddb.Attribute(
+                name="id",
+                type=ddb.AttributeType.STRING,
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            table_name=f"octagon-PipelineExecutionHistory-{p_environment.value_as_string}",
+            encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=kms_key,
+            point_in_time_recovery=True,
+            time_to_live_attribute="ttl",
+        )
+        peh_table.add_global_secondary_index(
+            index_name="pipeline-last-updated-index",
+            partition_key=ddb.Attribute(
+                name="pipeline",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="last_updated_timestamp",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="execution_date-status-index",
+            partition_key=ddb.Attribute(
+                name="execution_date",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="status",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="pipeline-execution_date-index",
+            partition_key=ddb.Attribute(
+                name="pipeline",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="execution_date",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="execution_date-last_updated-index",
+            partition_key=ddb.Attribute(
+                name="execution_date",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="last_updated_timestamp",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="status-last_updated-index",
+            partition_key=ddb.Attribute(
+                name="status",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="last_updated_timestamp",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="pipeline-status_last_updated-index",
+            partition_key=ddb.Attribute(
+                name="pipeline",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="status_last_updated_timestamp",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+        peh_table.add_global_secondary_index(
+            index_name="dataset-status_last_updated_timestamp-index",
+            partition_key=ddb.Attribute(
+                name="dataset",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="status_last_updated_timestamp",
+                type=ddb.AttributeType.STRING,
+            ),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+
+        manifests_table = ddb.Table(
+            self,
+            "rDynamoOctagonManifests",
+            removal_policy=RemovalPolicy.DESTROY,
+            partition_key=ddb.Attribute(
+                name="dataset_name",
+                type=ddb.AttributeType.STRING,
+            ),
+            sort_key=ddb.Attribute(
+                name="datafile_name",
+                type=ddb.AttributeType.STRING,
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            table_name=f"octagon-Manifests-{p_environment.value_as_string}",
+            encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=kms_key,
+            point_in_time_recovery=True,
+            time_to_live_attribute="ttl",
+        )
+        ssm.StringParameter(
+            self,
+            "rDynamoManifestsSsm",
+            description="Name of the DynamoDB used to store manifest process metadata",
+            parameter_name="/SDLF/Dynamo/Manifests",
+            string_value=manifests_table.table_name,
+        )
+
 
         # CloudFormation Outputs TODO
         CfnOutput(
