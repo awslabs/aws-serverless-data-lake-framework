@@ -473,7 +473,7 @@ Resources:
       DatabaseName: !Ref rGlueDataCatalog
       Name: !If
         - NotUseLegacyTeam
-        - !Sub sdlf-${pDatasetName}-crawler
+        - !Sub sdlf-${pDatasetName}-stage-crawler
         - !Sub sdlf-${pTeamName}-${pDatasetName}-post-stage-crawler
       Targets:
         S3Targets:
