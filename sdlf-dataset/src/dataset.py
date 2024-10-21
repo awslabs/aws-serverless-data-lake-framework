@@ -242,7 +242,7 @@ class Dataset(Construct):
         )
 
         s3_prefix_condition = CfnCondition(self, "IsS3Prefix",
-        expression=Fn.condition_not(Fn.condition_equals({p_s3prefix.value_as_string}, "")))
+        expression=Fn.condition_not(Fn.condition_equals(p_s3prefix.value_as_string, "")))
 
         data_kms_key = kms.Key(
             self,
@@ -262,8 +262,8 @@ class Dataset(Construct):
         ssm.StringParameter(
             self,
             "rKMSDataKeySsm",
-            description=f"Arn of the {p_teamname.value_as_string} KMS data key",
-            parameter_name=f"/SDLF/KMS/{p_teamname.value_as_string}/DataKeyId",
+            description=f"Arn of the {p_datasetname.value_as_string} KMS data key",
+            parameter_name=f"/SDLF/KMS/{p_datasetname.value_as_string}/DataKeyId",
             simple_name=False,  # parameter name is a token
             string_value=data_kms_key.key_arn,
         ).node.default_child.cfn_options.condition = s3_prefix_condition
@@ -314,17 +314,17 @@ class Dataset(Construct):
             string_value=analytics_glue_catalog.database_arn,
         )
 
-        glue_security_configuration = glue.SecurityConfiguration(
+        glue_security_configuration = glue_a.SecurityConfiguration(
             self,
             "rGlueSecurityConfiguration",
             security_configuration_name=f"sdlf-{p_datasetname.value_as_string}-glue-security-config",
-            cloud_watch_encryption=glue.CloudWatchEncryption(
-                mode=glue.CloudWatchEncryptionMode.KMS, kms_key=infra_kms_key
+            cloud_watch_encryption=glue_a.CloudWatchEncryption(
+                mode=glue_a.CloudWatchEncryptionMode.KMS, kms_key=infra_kms_key
             ),
-            job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS, kms_key=infra_kms_key
+            job_bookmarks_encryption=glue_a.JobBookmarksEncryption(
+                mode=glue_a.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS, kms_key=infra_kms_key
             ),
-            s3_encryption=glue.S3Encryption(mode=glue.S3EncryptionMode.KMS, kms_key=data_kms_key), # TODO handle with if
+            s3_encryption=glue_a.S3Encryption(mode=glue_a.S3EncryptionMode.KMS, kms_key=data_kms_key), # TODO handle with if
         )
         ssm.StringParameter(
             self,
@@ -635,13 +635,13 @@ class Dataset(Construct):
             self,
             "rLakeFormationTag",
             catalog_id=scope.account,
-            tag_key=f"sdlf:dataset",
+            tag_key="sdlf:dataset",
             tag_values=[p_datasetname.value_as_string],
         )
 
         lf_tag_pair_property = lakeformation.CfnTagAssociation.LFTagPairProperty(
             catalog_id=scope.account,
-            tag_key=f"sdlf:dataset",
+            tag_key=lf_tag.tag_key,
             tag_values=[p_datasetname.value_as_string],
         )
         lf_tag_association = lakeformation.CfnTagAssociation(
@@ -1035,7 +1035,7 @@ class Dataset(Construct):
                             service="glue",
                             resource="crawler",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_datasetame.value_as_string}-*",
+                            resource_name=f"sdlf-{p_datasetname.value_as_string}-*",
                         ),
                         scope.format_arn(
                             service="glue",
@@ -1264,7 +1264,8 @@ class Dataset(Construct):
             self,
             "rDynamoPipelineExecutionHistorySsm",
             description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name="/SDLF/Dynamo/{p_datasetname.value_as_string}/PipelineExecutionHistory",
+            parameter_name=f"/SDLF/Dynamo/{p_datasetname.value_as_string}/PipelineExecutionHistory",
+            simple_name=False,  # parameter name is a token
             string_value=peh_table.table_name,
         )
 
@@ -1291,7 +1292,8 @@ class Dataset(Construct):
             self,
             "rDynamoManifestsSsm",
             description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name="/SDLF/Dynamo/{p_datasetname.value_as_string}/Manifests",
+            parameter_name=f"/SDLF/Dynamo/{p_datasetname.value_as_string}/Manifests",
+            simple_name=False,  # parameter name is a token
             string_value=manifests_table.table_name,
         )
 
