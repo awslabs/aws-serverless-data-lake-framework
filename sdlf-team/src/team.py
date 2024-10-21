@@ -1,26 +1,13 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT
 
-import json
-import os.path
-
 from aws_cdk import (
-    ArnFormat,
-    Duration,
     RemovalPolicy,
     CfnParameter,
     CfnOutput,
     aws_athena as athena,
-    aws_emr as emr,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_glue_alpha as glue,
     aws_iam as iam,
     aws_kms as kms,
-    aws_lakeformation as lakeformation,
-    aws_lambda as _lambda,
-    aws_logs as logs,
-    aws_scheduler as scheduler,
     aws_sns as sns,
     aws_ssm as ssm,
 )
@@ -31,7 +18,6 @@ class Team(Construct):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
-        dirname = os.path.dirname(__file__)
         run_in_vpc = False
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
