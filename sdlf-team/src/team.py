@@ -167,6 +167,7 @@ class Team(Construct):
             "rKMSInfraKey",
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_teamname.value_as_string} Infrastructure KMS Key",
+            enable_key_rotation=True,
             policy=infra_kms_key_policy,
         )
         infra_kms_key.add_alias(f"alias/sdlf-{p_teamname.value_as_string}-kms-infra-key").apply_removal_policy(
