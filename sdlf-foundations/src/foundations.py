@@ -282,6 +282,7 @@ class Foundations(Construct):
             "rKMSKey",
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description="SDLF Foundations KMS Key",
+            enable_key_rotation=True,
             policy=kms_key_policy,
         )
         kms_key.add_alias("alias/sdlf-kms-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
