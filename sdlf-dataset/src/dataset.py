@@ -249,6 +249,7 @@ class Dataset(Construct):
             "rKMSDataKey",
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_datasetname.value_as_string} Data KMS Key",
+            enable_key_rotation=True,
             policy=data_kms_key_policy,
         )
         data_kms_key.node.default_child.cfn_options.condition = s3_prefix_condition
