@@ -102,18 +102,13 @@ class Foundations(Construct):
         )
 
         ######## LAKE FORMATION #########
-        # lakeformation.CfnDataLakeSettings(
-        #     self,
-        #     "rDataLakeSettings",
-        #     admins=[
-        #         lakeformation.CfnDataLakeSettings.DataLakePrincipalProperty(
-        #             data_lake_principal_identifier=placeholder.role_arn # TODO add deployment role
-        #         ),
-        #     ],
-        #     create_database_default_permissions=[],
-        #     create_table_default_permissions=[],
-        #     mutation_type="REPLACE",
-        # )
+        lakeformation.CfnDataLakeSettings(
+            self,
+            "rDataLakeSettings",
+            create_database_default_permissions=[],
+            create_table_default_permissions=[],
+            mutation_type="APPEND",
+        )
 
         # https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
         lakeformationdataaccess_role_policy = iam.Policy(
