@@ -135,7 +135,7 @@ class Foundations(Construct):
             ],
         )
 
-        lakeformationdataaccess_role = iam.Role(
+        self.lakeformationdataaccess_role = iam.Role(
             self,
             "rLakeFormationDataAccessRole",
             assumed_by=iam.CompositePrincipal(
@@ -143,21 +143,21 @@ class Foundations(Construct):
                 iam.ServicePrincipal("glue.amazonaws.com"),
             ),
         )
-        lakeformationdataaccess_role.attach_inline_policy(lakeformationdataaccess_role_policy)
+        self.lakeformationdataaccess_role.attach_inline_policy(lakeformationdataaccess_role_policy)
 
         ssm.StringParameter(
             self,
             "rLakeFormationDataAccessRoleSsm",
             description="Lake Formation Data Access Role",
             parameter_name="/SDLF/IAM/LakeFormationDataAccessRoleArn",
-            string_value=lakeformationdataaccess_role.role_arn,
+            string_value=self.lakeformationdataaccess_role.role_arn,
         )
         ssm.StringParameter(
             self,
             "rLakeFormationDataAccessRoleNameSsm",
             description="Lake Formation Data Access Role",
             parameter_name="/SDLF/IAM/LakeFormationDataAccessRole",
-            string_value=lakeformationdataaccess_role.role_name,
+            string_value=self.lakeformationdataaccess_role.role_name,
         )
 
         ######## KMS #########
@@ -264,7 +264,7 @@ class Foundations(Construct):
                     sid="Allow LakeFormation access",
                     effect=iam.Effect.ALLOW,
                     principals=[
-                        iam.ArnPrincipal(lakeformationdataaccess_role.role_arn),
+                        iam.ArnPrincipal(self.lakeformationdataaccess_role.role_arn),
                     ],
                     actions=["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"],
                     resources=["*"],
@@ -272,7 +272,7 @@ class Foundations(Construct):
             ]
         )
 
-        kms_key = kms.Key(
+        self.kms_key = kms.Key(
             self,
             "rKMSKey",
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
@@ -280,20 +280,20 @@ class Foundations(Construct):
             enable_key_rotation=True,
             policy=kms_key_policy,
         )
-        kms_key.add_alias("alias/sdlf-kms-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
+        self.kms_key.add_alias("alias/sdlf-kms-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
 
         ssm.StringParameter(
             self,
             "rKMSKeySsm",
             description="ARN of the KMS key",
             parameter_name="/SDLF/KMS/KeyArn",
-            string_value=kms_key.key_arn,
+            string_value=self.kms_key.key_arn,
         )
 
         ######## S3 #########
         ####### Access Logging Bucket ######
         access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-s3logs"
-        access_logs_bucket = s3.Bucket(
+        self.access_logs_bucket = s3.Bucket(
             self,
             "rS3AccessLogsBucket",
             bucket_name=access_logs_bucket_name,  # TODO
@@ -318,7 +318,7 @@ class Foundations(Construct):
                 ),
             ],
             encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
+            encryption_key=self.kms_key,
             bucket_key_enabled=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         )
@@ -327,7 +327,7 @@ class Foundations(Construct):
             "rS3AccessLogsBucketSsm",
             description="S3 Access Logs Bucket",
             parameter_name="/SDLF/S3/AccessLogsBucket",
-            string_value=access_logs_bucket.bucket_name,
+            string_value=self.access_logs_bucket.bucket_name,
         )
 
         artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-artifacts"
@@ -335,10 +335,10 @@ class Foundations(Construct):
             self,
             "rArtifactsBucket",
             bucket_name=artifacts_bucket_name,  # TODO
-            server_access_logs_bucket=access_logs_bucket,  # automatically add policy statement to access logs bucket policy
+            server_access_logs_bucket=self.access_logs_bucket,  # automatically add policy statement to access logs bucket policy
             server_access_logs_prefix=artifacts_bucket_name,
             encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
+            encryption_key=self.kms_key,
             bucket_key_enabled=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             enforce_ssl=True,
@@ -351,105 +351,19 @@ class Foundations(Construct):
             string_value=artifacts_bucket.bucket_name,
         )
 
-        raw_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-raw"
-        raw_bucket = s3.Bucket(
-            self,
-            "rRawBucket",
-            bucket_name=raw_bucket_name,  # TODO
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix=raw_bucket_name,
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
-            bucket_key_enabled=True,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            enforce_ssl=True,
-            versioned=True,
-            event_bridge_enabled=True,
-        )
-        lakeformation.CfnResource(
-            self,
-            "rRawBucketLakeFormationS3Registration",
-            resource_arn=f"{raw_bucket.bucket_arn}/",  # the trailing slash is important to Lake Formation somehow
-            use_service_linked_role=False,
-            role_arn=lakeformationdataaccess_role.role_arn,
-        )
-        ssm.StringParameter(
-            self,
-            "rS3RawBucketSsm",
-            description="Name of the Raw S3 bucket",
-            parameter_name="/SDLF/S3/RawBucket",
-            string_value=raw_bucket.bucket_name,
-        )
-
-        stage_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-stage"
-        stage_bucket = s3.Bucket(
-            self,
-            "rStageBucket",
-            bucket_name=stage_bucket_name,  # TODO
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix=stage_bucket_name,
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
-            bucket_key_enabled=True,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            enforce_ssl=True,
-            versioned=True,
-            event_bridge_enabled=True,
-        )
-        lakeformation.CfnResource(
-            self,
-            "rStageBucketLakeFormationS3Registration",
-            resource_arn=f"{stage_bucket.bucket_arn}/",  # the trailing slash is important to Lake Formation somehow
-            use_service_linked_role=False,
-            role_arn=lakeformationdataaccess_role.role_arn,
-        )
-        ssm.StringParameter(
-            self,
-            "rS3StageBucketSsm",
-            description="Name of the Stage S3 bucket",
-            parameter_name="/SDLF/S3/StageBucket",
-            string_value=stage_bucket.bucket_name,
-        )
-
-        analytics_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-analytics"
-        analytics_bucket = s3.Bucket(
-            self,
-            "rAnalyticsBucket",
-            bucket_name=analytics_bucket_name,  # TODO
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix=analytics_bucket_name,
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
-            bucket_key_enabled=True,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            enforce_ssl=True,
-            versioned=True,
-            event_bridge_enabled=True,
-        )
-        lakeformation.CfnResource(
-            self,
-            "rAnalyticsBucketLakeFormationS3Registration",
-            resource_arn=f"{analytics_bucket.bucket_arn}/",  # the trailing slash is important to Lake Formation somehow
-            use_service_linked_role=False,
-            role_arn=lakeformationdataaccess_role.role_arn,
-        )
-        ssm.StringParameter(
-            self,
-            "rS3AnalyticsBucketSsm",
-            description="Name of the Analytics S3 bucket",
-            parameter_name="/SDLF/S3/AnalyticsBucket",
-            string_value=analytics_bucket.bucket_name,
-        )
+        raw_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "raw")
+        stage_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "stage")
+        analytics_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "analytics")
 
         athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-athena"
         athena_bucket = s3.Bucket(
             self,
             "rAthenaBucket",
             bucket_name=athena_bucket_name,  # TODO
-            server_access_logs_bucket=access_logs_bucket,
+            server_access_logs_bucket=self.access_logs_bucket,
             server_access_logs_prefix=athena_bucket_name,
             encryption=s3.BucketEncryption.KMS,
-            encryption_key=kms_key,
+            encryption_key=self.kms_key,
             bucket_key_enabled=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             enforce_ssl=True,
@@ -507,7 +421,7 @@ class Foundations(Construct):
                 ),
             ],
         )
-        lakeformationdataaccess_role.attach_inline_policy(s3_lakeformationdataaccess_role_policy)
+        self.lakeformationdataaccess_role.attach_inline_policy(s3_lakeformationdataaccess_role_policy)
 
         ######## Lambda & SQS #########
         catalog_dlq = sqs.Queue(
@@ -517,7 +431,7 @@ class Foundations(Construct):
             queue_name="sdlf-catalog-dlq",
             retention_period=Duration.days(14),
             visibility_timeout=Duration.seconds(60),
-            encryption_master_key=kms_key,
+            encryption_master_key=self.kms_key,
         )
 
         catalog_queue = sqs.Queue(
@@ -527,7 +441,7 @@ class Foundations(Construct):
             queue_name="sdlf-catalog-queue",
             retention_period=Duration.days(7),
             visibility_timeout=Duration.seconds(60),
-            encryption_master_key=kms_key,
+            encryption_master_key=self.kms_key,
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=1,
                 queue=catalog_dlq,
@@ -633,7 +547,7 @@ class Foundations(Construct):
                         "kms:GenerateDataKey*",
                         "kms:ReEncrypt*",
                     ],
-                    resources=[kms_key.key_arn],
+                    resources=[self.kms_key.key_arn],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -671,7 +585,7 @@ class Foundations(Construct):
             timeout=Duration.seconds(60),
             role=lambdaexecution_role,
             environment={"ENV": p_environment.value_as_string},
-            environment_encryption=kms_key,
+            environment_encryption=self.kms_key,
             # vpcconfig TODO
         )
 
@@ -687,7 +601,7 @@ class Foundations(Construct):
             timeout=Duration.seconds(60),
             role=lambdaexecution_role,
             environment={"QUEUE": catalog_queue.queue_name, "DLQ": catalog_dlq.queue_name},
-            environment_encryption=kms_key,
+            environment_encryption=self.kms_key,
             # vpcconfig TODO
         )
         logs.LogGroup(
@@ -697,7 +611,7 @@ class Foundations(Construct):
             log_group_name=f"/aws/lambda/{catalog_redrive_function.function_name}",
             retention=logs.RetentionDays.ONE_MONTH,
             #            retention=Duration.days(p_cloudwatchlogsretentionindays.value_as_number),
-            encryption_key=kms_key,
+            encryption_key=self.kms_key,
         )
 
         catalog_function.add_event_source(eventsources.SqsEventSource(catalog_queue, batch_size=10))
@@ -715,7 +629,7 @@ class Foundations(Construct):
             table_name=f"octagon-ObjectMetadata-{p_environment.value_as_string}",
             stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
-            encryption_key=kms_key,
+            encryption_key=self.kms_key,
             point_in_time_recovery=True,
         )
         ssm.StringParameter(
@@ -740,3 +654,36 @@ class Foundations(Construct):
             description="Name of the domain's Artifacts S3 bucket",
             value=artifacts_bucket.bucket_name,
         )
+
+    def data_bucket(self, org, domain, environment, region, account, bucket_layer):
+        data_bucket_name = f"{org}-{domain}-{environment}-{region}-{account}-{bucket_layer}"
+        data_bucket = s3.Bucket(
+            self,
+            f"r{bucket_layer.capitalize()}Bucket",
+            bucket_name=data_bucket_name,  # TODO
+            server_access_logs_bucket=self.access_logs_bucket,
+            server_access_logs_prefix=data_bucket_name,
+            encryption=s3.BucketEncryption.KMS,
+            encryption_key=self.kms_key,
+            bucket_key_enabled=True,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            enforce_ssl=True,
+            versioned=True,
+            event_bridge_enabled=True,
+        )
+        lakeformation.CfnResource(
+            self,
+            f"r{bucket_layer.capitalize()}BucketLakeFormationS3Registration",
+            resource_arn=f"{data_bucket.bucket_arn}/",  # the trailing slash is important to Lake Formation somehow
+            use_service_linked_role=False,
+            role_arn=self.lakeformationdataaccess_role.role_arn,
+        )
+        ssm.StringParameter(
+            self,
+            f"rS3{bucket_layer.capitalize()}BucketSsm",
+            description=f"Name of the {bucket_layer.capitalize()} S3 bucket",
+            parameter_name=f"/SDLF/S3/{bucket_layer.capitalize()}Bucket",
+            string_value=data_bucket.bucket_name,
+        )
+
+        return data_bucket
