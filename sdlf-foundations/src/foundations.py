@@ -385,13 +385,6 @@ class Foundations(Construct):
             parameter_name="/SDLF/S3/RawBucket",
             string_value=raw_bucket.bucket_name,
         )
-        ssm.StringParameter(
-            self,
-            "rS3CentralBucketSsm",
-            description="Name of the Central S3 bucket (deprecrated, use /SDLF/S3/RawBucket instead)",
-            parameter_name="/SDLF/S3/CentralBucket",
-            string_value=raw_bucket.bucket_name,
-        )
 
         stage_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-stage"
         stage_bucket = s3.Bucket(
