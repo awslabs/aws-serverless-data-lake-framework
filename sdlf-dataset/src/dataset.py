@@ -268,52 +268,7 @@ class Dataset(Construct):
         ).node.default_child.cfn_options.condition = s3_prefix_condition
 
         ######## GLUE #########
-        raw_glue_catalog = glue_a.Database(
-            self,
-            "rRawGlueDataCatalog",
-            database_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_datasetname.value_as_string}_raw",
-            description=f"{p_datasetname.value_as_string} raw metadata catalog",
-        )
-        ssm.StringParameter(
-            self,
-            "rRawGlueDataCatalogSsm",
-            description=f"{p_datasetname.value_as_string} raw metadata catalog",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/RawDataCatalog",
-            simple_name=False,  # parameter name is a token
-            string_value=raw_glue_catalog.database_arn,
-        )
-
-        stage_glue_catalog = glue_a.Database(
-            self,
-            "rStageGlueDataCatalog",
-            database_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_datasetname.value_as_string}_stage",
-            description=f"{p_datasetname.value_as_string} stage metadata catalog",
-        )
-        ssm.StringParameter(
-            self,
-            "rStageGlueDataCatalogSsm",
-            description=f"{p_datasetname.value_as_string} stage metadata catalog",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/StageDataCatalog",
-            simple_name=False,  # parameter name is a token
-            string_value=stage_glue_catalog.database_arn,
-        )
-
-        analytics_glue_catalog = glue_a.Database(
-            self,
-            "rAnalyticsGlueDataCatalog",
-            database_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_datasetname.value_as_string}_analytics",
-            description=f"{p_datasetname.value_as_string} analytics metadata catalog",
-        )
-        ssm.StringParameter(
-            self,
-            "rAnalyticsGlueDataCatalogSsm",
-            description=f"{p_datasetname.value_as_string} analytics metadata catalog",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/AnalyticsDataCatalog",
-            simple_name=False,  # parameter name is a token
-            string_value=analytics_glue_catalog.database_arn,
-        )
-
-        glue_security_configuration = glue_a.SecurityConfiguration(
+        self.glue_security_configuration = glue_a.SecurityConfiguration(
             self,
             "rGlueSecurityConfiguration",
             security_configuration_name=f"sdlf-{p_datasetname.value_as_string}-glue-security-config",
@@ -333,7 +288,7 @@ class Dataset(Construct):
             description=f"Name of the {p_datasetname.value_as_string} Glue security configuration",
             parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/SecurityConfigurationId",
             simple_name=False,  # parameter name is a token
-            string_value=glue_security_configuration.security_configuration_name,
+            string_value=self.glue_security_configuration.security_configuration_name,
         )
 
         emr_security_configuration = emr.CfnSecurityConfiguration(
@@ -501,7 +456,7 @@ class Dataset(Construct):
             ],
         )
 
-        datalakecrawler_role = iam.Role(
+        self.datalakecrawler_role = iam.Role(
             self,
             "rDatalakeCrawlerRole",
             path=f"/sdlf-{p_datasetname.value_as_string}/",
@@ -510,7 +465,7 @@ class Dataset(Construct):
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSGlueServiceRole"),
             ],
         )
-        datalakecrawler_role.attach_inline_policy(datalakecrawler_role_policy)
+        self.datalakecrawler_role.attach_inline_policy(datalakecrawler_role_policy)
 
         ssm.StringParameter(
             self,
@@ -518,124 +473,40 @@ class Dataset(Construct):
             description="The ARN of the Crawler role",
             parameter_name=f"/SDLF/IAM/{p_datasetname.value_as_string}/CrawlerRoleArn",
             simple_name=False,  # parameter name is a token
-            string_value=datalakecrawler_role.role_arn,
+            string_value=self.datalakecrawler_role.role_arn,
         )
 
-        raw_glue_crawler = glue.CfnCrawler(
-            self,
-            "rRawGlueCrawler",
-            name=f"sdlf-{p_datasetname.value_as_string}-raw-crawler",
-            role=datalakecrawler_role.role_arn,
-            crawler_security_configuration=glue_security_configuration.security_configuration_name,
-            database_name=raw_glue_catalog.database_name,
-            targets=glue.CfnCrawler.TargetsProperty(
-                s3_targets=[
-                    glue.CfnCrawler.S3TargetProperty(
-                        path=f"s3://{p_rawbucket.value_as_string}/{p_s3prefix.value_as_string}",
-                    )
-                ]
-            ),
+        raw_glue_catalog = self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            p_datasetname.value_as_string,
+            "raw",
+            p_rawbucket.value_as_string,
+            p_s3prefix.value_as_string,
         )
 
-        raw_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rRawGlueCrawlerLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn,
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
-                    name=raw_glue_catalog.database_name
-                )
-            ),
-            permissions=["CREATE_TABLE", "ALTER", "DROP"],
+        stage_glue_catalog = self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            p_datasetname.value_as_string,
+            "stage",
+            p_stagebucket.value_as_string,
+            p_s3prefix.value_as_string,
         )
 
-        ssm.StringParameter(
-            self,
-            "rRawGlueCrawlerSsm",
-            description=f"{p_datasetname.value_as_string} Raw Glue crawler",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/RawGlueCrawler",
-            simple_name=False,  # parameter name is a token
-            string_value=raw_glue_crawler.name,
-        )
-
-        stage_glue_crawler = glue.CfnCrawler(
-            self,
-            "rStageGlueCrawler",
-            name=f"sdlf-{p_datasetname.value_as_string}-stage-crawler",
-            role=datalakecrawler_role.role_arn,
-            crawler_security_configuration=glue_security_configuration.security_configuration_name,
-            database_name=stage_glue_catalog.database_name,
-            targets=glue.CfnCrawler.TargetsProperty(
-                s3_targets=[
-                    glue.CfnCrawler.S3TargetProperty(
-                        path=f"s3://{p_stagebucket.value_as_string}/{p_s3prefix.value_as_string}",
-                    )
-                ]
-            ),
-        )
-
-        stage_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rStageGlueCrawlerLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn,
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
-                    name=stage_glue_catalog.database_name
-                )
-            ),
-            permissions=["CREATE_TABLE", "ALTER", "DROP"],
-        )
-
-        ssm.StringParameter(
-            self,
-            "rStageGlueCrawlerSsm",
-            description=f"{p_datasetname.value_as_string} Stage Glue crawler",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/StageGlueCrawler",
-            simple_name=False,  # parameter name is a token
-            string_value=stage_glue_crawler.name,
-        )
-
-        analytics_glue_crawler = glue.CfnCrawler(
-            self,
-            "rAnalyticsGlueCrawler",
-            name=f"sdlf-{p_datasetname.value_as_string}-analytics-crawler",
-            role=datalakecrawler_role.role_arn,
-            crawler_security_configuration=glue_security_configuration.security_configuration_name,
-            database_name=analytics_glue_catalog.database_name,
-            targets=glue.CfnCrawler.TargetsProperty(
-                s3_targets=[
-                    glue.CfnCrawler.S3TargetProperty(
-                        path=f"s3://{p_analyticsbucket.value_as_string}/{p_s3prefix.value_as_string}",
-                    )
-                ]
-            ),
-        )
-
-        analytics_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rAnalyticsGlueCrawlerLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn,
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
-                    name=analytics_glue_catalog.database_name
-                )
-            ),
-            permissions=["CREATE_TABLE", "ALTER", "DROP"],
-        )
-
-        ssm.StringParameter(
-            self,
-            "rAnalyticsGlueCrawlerSsm",
-            description=f"{p_datasetname.value_as_string} Analytics Glue crawler",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/AnalyticsGlueCrawler",
-            simple_name=False,  # parameter name is a token
-            string_value=analytics_glue_crawler.name,
+        analytics_glue_catalog = self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            p_datasetname.value_as_string,
+            "analytics",
+            p_analyticsbucket.value_as_string,
+            p_s3prefix.value_as_string,
         )
 
         lf_tag = lakeformation.CfnTag(
@@ -711,66 +582,6 @@ class Dataset(Construct):
         #         ),
         #     ),
         # )
-
-        raw_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rRawLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=scope.format_arn(
-                        service="s3",
-                        resource=f"{p_rawbucket.value_as_string}/{p_s3prefix.value_as_string}/",
-                        region="",
-                        account="",
-                        arn_format=ArnFormat.NO_RESOURCE_NAME,
-                    )
-                ),
-            ),
-            permissions=["DATA_LOCATION_ACCESS"],
-        )
-
-        stage_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rStageTeamLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=scope.format_arn(
-                        service="s3",
-                        resource=f"{p_stagebucket.value_as_string}/{p_s3prefix.value_as_string}/",
-                        region="",
-                        account="",
-                        arn_format=ArnFormat.NO_RESOURCE_NAME,
-                    )
-                ),
-            ),
-            permissions=["DATA_LOCATION_ACCESS"],
-        )
-
-        analytics_crawler_lakeformation_permissions = lakeformation.CfnPermissions(
-            self,
-            "rAnalyticsTeamLakeFormationPermissions",
-            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                data_lake_principal_identifier=datalakecrawler_role.role_arn
-            ),
-            resource=lakeformation.CfnPermissions.ResourceProperty(
-                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                    s3_resource=scope.format_arn(
-                        service="s3",
-                        resource=f"{p_analyticsbucket.value_as_string}/{p_s3prefix.value_as_string}/",
-                        region="",
-                        account="",
-                        arn_format=ArnFormat.NO_RESOURCE_NAME,
-                    )
-                ),
-            ),
-            permissions=["DATA_LOCATION_ACCESS"],
-        )
 
         ######## EVENTBRIDGE #########
         bus = events.EventBus(self, "rEventBus", event_bus_name=f"sdlf-{p_datasetname.value_as_string}")
@@ -1326,3 +1137,80 @@ class Dataset(Construct):
             description="Transforms to put in DynamoDB",
             value=p_pipelinedetails.value_as_string,
         )
+
+    def data_catalog(self, scope, org, domain, environment, dataset, bucket_layer, bucket, s3_prefix):
+        glue_catalog = glue_a.Database(
+            self,
+            f"r{bucket_layer.capitalize()}GlueDataCatalog",
+            database_name=f"{org}_{domain}_{environment}_{dataset}_{bucket_layer}",
+            description=f"{dataset} {bucket_layer} metadata catalog",
+        )
+        ssm.StringParameter(
+            self,
+            f"r{bucket_layer.capitalize()}GlueDataCatalogSsm",
+            description=f"{dataset} {bucket_layer} metadata catalog",
+            parameter_name=f"/SDLF/Glue/{dataset}/{bucket_layer.capitalize()}DataCatalog",
+            simple_name=False,  # parameter name is a token
+            string_value=glue_catalog.database_arn,
+        )
+
+        glue_crawler = glue.CfnCrawler(
+            self,
+            f"r{bucket_layer.capitalize()}GlueCrawler",
+            name=f"sdlf-{dataset}-{bucket_layer}-crawler",
+            role=self.datalakecrawler_role.role_arn,
+            crawler_security_configuration=self.glue_security_configuration.security_configuration_name,
+            database_name=glue_catalog.database_name,
+            targets=glue.CfnCrawler.TargetsProperty(
+                s3_targets=[
+                    glue.CfnCrawler.S3TargetProperty(
+                        path=f"s3://{bucket}/{s3_prefix}",
+                    )
+                ]
+            ),
+        )
+
+        lakeformation.CfnPermissions(
+            self,
+            f"r{bucket_layer.capitalize()}GlueCrawlerLakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=self.datalakecrawler_role.role_arn,
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    name=glue_catalog.database_name
+                )
+            ),
+            permissions=["CREATE_TABLE", "ALTER", "DROP"],
+        )
+
+        lakeformation.CfnPermissions(
+            self,
+            f"r{bucket_layer.capitalize()}LakeFormationPermissions",
+            data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                data_lake_principal_identifier=self.datalakecrawler_role.role_arn
+            ),
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                    s3_resource=scope.format_arn(
+                        service="s3",
+                        resource=f"{bucket}/{s3_prefix}/",
+                        region="",
+                        account="",
+                        arn_format=ArnFormat.NO_RESOURCE_NAME,
+                    )
+                ),
+            ),
+            permissions=["DATA_LOCATION_ACCESS"],
+        )
+
+        ssm.StringParameter(
+            self,
+            f"r{bucket_layer.capitalize()}GlueCrawlerSsm",
+            description=f"{dataset} {bucket_layer.capitalize()} Glue crawler",
+            parameter_name=f"/SDLF/Glue/{dataset}/{bucket_layer.capitalize()}GlueCrawler",
+            simple_name=False,  # parameter name is a token
+            string_value=glue_crawler.name,
+        )
+
+        return glue_catalog
