@@ -752,7 +752,7 @@ class Dataset(Construct):
                     ],
                 ),
                 iam.PolicyStatement(
-                    sid="AllowOctagonDynamoAccess",
+                    sid="AllowDynamoAccess",
                     actions=[
                         "dynamodb:BatchGetItem",
                         "dynamodb:BatchWriteItem",
@@ -770,7 +770,7 @@ class Dataset(Construct):
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="octagon-*",
+                            resource_name="sdlf-*",
                         )
                     ],
                 ),
@@ -988,7 +988,7 @@ class Dataset(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"octagon-PipelineExecutionHistory-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
+            table_name=f"sdlf-PipelineExecutionHistory-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=infra_kms_key,
             point_in_time_recovery=True,
@@ -1100,7 +1100,7 @@ class Dataset(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"octagon-Manifests-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
+            table_name=f"sdlf-Manifests-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=infra_kms_key,
             point_in_time_recovery=True,
