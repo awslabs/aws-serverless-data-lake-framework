@@ -13,7 +13,9 @@ cdk.aws_lakeformation.CfnDataLakeSettings(
     "rDataLakeSettings",
     admins=[
         cdk.aws_lakeformation.CfnDataLakeSettings.DataLakePrincipalProperty(
-            data_lake_principal_identifier=cdk.Fn.sub(lakeformation_cicd_stack.synthesizer.cloud_formation_execution_role_arn)
+            data_lake_principal_identifier=cdk.Fn.sub(
+                lakeformation_cicd_stack.synthesizer.cloud_formation_execution_role_arn
+            )
         ),
     ],
     mutation_type="APPEND",
