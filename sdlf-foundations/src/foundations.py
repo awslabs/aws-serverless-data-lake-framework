@@ -351,9 +351,30 @@ class Foundations(Construct):
             string_value=artifacts_bucket.bucket_name,
         )
 
-        raw_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "raw")
-        stage_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "stage")
-        analytics_bucket = self.data_bucket(p_org.value_as_string, p_domain.value_as_string, p_environment.value_as_string, scope.region, scope.account, "analytics")
+        raw_bucket = self.data_bucket(
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            scope.region,
+            scope.account,
+            "raw",
+        )
+        stage_bucket = self.data_bucket(
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            scope.region,
+            scope.account,
+            "stage",
+        )
+        analytics_bucket = self.data_bucket(
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_environment.value_as_string,
+            scope.region,
+            scope.account,
+            "analytics",
+        )
 
         athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-athena"
         athena_bucket = s3.Bucket(
