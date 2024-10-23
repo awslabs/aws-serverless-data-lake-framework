@@ -241,8 +241,9 @@ class Dataset(Construct):
             ]
         )
 
-        s3_prefix_condition = CfnCondition(self, "IsS3Prefix",
-        expression=Fn.condition_not(Fn.condition_equals(p_s3prefix.value_as_string, "")))
+        s3_prefix_condition = CfnCondition(
+            self, "IsS3Prefix", expression=Fn.condition_not(Fn.condition_equals(p_s3prefix.value_as_string, ""))
+        )
 
         data_kms_key = kms.Key(
             self,
@@ -254,9 +255,7 @@ class Dataset(Construct):
         )
         data_kms_key.node.default_child.cfn_options.condition = s3_prefix_condition
         data_kms_key_alias = data_kms_key.add_alias(f"alias/sdlf-{p_datasetname.value_as_string}-kms-data-key")
-        data_kms_key_alias.apply_removal_policy(
-            RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
-        )
+        data_kms_key_alias.apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
         data_kms_key_alias.node.default_child.cfn_options.condition = s3_prefix_condition
 
         ssm.StringParameter(
@@ -324,7 +323,9 @@ class Dataset(Construct):
             job_bookmarks_encryption=glue_a.JobBookmarksEncryption(
                 mode=glue_a.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS, kms_key=infra_kms_key
             ),
-            s3_encryption=glue_a.S3Encryption(mode=glue_a.S3EncryptionMode.KMS, kms_key=data_kms_key), # TODO handle with if
+            s3_encryption=glue_a.S3Encryption(
+                mode=glue_a.S3EncryptionMode.KMS, kms_key=data_kms_key
+            ),  # TODO handle with if
         )
         ssm.StringParameter(
             self,
@@ -543,7 +544,9 @@ class Dataset(Construct):
                 data_lake_principal_identifier=datalakecrawler_role.role_arn,
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(name=raw_glue_catalog.database_name)
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    name=raw_glue_catalog.database_name
+                )
             ),
             permissions=["CREATE_TABLE", "ALTER", "DROP"],
         )
@@ -580,7 +583,9 @@ class Dataset(Construct):
                 data_lake_principal_identifier=datalakecrawler_role.role_arn,
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(name=stage_glue_catalog.database_name)
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    name=stage_glue_catalog.database_name
+                )
             ),
             permissions=["CREATE_TABLE", "ALTER", "DROP"],
         )
@@ -617,7 +622,9 @@ class Dataset(Construct):
                 data_lake_principal_identifier=datalakecrawler_role.role_arn,
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(name=analytics_glue_catalog.database_name)
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    name=analytics_glue_catalog.database_name
+                )
             ),
             permissions=["CREATE_TABLE", "ALTER", "DROP"],
         )
@@ -1305,7 +1312,6 @@ class Dataset(Construct):
             simple_name=False,  # parameter name is a token
             string_value=p_pipelinedetails.value_as_string,  # bit of a hack for datasets lambda
         )
-
 
         # CloudFormation Outputs TODO
         CfnOutput(
