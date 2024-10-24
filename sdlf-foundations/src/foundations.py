@@ -538,7 +538,7 @@ class Foundations(Construct):
                             service="dynamodb",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="octagon-*",
+                            resource_name="sdlf-*",
                         )
                     ],
                 ),
@@ -622,14 +622,14 @@ class Foundations(Construct):
         ######## DYNAMODB #########
         objectmetadata_table = ddb.Table(
             self,
-            "rDynamoOctagonObjectMetadata",
+            "rDynamoObjectMetadata",
             removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"octagon-ObjectMetadata",
+            table_name=f"sdlf-ObjectMetadata",
             stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=self.kms_key,
