@@ -50,13 +50,13 @@ class StageGlue(Construct):
         pipeline_interface = pipeline.Pipeline(scope, f"{id}Pipeline")
         p_pipeline = pipeline_interface.p_pipeline
         p_stagename = pipeline_interface.p_stagename
-        p_teamname = pipeline_interface.p_teamname
+        p_datasetname = pipeline_interface.p_datasetname
 
         ######## IAM #########
         common_policy = iam.ManagedPolicy(
             self,
             "rLambdaCommonPolicy",
-            path=f"/sdlf-{p_teamname.value_as_string}/",
+            path=f"/sdlf-{p_datasetname.value_as_string}/",
             statements=[
                 iam.PolicyStatement(
                     actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -65,7 +65,7 @@ class StageGlue(Construct):
                             service="logs",
                             resource="log-group",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"/aws/lambda/sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-*",
+                            resource_name=f"/aws/lambda/sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-*",
                         )
                     ],
                 ),
@@ -112,7 +112,7 @@ class StageGlue(Construct):
                         "kms:GenerateDataKey*",
                         "kms:CreateGrant",
                     ],
-                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}"],
+                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}"],
                 ),
             ],
         )
@@ -122,7 +122,7 @@ class StageGlue(Construct):
         postmetadatastep_role_policy = iam.Policy(
             self,
             "rRoleLambdaExecutionMetadataStepPolicy",
-            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-metadata",
+            policy_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-metadata",
             statements=[
                 iam.PolicyStatement(
                     actions=["s3:ListBucket"],
@@ -148,7 +148,7 @@ class StageGlue(Construct):
                     resources=[
                         scope.format_arn(
                             service="s3",
-                            resource=f"{p_stagebucket.value_as_string}/{p_teamname.value_as_string}/*",
+                            resource=f"{p_stagebucket.value_as_string}/{p_datasetname.value_as_string}/*",
                             region="",
                             account="",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
@@ -162,11 +162,11 @@ class StageGlue(Construct):
             self,
             "rRoleLambdaExecutionMetadataStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            path=f"/sdlf-{p_teamname.value_as_string}/",
+            path=f"/sdlf-{p_datasetname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
                 "rRoleLambdaExecutionMetadataStepPermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_datasetname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
         postmetadatastep_role.attach_inline_policy(postmetadatastep_role_policy)
@@ -178,7 +178,7 @@ class StageGlue(Construct):
             runtime=_lambda.Runtime.PYTHON_3_12,
             code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/postupdate-metadata/src")),
             handler="lambda_function.lambda_handler",
-            function_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-postupdate-{p_stagename.value_as_string}",
+            function_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-postupdate-{p_stagename.value_as_string}",
             description="Post-Update the metadata in the DynamoDB Catalog table",
             memory_size=192,
             timeout=Duration.seconds(300),
@@ -186,7 +186,7 @@ class StageGlue(Construct):
             environment_encryption=kms.Key.from_key_arn(
                 self,
                 "rLambdaPostMetadataStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -201,14 +201,14 @@ class StageGlue(Construct):
             encryption_key=kms.Key.from_key_arn(
                 self,
                 "rLambdaPostMetadataStepLogGroupEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
         errorstep_role_policy = iam.Policy(
             self,
             "rRoleLambdaExecutionErrorStepPolicy",
-            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-error",
+            policy_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-error",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -224,7 +224,7 @@ class StageGlue(Construct):
                     resources=[
                         scope.format_arn(
                             service="sqs",
-                            resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
+                            resource=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         )
                     ],
@@ -236,11 +236,11 @@ class StageGlue(Construct):
             self,
             "rRoleLambdaExecutionErrorStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            path=f"/sdlf-{p_teamname.value_as_string}/",
+            path=f"/sdlf-{p_datasetname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
                 "rRoleLambdaExecutionErrorStepPermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_datasetname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
         errorstep_role.attach_inline_policy(errorstep_role_policy)
@@ -252,7 +252,7 @@ class StageGlue(Construct):
             runtime=_lambda.Runtime.PYTHON_3_12,
             code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/error/src")),
             handler="lambda_function.lambda_handler",
-            function_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-error-{p_stagename.value_as_string}",
+            function_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-error-{p_stagename.value_as_string}",
             description="Fallback lambda to handle messages which failed processing",
             memory_size=192,
             timeout=Duration.seconds(300),
@@ -260,7 +260,7 @@ class StageGlue(Construct):
             environment_encryption=kms.Key.from_key_arn(
                 self,
                 "rLambdaErrorStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -275,7 +275,7 @@ class StageGlue(Construct):
             encryption_key=kms.Key.from_key_arn(
                 self,
                 "rLambdaErrorStepLogGroupEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
         )
 
@@ -361,7 +361,7 @@ class StageGlue(Construct):
         statemachine_role_policy = iam.Policy(
             self,
             "rStatesExecutionRolePolicy",
-            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-states-execution",
+            policy_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-states-execution",
             statements=[
                 iam.PolicyStatement(
                     actions=["lambda:InvokeFunction"],
@@ -370,7 +370,7 @@ class StageGlue(Construct):
                             service="lambda",
                             resource="function",
                             arn_format=ArnFormat.COLON_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
+                            resource_name=f"sdlf-{p_datasetname.value_as_string}-*",
                         ),
                     ],
                 ),
@@ -386,7 +386,7 @@ class StageGlue(Construct):
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
+                            resource_name=f"sdlf-{p_datasetname.value_as_string}-*",
                         ),
                     ],
                 ),
@@ -400,7 +400,7 @@ class StageGlue(Construct):
                             service="glue",
                             resource="crawler",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"sdlf-{p_teamname.value_as_string}-*",
+                            resource_name=f"sdlf-{p_datasetname.value_as_string}-*",
                         ),
                     ],
                 ),
@@ -423,11 +423,11 @@ class StageGlue(Construct):
                 iam.ServicePrincipal("states.amazonaws.com", region=scope.region),
                 conditions={"StringEquals": {"aws:SourceAccount": scope.account}},
             ),
-            path=f"/sdlf-{p_teamname.value_as_string}/",
+            path=f"/sdlf-{p_datasetname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
                 "rStatesExecutionRolePermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_datasetname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
         statemachine_role.attach_inline_policy(statemachine_role_policy)
@@ -435,7 +435,7 @@ class StageGlue(Construct):
         statemachine = sfn.StateMachine(
             self,
             "rStateMachine",
-            state_machine_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-sm-{p_stagename.value_as_string}",
+            state_machine_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-sm-{p_stagename.value_as_string}",
             role=statemachine_role,
             definition_body=sfn.DefinitionBody.from_file(os.path.join(dirname, "state-machine/stage-glue.asl.json")),
             definition_substitutions={
@@ -447,8 +447,8 @@ class StageGlue(Construct):
         ssm.StringParameter(
             self,
             "rStateMachineSsm",
-            description=f"ARN of the {p_stagename.value_as_string} {p_teamname.value_as_string} {p_pipeline.value_as_string} State Machine",
-            parameter_name=f"/SDLF/SM/{p_teamname.value_as_string}/{p_pipeline.value_as_string}{p_stagename.value_as_string}SM",
+            description=f"ARN of the {p_stagename.value_as_string} {p_datasetname.value_as_string} {p_pipeline.value_as_string} State Machine",
+            parameter_name=f"/SDLF/SM/{p_datasetname.value_as_string}/{p_pipeline.value_as_string}{p_stagename.value_as_string}SM",
             simple_name=False,  # parameter name is a token
             string_value=statemachine.state_machine_name,
         )
@@ -477,7 +477,7 @@ class StageGlue(Construct):
         routingstep_role_policy = iam.Policy(
             self,
             "rRoleLambdaExecutionRoutingStepPolicy",
-            policy_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-routing",
+            policy_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-{p_stagename.value_as_string}-routing",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -493,12 +493,12 @@ class StageGlue(Construct):
                     resources=[
                         scope.format_arn(
                             service="sqs",
-                            resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-queue-*",
+                            resource=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-queue-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
                         scope.format_arn(
                             service="sqs",
-                            resource=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
+                            resource=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-dlq-*",
                             arn_format=ArnFormat.NO_RESOURCE_NAME,
                         ),
                     ],
@@ -511,11 +511,11 @@ class StageGlue(Construct):
             self,
             "rRoleLambdaExecutionRoutingStep",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            path=f"/sdlf-{p_teamname.value_as_string}/",
+            path=f"/sdlf-{p_datasetname.value_as_string}/",
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
                 "rRoleLambdaExecutionRoutingStepPermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{p_datasetname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
         routingstep_role.attach_inline_policy(routingstep_role_policy)
@@ -527,7 +527,7 @@ class StageGlue(Construct):
             runtime=_lambda.Runtime.PYTHON_3_12,
             code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/routing/src")),
             handler="lambda_function.lambda_handler",
-            function_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-routing-{p_stagename.value_as_string}",
+            function_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-routing-{p_stagename.value_as_string}",
             description="Checks if items are to be processed and route them to state machine",
             memory_size=192,
             timeout=Duration.seconds(60),
@@ -538,15 +538,15 @@ class StageGlue(Construct):
             environment_encryption=kms.Key.from_key_arn(
                 self,
                 "rLambdaRoutingStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
         ssm.StringParameter(
             self,
             "rRoutingLambdaSsm",
-            description=f"ARN of the {p_stagename.value_as_string} {p_teamname.value_as_string} {p_pipeline.value_as_string} Routing Lambda",
-            parameter_name=f"/SDLF/Lambda/{p_teamname.value_as_string}/{p_pipeline.value_as_string}{p_stagename.value_as_string}RoutingLambda",
+            description=f"ARN of the {p_stagename.value_as_string} {p_datasetname.value_as_string} {p_pipeline.value_as_string} Routing Lambda",
+            parameter_name=f"/SDLF/Lambda/{p_datasetname.value_as_string}/{p_pipeline.value_as_string}{p_stagename.value_as_string}RoutingLambda",
             simple_name=False,  # parameter name is a token
             string_value=routingstep_function.function_arn,
         )
@@ -561,7 +561,7 @@ class StageGlue(Construct):
             encryption_key=kms.Key.from_key_arn(
                 self,
                 "rLambdaRoutingStepLogGroupEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
         )
         pipeline_interface.resources(scope, routingstep_function.function_arn)
@@ -572,7 +572,7 @@ class StageGlue(Construct):
             runtime=_lambda.Runtime.PYTHON_3_12,
             code=_lambda.Code.from_asset(os.path.join(dirname, "lambda/redrive/src")),
             handler="lambda_function.lambda_handler",
-            function_name=f"sdlf-{p_teamname.value_as_string}-{p_pipeline.value_as_string}-redrive-{p_stagename.value_as_string}",
+            function_name=f"sdlf-{p_datasetname.value_as_string}-{p_pipeline.value_as_string}-redrive-{p_stagename.value_as_string}",
             description="Redrives Failed messages to the routing queue",
             memory_size=192,
             timeout=Duration.seconds(300),
@@ -580,7 +580,7 @@ class StageGlue(Construct):
             environment_encryption=kms.Key.from_key_arn(
                 self,
                 "rLambdaRedriveStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
             # vpcconfig TODO
         )
@@ -595,6 +595,6 @@ class StageGlue(Construct):
             encryption_key=kms.Key.from_key_arn(
                 self,
                 "rLambdaRedriveStepLogGroupEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
         )
