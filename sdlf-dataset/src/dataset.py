@@ -54,14 +54,6 @@ class Dataset(Construct):
             default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
         p_domain.override_logical_id("pDomain")
-        p_environment = CfnParameter(
-            self,
-            "pEnvironment",
-            description="Environment name",
-            type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}",
-        )
-        p_environment.override_logical_id("pEnvironment")
         p_rawbucket = CfnParameter(
             self,
             "pRawBucket",
@@ -480,7 +472,6 @@ class Dataset(Construct):
             scope,
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             p_datasetname.value_as_string,
             "raw",
             p_rawbucket.value_as_string,
@@ -491,7 +482,6 @@ class Dataset(Construct):
             scope,
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             p_datasetname.value_as_string,
             "stage",
             p_stagebucket.value_as_string,
@@ -502,7 +492,6 @@ class Dataset(Construct):
             scope,
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             p_datasetname.value_as_string,
             "analytics",
             p_analyticsbucket.value_as_string,
@@ -841,13 +830,13 @@ class Dataset(Construct):
                             service="glue",
                             resource="database",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_datasetname.value_as_string}_*",
+                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_datasetname.value_as_string}_*",
                         ),
                         scope.format_arn(
                             service="glue",
                             resource="table",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_environment.value_as_string}_{p_datasetname.value_as_string}_*",
+                            resource_name=f"{p_org.value_as_string}_{p_domain.value_as_string}_{p_datasetname.value_as_string}_*",
                         ),
                         scope.format_arn(
                             service="glue",
@@ -865,7 +854,7 @@ class Dataset(Construct):
                             service="glue",
                             resource="job",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name=f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{p_datasetname.value_as_string}-*",
+                            resource_name=f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_datasetname.value_as_string}-*",
                         ),
                         scope.format_arn(
                             service="glue",
@@ -988,7 +977,7 @@ class Dataset(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"sdlf-PipelineExecutionHistory-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
+            table_name=f"sdlf-PipelineExecutionHistory-{p_datasetname.value_as_string}",
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=infra_kms_key,
             point_in_time_recovery=True,
@@ -1100,7 +1089,7 @@ class Dataset(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"sdlf-Manifests-{p_datasetname.value_as_string}-{p_environment.value_as_string}",
+            table_name=f"sdlf-Manifests-{p_datasetname.value_as_string}",
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=infra_kms_key,
             point_in_time_recovery=True,
@@ -1138,11 +1127,11 @@ class Dataset(Construct):
             value=p_pipelinedetails.value_as_string,
         )
 
-    def data_catalog(self, scope, org, domain, environment, dataset, bucket_layer, bucket, s3_prefix):
+    def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix):
         glue_catalog = glue_a.Database(
             self,
             f"r{bucket_layer.capitalize()}GlueDataCatalog",
-            database_name=f"{org}_{domain}_{environment}_{dataset}_{bucket_layer}",
+            database_name=f"{org}_{domain}_{dataset}_{bucket_layer}",
             description=f"{dataset} {bucket_layer} metadata catalog",
         )
         ssm.StringParameter(
