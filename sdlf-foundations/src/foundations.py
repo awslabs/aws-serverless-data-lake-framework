@@ -5,23 +5,23 @@ import os.path
 
 from aws_cdk import (
     ArnFormat,
-    Duration,
-    RemovalPolicy,
     CfnOutput,
     CfnParameter,
-    aws_dynamodb as ddb,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_lakeformation as lakeformation,
-    aws_lambda as _lambda,
-    aws_lambda_event_sources as eventsources,
-    aws_logs as logs,
-    aws_s3 as s3,
-    aws_sqs as sqs,
-    aws_ssm as ssm,
+    Duration,
+    RemovalPolicy,
 )
+from aws_cdk import aws_dynamodb as ddb
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_kms as kms
+from aws_cdk import aws_lakeformation as lakeformation
+from aws_cdk import aws_lambda as _lambda
+from aws_cdk import aws_lambda_event_sources as eventsources
+from aws_cdk import aws_logs as logs
+from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_sqs as sqs
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
@@ -30,7 +30,7 @@ class Foundations(Construct):
         super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
-        run_in_vpc = False
+        # run_in_vpc = False TODO
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
