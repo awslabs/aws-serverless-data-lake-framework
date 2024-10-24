@@ -10,18 +10,18 @@ from aws_cdk import (
     CfnParameter,
     Fn,
     RemovalPolicy,
-    aws_dynamodb as ddb,
-    aws_emr as emr,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_glue as glue,
-    aws_glue_alpha as glue_a,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_lakeformation as lakeformation,
-    aws_scheduler as scheduler,
-    aws_ssm as ssm,
 )
+from aws_cdk import aws_dynamodb as ddb
+from aws_cdk import aws_emr as emr
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
+from aws_cdk import aws_glue as glue
+from aws_cdk import aws_glue_alpha as glue_a
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_kms as kms
+from aws_cdk import aws_lakeformation as lakeformation
+from aws_cdk import aws_scheduler as scheduler
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
@@ -598,7 +598,7 @@ class Dataset(Construct):
         )
         forwardeventbustrigger_role.attach_inline_policy(forwardeventbustrigger_role_policy)
 
-        forwardeventbus_rule = events.Rule(
+        events.Rule(
             self,
             "rForwardEventBusRule",
             event_pattern=events.EventPattern(
