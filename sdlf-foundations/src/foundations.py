@@ -65,13 +65,6 @@ class Foundations(Construct):
             type="String",
         )
         p_domain.override_logical_id("pDomain")
-        p_environment = CfnParameter(
-            self,
-            "pEnvironment",
-            description="Environment name",
-            type="String",
-        )
-        p_environment.override_logical_id("pEnvironment")
         # p_cloudwatchlogsretentionindays = CfnParameter(self, "pCloudWatchLogsRetentionInDays",
         #     description="The number of days log events are kept in CloudWatch Logs",
         #     type="Number",
@@ -92,13 +85,6 @@ class Foundations(Construct):
             description="Data domain name",
             parameter_name="/SDLF/Misc/pDomain",
             string_value=p_domain.value_as_string,
-        )
-        ssm.StringParameter(
-            self,
-            "rEnvironmentSsm",
-            description="Environment name",
-            parameter_name="/SDLF/Misc/pEnv",
-            string_value=p_environment.value_as_string,
         )
 
         ######## LAKE FORMATION #########
@@ -292,7 +278,7 @@ class Foundations(Construct):
 
         ######## S3 #########
         ####### Access Logging Bucket ######
-        access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-s3logs"
+        access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-s3logs"
         self.access_logs_bucket = s3.Bucket(
             self,
             "rS3AccessLogsBucket",
@@ -330,7 +316,7 @@ class Foundations(Construct):
             string_value=self.access_logs_bucket.bucket_name,
         )
 
-        artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-artifacts"
+        artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-artifacts"
         artifacts_bucket = s3.Bucket(
             self,
             "rArtifactsBucket",
@@ -354,7 +340,6 @@ class Foundations(Construct):
         raw_bucket = self.data_bucket(
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             scope.region,
             scope.account,
             "raw",
@@ -362,7 +347,6 @@ class Foundations(Construct):
         stage_bucket = self.data_bucket(
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             scope.region,
             scope.account,
             "stage",
@@ -370,13 +354,12 @@ class Foundations(Construct):
         analytics_bucket = self.data_bucket(
             p_org.value_as_string,
             p_domain.value_as_string,
-            p_environment.value_as_string,
             scope.region,
             scope.account,
             "analytics",
         )
 
-        athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{p_environment.value_as_string}-{scope.region}-{scope.account}-athena"
+        athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-athena"
         athena_bucket = s3.Bucket(
             self,
             "rAthenaBucket",
@@ -605,7 +588,6 @@ class Foundations(Construct):
             memory_size=256,
             timeout=Duration.seconds(60),
             role=lambdaexecution_role,
-            environment={"ENV": p_environment.value_as_string},
             environment_encryption=self.kms_key,
             # vpcconfig TODO
         )
@@ -647,7 +629,7 @@ class Foundations(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"octagon-ObjectMetadata-{p_environment.value_as_string}",
+            table_name=f"octagon-ObjectMetadata",
             stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=self.kms_key,
@@ -676,12 +658,12 @@ class Foundations(Construct):
             value=artifacts_bucket.bucket_name,
         )
 
-    def data_bucket(self, org, domain, environment, region, account, bucket_layer):
-        data_bucket_name = f"{org}-{domain}-{environment}-{region}-{account}-{bucket_layer}"
+    def data_bucket(self, org, domain, region, account, bucket_layer):
+        data_bucket_name = f"{org}-{domain}-{region}-{account}-{bucket_layer}"
         data_bucket = s3.Bucket(
             self,
             f"r{bucket_layer.capitalize()}Bucket",
-            bucket_name=data_bucket_name,  # TODO
+            bucket_name=data_bucket_name,  # TODO cfn version supports custom prefix
             server_access_logs_bucket=self.access_logs_bucket,
             server_access_logs_prefix=data_bucket_name,
             encryption=s3.BucketEncryption.KMS,

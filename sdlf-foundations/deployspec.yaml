@@ -16,7 +16,6 @@ deploy:
             --no-previous-parameters \
             --parameters pOrg="$SEEDFARMER_PARAMETER_ORG" \
             --parameters pDomain="$SEEDFARMER_PARAMETER_DOMAIN" \
-            --parameters pEnvironment="$SEEDFARMER_PARAMETER_ENVIRONMENT" \
             --parameters pChildAccountId="$AWS_ACCOUNT_ID"
         - seedfarmer metadata convert -f cdk-exports.json || true
 destroy:
