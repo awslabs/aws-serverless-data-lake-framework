@@ -451,36 +451,6 @@ class Dataset(Construct):
             string_value=self.datalakecrawler_role.role_arn,
         )
 
-        raw_glue_catalog = self.data_catalog(
-            scope,
-            p_org.value_as_string,
-            p_domain.value_as_string,
-            p_datasetname.value_as_string,
-            "raw",
-            p_rawbucket.value_as_string,
-            p_s3prefix.value_as_string,
-        )
-
-        stage_glue_catalog = self.data_catalog(
-            scope,
-            p_org.value_as_string,
-            p_domain.value_as_string,
-            p_datasetname.value_as_string,
-            "stage",
-            p_stagebucket.value_as_string,
-            p_s3prefix.value_as_string,
-        )
-
-        analytics_glue_catalog = self.data_catalog(
-            scope,
-            p_org.value_as_string,
-            p_domain.value_as_string,
-            p_datasetname.value_as_string,
-            "analytics",
-            p_analyticsbucket.value_as_string,
-            p_s3prefix.value_as_string,
-        )
-
         lf_tag = lakeformation.CfnTag(
             self,
             "rLakeFormationTag",
@@ -494,15 +464,38 @@ class Dataset(Construct):
             tag_key=lf_tag.tag_key,
             tag_values=[p_datasetname.value_as_string],
         )
-        lf_tag_association = lakeformation.CfnTagAssociation(
-            self,
-            "rGlueDataCatalogLakeFormationTag",
-            lf_tags=[lf_tag_pair_property],
-            resource=lakeformation.CfnTagAssociation.ResourceProperty(
-                database=lakeformation.CfnTagAssociation.DatabaseResourceProperty(
-                    catalog_id=scope.account, name=stage_glue_catalog.database_name
-                )
-            ),
+
+        self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_datasetname.value_as_string,
+            "raw",
+            p_rawbucket.value_as_string,
+            p_s3prefix.value_as_string,
+            lf_tag_pair_property,
+        )
+
+        self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_datasetname.value_as_string,
+            "stage",
+            p_stagebucket.value_as_string,
+            p_s3prefix.value_as_string,
+            lf_tag_pair_property,
+        )
+
+        self.data_catalog(
+            scope,
+            p_org.value_as_string,
+            p_domain.value_as_string,
+            p_datasetname.value_as_string,
+            "analytics",
+            p_analyticsbucket.value_as_string,
+            p_s3prefix.value_as_string,
+            lf_tag_pair_property,
         )
 
         # TODO
@@ -1100,7 +1093,7 @@ class Dataset(Construct):
             value=p_pipelinereference.value_as_string,
         )
 
-    def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix):
+    def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix, lf_tag_pair_property):
         glue_catalog_resource_name = f"r{bucket_layer.capitalize()}GlueDataCatalog"
         glue_catalog = glue_a.Database(
             self,
@@ -1115,6 +1108,17 @@ class Dataset(Construct):
             parameter_name=f"/sdlf/dataset/{glue_catalog_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=glue_catalog.database_arn,
+        )
+
+        lakeformation.CfnTagAssociation(
+            self,
+            f"{glue_catalog_resource_name}LakeFormationTag",
+            lf_tags=[lf_tag_pair_property],
+            resource=lakeformation.CfnTagAssociation.ResourceProperty(
+                database=lakeformation.CfnTagAssociation.DatabaseResourceProperty(
+                    catalog_id=scope.account, name=glue_catalog.database_name
+                )
+            ),
         )
 
         glue_crawler_resource_name = f"r{bucket_layer.capitalize()}GlueCrawler"
