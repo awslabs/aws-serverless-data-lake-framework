@@ -621,7 +621,6 @@ class Foundations(Construct):
                 type=ddb.AttributeType.STRING,
             ),
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            table_name=f"sdlf-ObjectMetadata",
             stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=self.kms_key,
