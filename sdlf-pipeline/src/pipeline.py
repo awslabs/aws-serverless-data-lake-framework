@@ -20,7 +20,7 @@ from constructs import Construct
 
 
 class Pipeline(Construct):
-    p_teamname = None
+    p_datasetname = None
     p_pipeline = None
     p_stagename = None
     p_stageenabled = None
@@ -33,21 +33,21 @@ class Pipeline(Construct):
             self,
             "rDeadLetterQueueRoutingStep",
             removal_policy=RemovalPolicy.DESTROY,
-            queue_name=f"sdlf-{self.p_teamname.value_as_string}-{self.p_pipeline.value_as_string}-dlq-{self.p_stagename.value_as_string}.fifo",
+            queue_name=f"sdlf-{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}-dlq-{self.p_stagename.value_as_string}.fifo",
             fifo=True,
             retention_period=Duration.days(14),
             visibility_timeout=Duration.seconds(60),
             encryption_master_key=kms.Key.from_key_arn(
                 self,
                 "rDeadLetterQueueRoutingStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
         )
         ssm.StringParameter(
             self,
             "rDeadLetterQueueRoutingStepSsm",
-            description=f"Name of the {self.p_stagename.value_as_string} {self.p_teamname.value_as_string} {self.p_pipeline.value_as_string} DLQ",
-            parameter_name=f"/SDLF/SQS/{self.p_teamname.value_as_string}/{self.p_pipeline.value_as_string}{self.p_stagename.value_as_string}DLQ",
+            description=f"Name of the {self.p_stagename.value_as_string} {self.p_datasetname.value_as_string} {self.p_pipeline.value_as_string} DLQ",
+            parameter_name=f"/SDLF/SQS/{self.p_datasetname.value_as_string}/{self.p_pipeline.value_as_string}{self.p_stagename.value_as_string}DLQ",
             simple_name=False,  # parameter name is a token
             string_value=routing_dlq.queue_name,
         )
@@ -56,7 +56,7 @@ class Pipeline(Construct):
             self,
             "rQueueRoutingStep",
             removal_policy=RemovalPolicy.DESTROY,
-            queue_name=f"sdlf-{self.p_teamname.value_as_string}-{self.p_pipeline.value_as_string}-queue-{self.p_stagename.value_as_string}.fifo",
+            queue_name=f"sdlf-{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}-queue-{self.p_stagename.value_as_string}.fifo",
             fifo=True,
             content_based_deduplication=True,
             retention_period=Duration.days(7),
@@ -64,7 +64,7 @@ class Pipeline(Construct):
             encryption_master_key=kms.Key.from_key_arn(
                 self,
                 "rQueueRoutingStepEncryption",
-                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_teamname.value_as_string}/InfraKeyId}}}}",
+                key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_datasetname.value_as_string}/InfraKeyId}}}}",
             ),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=1,
@@ -74,8 +74,8 @@ class Pipeline(Construct):
         ssm.StringParameter(
             self,
             "rQueueRoutingStepSsm",
-            description=f"Name of the {self.p_stagename.value_as_string} {self.p_teamname.value_as_string} {self.p_pipeline.value_as_string} Queue",
-            parameter_name=f"/SDLF/SQS/{self.p_teamname.value_as_string}/{self.p_pipeline.value_as_string}{self.p_stagename.value_as_string}Queue",
+            description=f"Name of the {self.p_stagename.value_as_string} {self.p_datasetname.value_as_string} {self.p_pipeline.value_as_string} Queue",
+            parameter_name=f"/SDLF/SQS/{self.p_datasetname.value_as_string}/{self.p_pipeline.value_as_string}{self.p_stagename.value_as_string}Queue",
             simple_name=False,  # parameter name is a token
             string_value=routing_dlq.queue_name,
         )
@@ -83,12 +83,12 @@ class Pipeline(Construct):
         stage_rule = events.Rule(
             self,
             "rStageRule",
-            rule_name=f"sdlf-{self.p_teamname.value_as_string}-{self.p_pipeline.value_as_string}-rule-{self.p_stagename.value_as_string}",
+            rule_name=f"sdlf-{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}-rule-{self.p_stagename.value_as_string}",
             description=f"Send events to {self.p_stagename.value_as_string} queue",
             event_bus=events.EventBus.from_event_bus_name(
                 self,
                 "rStageRuleEventBus",
-                f"{{{{resolve:ssm:/SDLF/EventBridge/{self.p_teamname.value_as_string}/EventBusName}}}}",
+                f"{{{{resolve:ssm:/SDLF/EventBridge/{self.p_datasetname.value_as_string}/EventBusName}}}}",
             ),
             enabled=True if self.p_stageenabled.value_as_string.lower() == "true" else False,
             #            event_pattern=json.loads(self.p_eventpattern.value_as_string),  # TODO { "source": ["aws.states"] }
@@ -96,7 +96,7 @@ class Pipeline(Construct):
             targets=[
                 targets.SqsQueue(
                     routing_queue,
-                    message_group_id=f"{self.p_teamname.value_as_string}-{self.p_pipeline.value_as_string}",
+                    message_group_id=f"{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}",
                     message=events.RuleTargetInput.from_event_path("$.detail"),
                 )
             ],
@@ -133,19 +133,19 @@ class Pipeline(Construct):
                 ),
                 iam.PolicyStatement(
                     actions=["kms:Decrypt"],
-                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{self.p_teamname.value_as_string}/InfraKeyId}}}}"],
+                    resources=[f"{{{{resolve:ssm:/SDLF/KMS/{self.p_datasetname.value_as_string}/InfraKeyId}}}}"],
                 ),
             ],
         )
         poststateschedule_role = iam.Role(
             self,
             "rPostStateScheduleRole",
-            path=f"/sdlf-{self.p_teamname.value_as_string}/",
+            path=f"/sdlf-{self.p_datasetname.value_as_string}/",
             assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
             permissions_boundary=iam.ManagedPolicy.from_managed_policy_arn(
                 self,
                 "rPostStateScheduleRolePermissionsBoundary",
-                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{self.p_teamname.value_as_string}/TeamPermissionsBoundary}}}}",
+                managed_policy_arn=f"{{{{resolve:ssm:/SDLF/IAM/{self.p_datasetname.value_as_string}/TeamPermissionsBoundary}}}}",
             ),
         )
         poststateschedule_role.attach_inline_policy(poststateschedule_role_policy)
@@ -155,7 +155,7 @@ class Pipeline(Construct):
             "InvocationType": "Event",
             "Payload": json.dumps(
                 {
-                    "team": self.p_teamname.value_as_string,
+                    "dataset": self.p_datasetname.value_as_string,
                     "pipeline": self.p_pipeline.value_as_string,
                     "pipeline_stage": self.p_stagename.value_as_string,
                     "trigger_type": self.p_triggertype.value_as_string,
@@ -169,10 +169,10 @@ class Pipeline(Construct):
         poststate_schedule = scheduler.CfnSchedule(
             self,
             "rPostStateSchedule",
-            name=f"sdlf-{self.p_teamname.value_as_string}-{self.p_pipeline.value_as_string}-schedule-rule-{self.p_stagename.value_as_string}",
+            name=f"sdlf-{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}-schedule-rule-{self.p_stagename.value_as_string}",
             description=f"Trigger {self.p_stagename.value_as_string} Routing Lambda on a specified schedule",
-            group_name=f"{{{{resolve:ssm:/SDLF/EventBridge/{self.p_teamname.value_as_string}/ScheduleGroupName}}}}",
-            kms_key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_teamname.value_as_string}/InfraKeyId}}}}",
+            group_name=f"{{{{resolve:ssm:/SDLF/EventBridge/{self.p_datasetname.value_as_string}/ScheduleGroupName}}}}",
+            kms_key_arn=f"{{{{resolve:ssm:/SDLF/KMS/{self.p_datasetname.value_as_string}/InfraKeyId}}}}",
             schedule_expression=self.p_schedule.value_as_string,
             flexible_time_window=scheduler.CfnSchedule.FlexibleTimeWindowProperty(
                 mode="OFF",
@@ -188,8 +188,8 @@ class Pipeline(Construct):
         ssm.StringParameter(
             self,
             "rPipelineStageSsm",
-            description=f"Placeholder {self.p_teamname.value_as_string} {self.p_pipeline.value_as_string} {self.p_stagename.value_as_string}",
-            parameter_name=f"/SDLF/Pipelines/{self.p_teamname.value_as_string}/{self.p_pipeline.value_as_string}/{self.p_stagename.value_as_string}",
+            description=f"Placeholder {self.p_datasetname.value_as_string} {self.p_pipeline.value_as_string} {self.p_stagename.value_as_string}",
+            parameter_name=f"/SDLF/Pipelines/{self.p_datasetname.value_as_string}/{self.p_pipeline.value_as_string}/{self.p_stagename.value_as_string}",
             simple_name=False,  # parameter name is a token
             string_value="placeholder",
         )
@@ -226,14 +226,14 @@ class Pipeline(Construct):
             self, "pEnv", description="Environment name", type="String", default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
         )
         self.p_env.override_logical_id("pEnv")
-        self.p_teamname = CfnParameter(
+        self.p_datasetname = CfnParameter(
             self,
-            "pTeamName",
-            description="Name of the team (all lowercase, no symbols or spaces)",
+            "pDatasetName",
+            description="Name of the dataset (all lowercase, no symbols or spaces)",
             type="String",
-            allowed_pattern="[a-z0-9]{2,12}",
+            allowed_pattern="[a-z0-9]{2,14}",
         )
-        self.p_teamname.override_logical_id("pTeamName")
+        self.p_datasetname.override_logical_id("pDatasetName")
         self.p_pipeline = CfnParameter(
             self,
             "pPipelineName",
