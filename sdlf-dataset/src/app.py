@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import aws_cdk as cdk
 import os
 
+import aws_cdk as cdk
 from dataset import Dataset
 
 # Project specific
