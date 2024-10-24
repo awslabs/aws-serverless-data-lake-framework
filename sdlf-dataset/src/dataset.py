@@ -117,27 +117,6 @@ class Dataset(Construct):
             default="",
         )
         p_cicdrole.override_logical_id("pCicdRole")
-        p_pipelinedetails = CfnParameter(
-            self,
-            "pPipelineDetails",
-            type="String",
-            default="""
-                {
-                    "main": {
-                    "B": {
-                        "glue_capacity": {
-                            "NumberOfWorkers": 10,
-                            "WorkerType": "G.1X"
-                        },
-                        "glue_extra_arguments": {
-                            "--enable-auto-scaling": "true"
-                        }
-                    }
-                    }
-                }
-            """,
-        )
-        p_pipelinedetails.override_logical_id("pPipelineDetails")
 
         ######## KMS #########
         infra_kms_key_policy = iam.PolicyDocument(
@@ -1104,27 +1083,12 @@ class Dataset(Construct):
             string_value=manifests_table.table_name,
         )
 
-        ssm.StringParameter(
-            self,
-            "rDatasetSsm",
-            description=f"Placeholder {p_datasetname.value_as_string}",
-            parameter_name=f"/SDLF/Datasets/{p_datasetname.value_as_string}",
-            simple_name=False,  # parameter name is a token
-            string_value=p_pipelinedetails.value_as_string,  # bit of a hack for datasets lambda
-        )
-
         # CloudFormation Outputs TODO
         CfnOutput(
             self,
             "oPipelineReference",
             description="CodePipeline reference this stack has been deployed with",
             value=p_pipelinereference.value_as_string,
-        )
-        CfnOutput(
-            self,
-            "oPipelineTransforms",
-            description="Transforms to put in DynamoDB",
-            value=p_pipelinedetails.value_as_string,
         )
 
     def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix):
