@@ -13,7 +13,7 @@ session_config = Config(user_agent_extra="awssdlf/2.7.0-alpha.0")
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 dynamodb = boto3.client("dynamodb")
-catalog_table = f"octagon-ObjectMetadata-{os.environ['ENV']}"
+catalog_table = f"octagon-ObjectMetadata"
 
 
 def parse_s3_event(s3_event):
