@@ -43,7 +43,7 @@ class Dataset(Construct):
             "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
+            default="{{resolve:ssm:/sdlf/storage/pOrg:1}}",
         )
         p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
@@ -51,7 +51,7 @@ class Dataset(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
+            default="{{resolve:ssm:/sdlf/storage/pDomain:1}}",
         )
         p_domain.override_logical_id("pDomain")
         p_rawbucket = CfnParameter(
@@ -59,7 +59,7 @@ class Dataset(Construct):
             "pRawBucket",
             description="The raw bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rRawBucket:1}}",
         )
         p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
@@ -67,7 +67,7 @@ class Dataset(Construct):
             "pStageBucket",
             description="The stage bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rStageBucket:1}}",
         )
         p_stagebucket.override_logical_id("pStageBucket")
         p_analyticsbucket = CfnParameter(
@@ -75,7 +75,7 @@ class Dataset(Construct):
             "pAnalyticsBucket",
             description="The analytics bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rAnalyticsBucket:1}}",
         )
         p_analyticsbucket.override_logical_id("pAnalyticsBucket")
         p_artifactsbucket = CfnParameter(
@@ -83,14 +83,14 @@ class Dataset(Construct):
             "pArtifactsBucket",
             description="The artifacts bucket  used by CodeBuild and CodePipeline",
             type="String",
-            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rArtifactsBucket:1}}",
         )
         p_artifactsbucket.override_logical_id("pArtifactsBucket")
         p_lakeformationdataaccessrole = CfnParameter(
             self,
             "pLakeFormationDataAccessRole",
             type="String",
-            default="{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rLakeFormationDataAccessRoleArn:1}}",
         )
         p_lakeformationdataaccessrole.override_logical_id("pLakeFormationDataAccessRole")
         p_datasetname = CfnParameter(
@@ -170,9 +170,10 @@ class Dataset(Construct):
             ]
         )
 
+        infra_kms_key_resource_name = "rKMSInfraKey"
         infra_kms_key = kms.Key(
             self,
-            "rKMSInfraKey",
+            infra_kms_key_resource_name,
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_datasetname.value_as_string} Infrastructure KMS Key",
             enable_key_rotation=True,
@@ -184,9 +185,9 @@ class Dataset(Construct):
 
         ssm.StringParameter(
             self,
-            "rKMSInfraKeySsm",
+            f"{infra_kms_key_resource_name}Ssm",
             description=f"Arn of the {p_datasetname.value_as_string} KMS infrastructure key",
-            parameter_name=f"/SDLF/KMS/{p_datasetname.value_as_string}/InfraKeyId",
+            parameter_name=f"/sdlf/dataset/{infra_kms_key_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=infra_kms_key.key_arn,
         )
@@ -216,9 +217,10 @@ class Dataset(Construct):
             self, "IsS3Prefix", expression=Fn.condition_not(Fn.condition_equals(p_s3prefix.value_as_string, ""))
         )
 
+        data_kms_key_resource_name = "rKMSDataKey"
         data_kms_key = kms.Key(
             self,
-            "rKMSDataKey",
+            data_kms_key_resource_name,
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description=f"SDLF {p_datasetname.value_as_string} Data KMS Key",
             enable_key_rotation=True,
@@ -231,17 +233,18 @@ class Dataset(Construct):
 
         ssm.StringParameter(
             self,
-            "rKMSDataKeySsm",
+            f"{data_kms_key_resource_name}Ssm",
             description=f"Arn of the {p_datasetname.value_as_string} KMS data key",
-            parameter_name=f"/SDLF/KMS/{p_datasetname.value_as_string}/DataKeyId",
+            parameter_name=f"/sdlf/dataset/{data_kms_key_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=data_kms_key.key_arn,
         ).node.default_child.cfn_options.condition = s3_prefix_condition
 
         ######## GLUE #########
+        glue_security_configuration_resource_name = "rGlueSecurityConfiguration"
         self.glue_security_configuration = glue_a.SecurityConfiguration(
             self,
-            "rGlueSecurityConfiguration",
+            glue_security_configuration_resource_name,
             security_configuration_name=f"sdlf-{p_datasetname.value_as_string}-glue-security-config",
             cloud_watch_encryption=glue_a.CloudWatchEncryption(
                 mode=glue_a.CloudWatchEncryptionMode.KMS, kms_key=infra_kms_key
@@ -255,9 +258,9 @@ class Dataset(Construct):
         )
         ssm.StringParameter(
             self,
-            "rGlueSecurityConfigurationSsm",
+            f"{glue_security_configuration_resource_name}Ssm",
             description=f"Name of the {p_datasetname.value_as_string} Glue security configuration",
-            parameter_name=f"/SDLF/Glue/{p_datasetname.value_as_string}/SecurityConfigurationId",
+            parameter_name=f"/sdlf/dataset/{glue_security_configuration_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=self.glue_security_configuration.security_configuration_name,
         )
@@ -400,7 +403,7 @@ class Dataset(Construct):
                         "kms:GenerateDataKey*",
                         "kms:CreateGrant",
                     ],
-                    resources=[infra_kms_key.key_arn, data_kms_key.key_arn, "{{resolve:ssm:/SDLF/KMS/KeyArn}}"],
+                    resources=[infra_kms_key.key_arn, data_kms_key.key_arn, "{{resolve:ssm:/sdlf/storage/rKMSKey}}"],
                 ),
                 iam.PolicyStatement(
                     actions=[
@@ -427,9 +430,10 @@ class Dataset(Construct):
             ],
         )
 
+        datalakecrawler_role_resource_name = "rDatalakeCrawlerRole"
         self.datalakecrawler_role = iam.Role(
             self,
-            "rDatalakeCrawlerRole",
+            datalakecrawler_role_resource_name,
             path=f"/sdlf-{p_datasetname.value_as_string}/",
             assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
             managed_policies=[
@@ -440,9 +444,9 @@ class Dataset(Construct):
 
         ssm.StringParameter(
             self,
-            "rDatalakeCrawlerRoleArnSsm",
+            f"{datalakecrawler_role_resource_name}ArnSsm",
             description="The ARN of the Crawler role",
-            parameter_name=f"/SDLF/IAM/{p_datasetname.value_as_string}/CrawlerRoleArn",
+            parameter_name=f"/sdlf/dataset/{datalakecrawler_role_resource_name}Arn",
             simple_name=False,  # parameter name is a token
             string_value=self.datalakecrawler_role.role_arn,
         )
@@ -552,26 +556,28 @@ class Dataset(Construct):
         # )
 
         ######## EVENTBRIDGE #########
-        bus = events.EventBus(self, "rEventBus", event_bus_name=f"sdlf-{p_datasetname.value_as_string}")
+        bus_resource_name = "rEventBus"
+        bus = events.EventBus(self, bus_resource_name, event_bus_name=f"sdlf-{p_datasetname.value_as_string}")
         ssm.StringParameter(
             self,
-            "rEventBusSsm",
+            f"{bus_resource_name}Ssm",
             description=f"Name of the {p_datasetname.value_as_string} event bus",
-            parameter_name=f"/SDLF/EventBridge/{p_datasetname.value_as_string}/EventBusName",
+            parameter_name=f"/sdlf/dataset/{bus_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=bus.event_bus_name,
         )
 
+        schedule_group_resource_name = "rScheduleGroup"
         schedule_group = scheduler.CfnScheduleGroup(
             self,
-            "rScheduleGroup",
+            schedule_group_resource_name,
             name=f"sdlf-{p_datasetname.value_as_string}",
         )
         ssm.StringParameter(
             self,
-            "rScheduleGroupSsm",
+            f"{schedule_group_resource_name}Ssm",
             description=f"Name of the {p_datasetname.value_as_string} schedule group",
-            parameter_name=f"/SDLF/EventBridge/{p_datasetname.value_as_string}/ScheduleGroupName",
+            parameter_name=f"/sdlf/dataset/{schedule_group_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=schedule_group.name,
         )
@@ -599,9 +605,10 @@ class Dataset(Construct):
         )
 
         ######## IAM #########
+        permissions_boundary_resource_name = "rIamManagedPolicy"
         permissions_boundary = iam.ManagedPolicy(
             self,
-            "rIamManagedPolicy",
+            permissions_boundary_resource_name,
             description="Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role",
             path=f"/sdlf/{p_datasetname.value_as_string}/",  # keep this path for the dataset's permissions boundary policy only
             statements=[
@@ -706,7 +713,7 @@ class Dataset(Construct):
                         "kms:GenerateDataKey*",
                         "kms:ReEncrypt*",
                     ],
-                    resources=["{{resolve:ssm:/SDLF/KMS/KeyArn}}", infra_kms_key.key_arn, data_kms_key.key_arn],
+                    resources=["{{resolve:ssm:/sdlf/storage/rKMSKey}}", infra_kms_key.key_arn, data_kms_key.key_arn],
                 ),
                 iam.PolicyStatement(
                     actions=["ssm:GetParameter", "ssm:GetParameters"],
@@ -715,7 +722,7 @@ class Dataset(Construct):
                             service="ssm",
                             resource="parameter",
                             arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="/SDLF/*",
+                            resource_name="/sdlf/*",
                         ),
                     ],
                 ),
@@ -940,16 +947,17 @@ class Dataset(Construct):
         )
         ssm.StringParameter(
             self,
-            "rIamManagedPolicySsm",
+            f"{permissions_boundary_resource_name}Ssm",
             description="The permissions boundary IAM Managed policy for the team",
-            parameter_name=f"/SDLF/IAM/{p_datasetname.value_as_string}/TeamPermissionsBoundary",
+            parameter_name=f"/sdlf/dataset/{permissions_boundary_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=permissions_boundary.managed_policy_arn,
         )
 
+        peh_table_resource_name = "rDynamoPipelineExecutionHistory"
         peh_table = ddb.Table(
             self,
-            "rDynamoPipelineExecutionHistory",
+            peh_table_resource_name,
             removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
@@ -1048,16 +1056,17 @@ class Dataset(Construct):
         )
         ssm.StringParameter(
             self,
-            "rDynamoPipelineExecutionHistorySsm",
+            f"{peh_table_resource_name}Ssm",
             description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name=f"/SDLF/Dynamo/{p_datasetname.value_as_string}/PipelineExecutionHistory",
+            parameter_name=f"/sdlf/dataset/{peh_table_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=peh_table.table_name,
         )
 
+        manifests_table_resource_name = "rDynamoManifests"
         manifests_table = ddb.Table(
             self,
-            "rDynamoManifests",
+            manifests_table_resource_name,
             removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="dataset_name",
@@ -1076,9 +1085,9 @@ class Dataset(Construct):
         )
         ssm.StringParameter(
             self,
-            "rDynamoManifestsSsm",
+            f"{manifests_table_resource_name}Ssm",
             description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name=f"/SDLF/Dynamo/{p_datasetname.value_as_string}/Manifests",
+            parameter_name=f"/sdlf/dataset/{manifests_table_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=manifests_table.table_name,
         )
@@ -1092,24 +1101,26 @@ class Dataset(Construct):
         )
 
     def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix):
+        glue_catalog_resource_name = f"r{bucket_layer.capitalize()}GlueDataCatalog"
         glue_catalog = glue_a.Database(
             self,
-            f"r{bucket_layer.capitalize()}GlueDataCatalog",
+            glue_catalog_resource_name,
             database_name=f"{org}_{domain}_{dataset}_{bucket_layer}",
             description=f"{dataset} {bucket_layer} metadata catalog",
         )
         ssm.StringParameter(
             self,
-            f"r{bucket_layer.capitalize()}GlueDataCatalogSsm",
+            f"{glue_catalog_resource_name}Ssm",
             description=f"{dataset} {bucket_layer} metadata catalog",
-            parameter_name=f"/SDLF/Glue/{dataset}/{bucket_layer.capitalize()}DataCatalog",
+            parameter_name=f"/sdlf/dataset/{glue_catalog_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=glue_catalog.database_arn,
         )
 
+        glue_crawler_resource_name = f"r{bucket_layer.capitalize()}GlueCrawler"
         glue_crawler = glue.CfnCrawler(
             self,
-            f"r{bucket_layer.capitalize()}GlueCrawler",
+            glue_crawler_resource_name,
             name=f"sdlf-{dataset}-{bucket_layer}-crawler",
             role=self.datalakecrawler_role.role_arn,
             crawler_security_configuration=self.glue_security_configuration.security_configuration_name,
@@ -1125,21 +1136,19 @@ class Dataset(Construct):
 
         lakeformation.CfnPermissions(
             self,
-            f"r{bucket_layer.capitalize()}GlueCrawlerLakeFormationPermissions",
+            f"{glue_crawler_resource_name}GlueLakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=self.datalakecrawler_role.role_arn,
             ),
             resource=lakeformation.CfnPermissions.ResourceProperty(
-                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
-                    name=glue_catalog.database_name
-                )
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(name=glue_catalog.database_name)
             ),
             permissions=["CREATE_TABLE", "ALTER", "DROP"],
         )
 
         lakeformation.CfnPermissions(
             self,
-            f"r{bucket_layer.capitalize()}LakeFormationPermissions",
+            f"{glue_crawler_resource_name}S3LakeFormationPermissions",
             data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
                 data_lake_principal_identifier=self.datalakecrawler_role.role_arn
             ),
@@ -1159,9 +1168,9 @@ class Dataset(Construct):
 
         ssm.StringParameter(
             self,
-            f"r{bucket_layer.capitalize()}GlueCrawlerSsm",
+            f"{glue_crawler_resource_name}Ssm",
             description=f"{dataset} {bucket_layer.capitalize()} Glue crawler",
-            parameter_name=f"/SDLF/Glue/{dataset}/{bucket_layer.capitalize()}GlueCrawler",
+            parameter_name=f"/sdlf/dataset/{glue_crawler_resource_name}",
             simple_name=False,  # parameter name is a token
             string_value=glue_crawler.name,
         )
