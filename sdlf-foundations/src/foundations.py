@@ -76,14 +76,14 @@ class Foundations(Construct):
             self,
             "rOrganizationSsm",
             description="Name of the Organization owning the datalake",
-            parameter_name="/SDLF/Misc/pOrg",
+            parameter_name="/sdlf/storage/pOrg",
             string_value=p_org.value_as_string,
         )
         ssm.StringParameter(
             self,
             "rDomainSsm",
             description="Data domain name",
-            parameter_name="/SDLF/Misc/pDomain",
+            parameter_name="/sdlf/storage/pDomain",
             string_value=p_domain.value_as_string,
         )
 
@@ -121,9 +121,10 @@ class Foundations(Construct):
             ],
         )
 
+        lakeformationdataaccess_role_resource_name = "rLakeFormationDataAccessRole"
         self.lakeformationdataaccess_role = iam.Role(
             self,
-            "rLakeFormationDataAccessRole",
+            lakeformationdataaccess_role_resource_name,
             assumed_by=iam.CompositePrincipal(
                 iam.ServicePrincipal("lakeformation.amazonaws.com"),
                 iam.ServicePrincipal("glue.amazonaws.com"),
@@ -133,16 +134,16 @@ class Foundations(Construct):
 
         ssm.StringParameter(
             self,
-            "rLakeFormationDataAccessRoleSsm",
+            f"{lakeformationdataaccess_role_resource_name}ArnSsm",
             description="Lake Formation Data Access Role",
-            parameter_name="/SDLF/IAM/LakeFormationDataAccessRoleArn",
+            parameter_name=f"/sdlf/storage/{lakeformationdataaccess_role_resource_name}Arn",
             string_value=self.lakeformationdataaccess_role.role_arn,
         )
         ssm.StringParameter(
             self,
-            "rLakeFormationDataAccessRoleNameSsm",
+            f"{lakeformationdataaccess_role_resource_name}Ssm",
             description="Lake Formation Data Access Role",
-            parameter_name="/SDLF/IAM/LakeFormationDataAccessRole",
+            parameter_name=f"/sdlf/storage/{lakeformationdataaccess_role_resource_name}",
             string_value=self.lakeformationdataaccess_role.role_name,
         )
 
@@ -258,9 +259,10 @@ class Foundations(Construct):
             ]
         )
 
+        kms_key_resource_name = "rKMSKey"
         self.kms_key = kms.Key(
             self,
-            "rKMSKey",
+            kms_key_resource_name,
             removal_policy=RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
             description="SDLF Foundations KMS Key",
             enable_key_rotation=True,
@@ -270,18 +272,19 @@ class Foundations(Construct):
 
         ssm.StringParameter(
             self,
-            "rKMSKeySsm",
+            f"{kms_key_resource_name}Ssm",
             description="ARN of the KMS key",
-            parameter_name="/SDLF/KMS/KeyArn",
+            parameter_name=f"/sdlf/storage/{kms_key_resource_name}",
             string_value=self.kms_key.key_arn,
         )
 
         ######## S3 #########
         ####### Access Logging Bucket ######
         access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-s3logs"
+        access_logs_bucket_resource_name = "rS3AccessLogsBucket"
         self.access_logs_bucket = s3.Bucket(
             self,
-            "rS3AccessLogsBucket",
+            access_logs_bucket_resource_name,
             bucket_name=access_logs_bucket_name,  # TODO
             lifecycle_rules=[
                 s3.LifecycleRule(
@@ -310,16 +313,17 @@ class Foundations(Construct):
         )
         ssm.StringParameter(
             self,
-            "rS3AccessLogsBucketSsm",
+            f"{access_logs_bucket_resource_name}Ssm",
             description="S3 Access Logs Bucket",
-            parameter_name="/SDLF/S3/AccessLogsBucket",
+            parameter_name=f"/sdlf/storage/{access_logs_bucket_resource_name}",
             string_value=self.access_logs_bucket.bucket_name,
         )
 
         artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-artifacts"
+        artifacts_bucket_resource_name = "rArtifactsBucket"
         artifacts_bucket = s3.Bucket(
             self,
-            "rArtifactsBucket",
+            artifacts_bucket_resource_name,
             bucket_name=artifacts_bucket_name,  # TODO
             server_access_logs_bucket=self.access_logs_bucket,  # automatically add policy statement to access logs bucket policy
             server_access_logs_prefix=artifacts_bucket_name,
@@ -331,9 +335,9 @@ class Foundations(Construct):
         )
         ssm.StringParameter(
             self,
-            "rS3ArtifactBucketSsm",
+            f"{artifacts_bucket_resource_name}Ssm",
             description="Name of the Artifacts S3 bucket",
-            parameter_name="/SDLF/S3/ArtifactsBucket",
+            parameter_name=f"/sdlf/storage/{artifacts_bucket_resource_name}",
             string_value=artifacts_bucket.bucket_name,
         )
 
@@ -360,9 +364,10 @@ class Foundations(Construct):
         )
 
         athena_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-athena"
+        athena_bucket_resource_name = "rAthenaBucket"
         athena_bucket = s3.Bucket(
             self,
-            "rAthenaBucket",
+            athena_bucket_resource_name,
             bucket_name=athena_bucket_name,  # TODO
             server_access_logs_bucket=self.access_logs_bucket,
             server_access_logs_prefix=athena_bucket_name,
@@ -376,9 +381,9 @@ class Foundations(Construct):
         )
         ssm.StringParameter(
             self,
-            "rS3AthenaBucketSsm",
+            f"{athena_bucket_resource_name}Ssm",
             description="Name of the Athena results S3 bucket",
-            parameter_name="/SDLF/S3/AthenaBucket",
+            parameter_name=f"/sdlf/storage/{athena_bucket_resource_name}",
             string_value=athena_bucket.bucket_name,
         )
 
@@ -553,20 +558,6 @@ class Foundations(Construct):
                     ],
                     resources=[self.kms_key.key_arn],
                 ),
-                iam.PolicyStatement(
-                    actions=[
-                        "ssm:GetParameter",
-                        "ssm:GetParameters",
-                    ],
-                    resources=[
-                        scope.format_arn(
-                            service="ssm",
-                            resource="parameter",
-                            arn_format=ArnFormat.SLASH_RESOURCE_NAME,
-                            resource_name="/SDLF/EventBridge/*",
-                        ),
-                    ],
-                ),
             ],
         )
 
@@ -620,9 +611,10 @@ class Foundations(Construct):
         catalog_function.add_event_source(eventsources.SqsEventSource(catalog_queue, batch_size=10))
 
         ######## DYNAMODB #########
+        objectmetadata_table_resource_name = "rDynamoObjectMetadata"
         objectmetadata_table = ddb.Table(
             self,
-            "rDynamoObjectMetadata",
+            objectmetadata_table_resource_name,
             removal_policy=RemovalPolicy.DESTROY,
             partition_key=ddb.Attribute(
                 name="id",
@@ -637,9 +629,9 @@ class Foundations(Construct):
         )
         ssm.StringParameter(
             self,
-            "rDynamoObjectMetadataSsm",
+            f"{objectmetadata_table_resource_name}Ssm",
             description="Name of the DynamoDB used to store metadata",
-            parameter_name="/SDLF/Dynamo/ObjectCatalog",
+            parameter_name=f"/sdlf/storage/{objectmetadata_table_resource_name}",
             string_value=objectmetadata_table.table_name,
         )
 
@@ -660,9 +652,10 @@ class Foundations(Construct):
 
     def data_bucket(self, org, domain, region, account, bucket_layer):
         data_bucket_name = f"{org}-{domain}-{region}-{account}-{bucket_layer}"
+        data_bucket_resource_name = f"r{bucket_layer.capitalize()}Bucket"
         data_bucket = s3.Bucket(
             self,
-            f"r{bucket_layer.capitalize()}Bucket",
+            data_bucket_resource_name,
             bucket_name=data_bucket_name,  # TODO cfn version supports custom prefix
             server_access_logs_bucket=self.access_logs_bucket,
             server_access_logs_prefix=data_bucket_name,
@@ -676,16 +669,16 @@ class Foundations(Construct):
         )
         lakeformation.CfnResource(
             self,
-            f"r{bucket_layer.capitalize()}BucketLakeFormationS3Registration",
+            f"{data_bucket_resource_name}LakeFormationS3Registration",
             resource_arn=f"{data_bucket.bucket_arn}/",  # the trailing slash is important to Lake Formation somehow
             use_service_linked_role=False,
             role_arn=self.lakeformationdataaccess_role.role_arn,
         )
         ssm.StringParameter(
             self,
-            f"rS3{bucket_layer.capitalize()}BucketSsm",
+            f"{data_bucket_resource_name}Ssm",
             description=f"Name of the {bucket_layer.capitalize()} S3 bucket",
-            parameter_name=f"/SDLF/S3/{bucket_layer.capitalize()}Bucket",
+            parameter_name=f"/sdlf/storage/{data_bucket_resource_name}",
             string_value=data_bucket.bucket_name,
         )
 
