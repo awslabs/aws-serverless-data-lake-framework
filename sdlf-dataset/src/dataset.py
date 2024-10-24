@@ -265,9 +265,10 @@ class Dataset(Construct):
             string_value=self.glue_security_configuration.security_configuration_name,
         )
 
+        emr_security_configuration_resource_name = "rEMRSecurityConfiguration"
         emr_security_configuration = emr.CfnSecurityConfiguration(
             self,
-            "rEMRSecurityConfiguration",
+            emr_security_configuration_resource_name,
             name=f"sdlf-{p_datasetname.value_as_string}-emr-security-config",
             security_configuration=json.dumps(
                 {
@@ -292,6 +293,15 @@ class Dataset(Construct):
                     },
                 }
             ),
+        )
+
+        ssm.StringParameter(
+            self,
+            f"{emr_security_configuration_resource_name}Ssm",
+            description=f"Name of the {p_datasetname.value_as_string} EMR security configuration",
+            parameter_name=f"/sdlf/dataset/{emr_security_configuration_resource_name}",
+            simple_name=False,  # parameter name is a token
+            string_value=emr_security_configuration.name,
         )
 
         datalakecrawler_role_policy = iam.Policy(
