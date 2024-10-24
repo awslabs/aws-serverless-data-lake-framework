@@ -432,6 +432,30 @@ class Foundations(Construct):
         )
         self.lakeformationdataaccess_role.attach_inline_policy(s3_lakeformationdataaccess_role_policy)
 
+        ######## DYNAMODB #########
+        objectmetadata_table_resource_name = "rDynamoObjectMetadata"
+        objectmetadata_table = ddb.Table(
+            self,
+            objectmetadata_table_resource_name,
+            removal_policy=RemovalPolicy.DESTROY,
+            partition_key=ddb.Attribute(
+                name="id",
+                type=ddb.AttributeType.STRING,
+            ),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
+            encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=self.kms_key,
+            point_in_time_recovery=True,
+        )
+        ssm.StringParameter(
+            self,
+            f"{objectmetadata_table_resource_name}Ssm",
+            description="Name of the DynamoDB used to store metadata",
+            parameter_name=f"/sdlf/storage/{objectmetadata_table_resource_name}",
+            string_value=objectmetadata_table.table_name,
+        )
+
         ######## Lambda & SQS #########
         catalog_dlq = sqs.Queue(
             self,
@@ -579,6 +603,7 @@ class Foundations(Construct):
             memory_size=256,
             timeout=Duration.seconds(60),
             role=lambdaexecution_role,
+            environment={"OBJECTMETADATA_TABLE": objectmetadata_table.table_name},
             environment_encryption=self.kms_key,
             # vpcconfig TODO
         )
@@ -609,30 +634,6 @@ class Foundations(Construct):
         )
 
         catalog_function.add_event_source(eventsources.SqsEventSource(catalog_queue, batch_size=10))
-
-        ######## DYNAMODB #########
-        objectmetadata_table_resource_name = "rDynamoObjectMetadata"
-        objectmetadata_table = ddb.Table(
-            self,
-            objectmetadata_table_resource_name,
-            removal_policy=RemovalPolicy.DESTROY,
-            partition_key=ddb.Attribute(
-                name="id",
-                type=ddb.AttributeType.STRING,
-            ),
-            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
-            stream=ddb.StreamViewType.NEW_AND_OLD_IMAGES,
-            encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
-            encryption_key=self.kms_key,
-            point_in_time_recovery=True,
-        )
-        ssm.StringParameter(
-            self,
-            f"{objectmetadata_table_resource_name}Ssm",
-            description="Name of the DynamoDB used to store metadata",
-            parameter_name=f"/sdlf/storage/{objectmetadata_table_resource_name}",
-            string_value=objectmetadata_table.table_name,
-        )
 
         # CloudFormation Outputs TODO
         CfnOutput(
