@@ -8,14 +8,15 @@ from aws_cdk import (
     CfnParameter,
     Duration,
     RemovalPolicy,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_lambda as _lambda,
-    aws_logs as logs,
-    aws_ssm as ssm,
-    aws_stepfunctions as sfn,
 )
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_kms as kms
+from aws_cdk import aws_lambda as _lambda
+from aws_cdk import aws_logs as logs
+from aws_cdk import aws_ssm as ssm
+from aws_cdk import aws_stepfunctions as sfn
 from constructs import Construct
+
 from sdlf import pipeline
 
 
