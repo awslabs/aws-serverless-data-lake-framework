@@ -280,7 +280,9 @@ class Foundations(Construct):
 
         ######## S3 #########
         ####### Access Logging Bucket ######
-        access_logs_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-s3logs"
+        access_logs_bucket_name = (
+            f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-s3logs"
+        )
         access_logs_bucket_resource_name = "rS3AccessLogsBucket"
         self.access_logs_bucket = s3.Bucket(
             self,
@@ -319,7 +321,9 @@ class Foundations(Construct):
             string_value=self.access_logs_bucket.bucket_name,
         )
 
-        artifacts_bucket_name = f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-artifacts"
+        artifacts_bucket_name = (
+            f"{p_org.value_as_string}-{p_domain.value_as_string}-{scope.region}-{scope.account}-artifacts"
+        )
         artifacts_bucket_resource_name = "rArtifactsBucket"
         artifacts_bucket = s3.Bucket(
             self,
