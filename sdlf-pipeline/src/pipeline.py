@@ -4,18 +4,18 @@
 import json
 
 from aws_cdk import (
-    Duration,
-    CfnParameter,
     CfnOutput,
+    CfnParameter,
+    Duration,
     RemovalPolicy,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_scheduler as scheduler,
-    aws_sqs as sqs,
-    aws_ssm as ssm,
 )
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_kms as kms
+from aws_cdk import aws_scheduler as scheduler
+from aws_cdk import aws_sqs as sqs
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
@@ -166,7 +166,7 @@ class Pipeline(Construct):
                 }
             ),
         }
-        poststate_schedule = scheduler.CfnSchedule(
+        scheduler.CfnSchedule(
             self,
             "rPostStateSchedule",
             name=f"sdlf-{self.p_datasetname.value_as_string}-{self.p_pipeline.value_as_string}-schedule-rule-{self.p_stagename.value_as_string}",
