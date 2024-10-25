@@ -26,6 +26,8 @@ from constructs import Construct
 
 
 class Foundations(Construct):
+    external_interface = {}
+
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
@@ -72,20 +74,8 @@ class Foundations(Construct):
         #     default=30,
         # )
 
-        ssm.StringParameter(
-            self,
-            "rOrganizationSsm",
-            description="Name of the Organization owning the datalake",
-            parameter_name="/sdlf/storage/pOrg",
-            string_value=p_org.value_as_string,
-        )
-        ssm.StringParameter(
-            self,
-            "rDomainSsm",
-            description="Data domain name",
-            parameter_name="/sdlf/storage/pDomain",
-            string_value=p_domain.value_as_string,
-        )
+        self._external_interface("rOrganization", "Name of the Organization owning the datalake", p_org.value_as_string)
+        self._external_interface("rDomain", "Data domain name", p_domain.value_as_string)
 
         ######## LAKE FORMATION #########
         lakeformation.CfnDataLakeSettings(
@@ -132,19 +122,15 @@ class Foundations(Construct):
         )
         self.lakeformationdataaccess_role.attach_inline_policy(lakeformationdataaccess_role_policy)
 
-        ssm.StringParameter(
-            self,
-            f"{lakeformationdataaccess_role_resource_name}ArnSsm",
-            description="Lake Formation Data Access Role",
-            parameter_name=f"/sdlf/storage/{lakeformationdataaccess_role_resource_name}Arn",
-            string_value=self.lakeformationdataaccess_role.role_arn,
+        self._external_interface(
+            f"{lakeformationdataaccess_role_resource_name}Arn",
+            "Lake Formation Data Access Role",
+            self.lakeformationdataaccess_role.role_arn,
         )
-        ssm.StringParameter(
-            self,
-            f"{lakeformationdataaccess_role_resource_name}Ssm",
-            description="Lake Formation Data Access Role",
-            parameter_name=f"/sdlf/storage/{lakeformationdataaccess_role_resource_name}",
-            string_value=self.lakeformationdataaccess_role.role_name,
+        self._external_interface(
+            lakeformationdataaccess_role_resource_name,
+            "Lake Formation Data Access Role",
+            self.lakeformationdataaccess_role.role_name,
         )
 
         ######## KMS #########
@@ -270,13 +256,7 @@ class Foundations(Construct):
         )
         self.kms_key.add_alias("alias/sdlf-kms-key").apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
 
-        ssm.StringParameter(
-            self,
-            f"{kms_key_resource_name}Ssm",
-            description="ARN of the KMS key",
-            parameter_name=f"/sdlf/storage/{kms_key_resource_name}",
-            string_value=self.kms_key.key_arn,
-        )
+        self._external_interface(kms_key_resource_name, "ARN of the KMS key", self.kms_key.key_arn)
 
         ######## S3 #########
         ####### Access Logging Bucket ######
@@ -313,12 +293,9 @@ class Foundations(Construct):
             bucket_key_enabled=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         )
-        ssm.StringParameter(
-            self,
-            f"{access_logs_bucket_resource_name}Ssm",
-            description="S3 Access Logs Bucket",
-            parameter_name=f"/sdlf/storage/{access_logs_bucket_resource_name}",
-            string_value=self.access_logs_bucket.bucket_name,
+
+        self._external_interface(
+            access_logs_bucket_resource_name, "S3 Access Logs Bucket", self.access_logs_bucket.bucket_name
         )
 
         artifacts_bucket_name = (
@@ -337,12 +314,8 @@ class Foundations(Construct):
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             enforce_ssl=True,
         )
-        ssm.StringParameter(
-            self,
-            f"{artifacts_bucket_resource_name}Ssm",
-            description="Name of the Artifacts S3 bucket",
-            parameter_name=f"/sdlf/storage/{artifacts_bucket_resource_name}",
-            string_value=artifacts_bucket.bucket_name,
+        self._external_interface(
+            artifacts_bucket_resource_name, "Name of the Artifacts S3 bucket", artifacts_bucket.bucket_name
         )
 
         raw_bucket = self.data_bucket(
@@ -383,12 +356,8 @@ class Foundations(Construct):
             versioned=True,
             event_bridge_enabled=True,
         )
-        ssm.StringParameter(
-            self,
-            f"{athena_bucket_resource_name}Ssm",
-            description="Name of the Athena results S3 bucket",
-            parameter_name=f"/sdlf/storage/{athena_bucket_resource_name}",
-            string_value=athena_bucket.bucket_name,
+        self._external_interface(
+            athena_bucket_resource_name, "Name of the Athena results S3 bucket", athena_bucket.bucket_name
         )
 
         s3_lakeformationdataaccess_role_policy = iam.Policy(
@@ -452,12 +421,10 @@ class Foundations(Construct):
             encryption_key=self.kms_key,
             point_in_time_recovery=True,
         )
-        ssm.StringParameter(
-            self,
-            f"{objectmetadata_table_resource_name}Ssm",
-            description="Name of the DynamoDB used to store metadata",
-            parameter_name=f"/sdlf/storage/{objectmetadata_table_resource_name}",
-            string_value=objectmetadata_table.table_name,
+        self._external_interface(
+            objectmetadata_table_resource_name,
+            "Name of the DynamoDB used to store metadata",
+            objectmetadata_table.table_name,
         )
 
         ######## Lambda & SQS #########
@@ -654,6 +621,16 @@ class Foundations(Construct):
             value=artifacts_bucket.bucket_name,
         )
 
+    def _external_interface(self, resource_name, description, value):
+        ssm.StringParameter(
+            self,
+            f"{resource_name}Ssm",
+            description=description,
+            parameter_name=f"/sdlf/storage/{resource_name}",
+            string_value=value,
+        )
+        self.external_interface[resource_name] = value
+
     def data_bucket(self, org, domain, region, account, bucket_layer):
         data_bucket_name = f"{org}-{domain}-{region}-{account}-{bucket_layer}"
         data_bucket_resource_name = f"r{bucket_layer.capitalize()}Bucket"
@@ -678,12 +655,8 @@ class Foundations(Construct):
             use_service_linked_role=False,
             role_arn=self.lakeformationdataaccess_role.role_arn,
         )
-        ssm.StringParameter(
-            self,
-            f"{data_bucket_resource_name}Ssm",
-            description=f"Name of the {bucket_layer.capitalize()} S3 bucket",
-            parameter_name=f"/sdlf/storage/{data_bucket_resource_name}",
-            string_value=data_bucket.bucket_name,
+        self._external_interface(
+            data_bucket_resource_name, f"Name of the {bucket_layer.capitalize()} S3 bucket", data_bucket.bucket_name
         )
 
         return data_bucket
