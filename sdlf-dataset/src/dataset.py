@@ -26,6 +26,8 @@ from constructs import Construct
 
 
 class Dataset(Construct):
+    external_interface = {}
+
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
@@ -183,13 +185,10 @@ class Dataset(Construct):
             RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
         )
 
-        ssm.StringParameter(
-            self,
-            f"{infra_kms_key_resource_name}Ssm",
-            description=f"Arn of the {p_datasetname.value_as_string} KMS infrastructure key",
-            parameter_name=f"/sdlf/dataset/{infra_kms_key_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=infra_kms_key.key_arn,
+        self._external_interface(
+            infra_kms_key_resource_name,
+            f"Arn of the {p_datasetname.value_as_string} KMS infrastructure key",
+            infra_kms_key.key_arn,
         )
 
         data_kms_key_policy = iam.PolicyDocument(
@@ -231,6 +230,11 @@ class Dataset(Construct):
         data_kms_key_alias.apply_removal_policy(RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE)
         data_kms_key_alias.node.default_child.cfn_options.condition = s3_prefix_condition
 
+        # self._external_interface(
+        #     data_kms_key_resource_name,
+        #     f"Arn of the {p_datasetname.value_as_string} KMS data key",
+        #     data_kms_key.key_arn,
+        # ) TODO
         ssm.StringParameter(
             self,
             f"{data_kms_key_resource_name}Ssm",
@@ -256,13 +260,10 @@ class Dataset(Construct):
                 mode=glue_a.S3EncryptionMode.KMS, kms_key=data_kms_key
             ),  # TODO handle with if
         )
-        ssm.StringParameter(
-            self,
-            f"{glue_security_configuration_resource_name}Ssm",
-            description=f"Name of the {p_datasetname.value_as_string} Glue security configuration",
-            parameter_name=f"/sdlf/dataset/{glue_security_configuration_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=self.glue_security_configuration.security_configuration_name,
+        self._external_interface(
+            glue_security_configuration_resource_name,
+            f"Name of the {p_datasetname.value_as_string} Glue security configuration",
+            self.glue_security_configuration.security_configuration_name,
         )
 
         emr_security_configuration_resource_name = "rEMRSecurityConfiguration"
@@ -294,14 +295,10 @@ class Dataset(Construct):
                 }
             ),
         )
-
-        ssm.StringParameter(
-            self,
-            f"{emr_security_configuration_resource_name}Ssm",
-            description=f"Name of the {p_datasetname.value_as_string} EMR security configuration",
-            parameter_name=f"/sdlf/dataset/{emr_security_configuration_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=emr_security_configuration.name,
+        self._external_interface(
+            emr_security_configuration_resource_name,
+            f"Name of the {p_datasetname.value_as_string} EMR security configuration",
+            emr_security_configuration.name,
         )
 
         datalakecrawler_role_policy = iam.Policy(
@@ -451,14 +448,10 @@ class Dataset(Construct):
             ],
         )
         self.datalakecrawler_role.attach_inline_policy(datalakecrawler_role_policy)
-
-        ssm.StringParameter(
-            self,
-            f"{datalakecrawler_role_resource_name}ArnSsm",
-            description="The ARN of the Crawler role",
-            parameter_name=f"/sdlf/dataset/{datalakecrawler_role_resource_name}Arn",
-            simple_name=False,  # parameter name is a token
-            string_value=self.datalakecrawler_role.role_arn,
+        self._external_interface(
+            datalakecrawler_role_resource_name,
+            "The ARN of the Crawler role",
+            self.datalakecrawler_role.role_arn,
         )
 
         lf_tag = lakeformation.CfnTag(
@@ -561,13 +554,10 @@ class Dataset(Construct):
         ######## EVENTBRIDGE #########
         bus_resource_name = "rEventBus"
         bus = events.EventBus(self, bus_resource_name, event_bus_name=f"sdlf-{p_datasetname.value_as_string}")
-        ssm.StringParameter(
-            self,
-            f"{bus_resource_name}Ssm",
-            description=f"Name of the {p_datasetname.value_as_string} event bus",
-            parameter_name=f"/sdlf/dataset/{bus_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=bus.event_bus_name,
+        self._external_interface(
+            bus_resource_name,
+            f"Name of the {p_datasetname.value_as_string} event bus",
+            bus.event_bus_name,
         )
 
         schedule_group_resource_name = "rScheduleGroup"
@@ -576,13 +566,10 @@ class Dataset(Construct):
             schedule_group_resource_name,
             name=f"sdlf-{p_datasetname.value_as_string}",
         )
-        ssm.StringParameter(
-            self,
-            f"{schedule_group_resource_name}Ssm",
-            description=f"Name of the {p_datasetname.value_as_string} schedule group",
-            parameter_name=f"/sdlf/dataset/{schedule_group_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=schedule_group.name,
+        self._external_interface(
+            schedule_group_resource_name,
+            f"Name of the {p_datasetname.value_as_string} schedule group",
+            schedule_group.name,
         )
 
         forwardeventbustrigger_role_policy = iam.Policy(
@@ -948,13 +935,10 @@ class Dataset(Construct):
                 ),
             ],
         )
-        ssm.StringParameter(
-            self,
-            f"{permissions_boundary_resource_name}Ssm",
-            description="The permissions boundary IAM Managed policy for the team",
-            parameter_name=f"/sdlf/dataset/{permissions_boundary_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=permissions_boundary.managed_policy_arn,
+        self._external_interface(
+            permissions_boundary_resource_name,
+            "The permissions boundary IAM Managed policy for the team",
+            permissions_boundary.managed_policy_arn,
         )
 
         peh_table_resource_name = "rDynamoPipelineExecutionHistory"
@@ -1057,13 +1041,10 @@ class Dataset(Construct):
             ),
             projection_type=ddb.ProjectionType.ALL,
         )
-        ssm.StringParameter(
-            self,
-            f"{peh_table_resource_name}Ssm",
-            description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name=f"/sdlf/dataset/{peh_table_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=peh_table.table_name,
+        self._external_interface(
+            peh_table_resource_name,
+            "Name of the DynamoDB used to store pipeline history metadata",
+            peh_table.table_name,
         )
 
         manifests_table_resource_name = "rDynamoManifests"
@@ -1086,13 +1067,10 @@ class Dataset(Construct):
             point_in_time_recovery=True,
             time_to_live_attribute="ttl",
         )
-        ssm.StringParameter(
-            self,
-            f"{manifests_table_resource_name}Ssm",
-            description="Name of the DynamoDB used to store manifest process metadata",
-            parameter_name=f"/sdlf/dataset/{manifests_table_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=manifests_table.table_name,
+        self._external_interface(
+            manifests_table_resource_name,
+            "Name of the DynamoDB used to store manifest process metadata",
+            manifests_table.table_name,
         )
 
         # CloudFormation Outputs TODO
@@ -1103,6 +1081,16 @@ class Dataset(Construct):
             value=p_pipelinereference.value_as_string,
         )
 
+    def _external_interface(self, resource_name, description, value):
+        ssm.StringParameter(
+            self,
+            f"{resource_name}Ssm",
+            description=description,
+            parameter_name=f"/sdlf/dataset/{resource_name}",
+            string_value=value,
+        )
+        self.external_interface[resource_name] = value
+
     def data_catalog(self, scope, org, domain, dataset, bucket_layer, bucket, s3_prefix, lf_tag_pair_property):
         glue_catalog_resource_name = f"r{bucket_layer.capitalize()}GlueDataCatalog"
         glue_catalog = glue_a.Database(
@@ -1111,13 +1099,10 @@ class Dataset(Construct):
             database_name=f"{org}_{domain}_{dataset}_{bucket_layer}",
             description=f"{dataset} {bucket_layer} metadata catalog",
         )
-        ssm.StringParameter(
-            self,
-            f"{glue_catalog_resource_name}Ssm",
-            description=f"{dataset} {bucket_layer} metadata catalog",
-            parameter_name=f"/sdlf/dataset/{glue_catalog_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=glue_catalog.database_arn,
+        self._external_interface(
+            glue_catalog_resource_name,
+            f"{dataset} {bucket_layer} metadata catalog",
+            glue_catalog.database_arn,
         )
 
         lakeformation.CfnTagAssociation(
@@ -1179,14 +1164,10 @@ class Dataset(Construct):
             ),
             permissions=["DATA_LOCATION_ACCESS"],
         )
-
-        ssm.StringParameter(
-            self,
-            f"{glue_crawler_resource_name}Ssm",
-            description=f"{dataset} {bucket_layer.capitalize()} Glue crawler",
-            parameter_name=f"/sdlf/dataset/{glue_crawler_resource_name}",
-            simple_name=False,  # parameter name is a token
-            string_value=glue_crawler.name,
+        self._external_interface(
+            glue_crawler_resource_name,
+            f"{dataset} {bucket_layer.capitalize()} Glue crawler",
+            glue_crawler.name,
         )
 
         return glue_catalog

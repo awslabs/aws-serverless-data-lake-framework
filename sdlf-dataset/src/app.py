@@ -33,6 +33,12 @@ cdk.aws_lakeformation.CfnDataLakeSettings(
 
 stack = cdk.Stack(app, stack_name)
 stack.add_dependency(lakeformation_cicd_stack)
-Dataset(stack, "dataset")
+stack_dataset = Dataset(stack, "dataset")
+
+cdk.CfnOutput(
+    scope=stack,
+    id="metadata",
+    value=stack.to_json_string(stack_dataset.external_interface),
+)
 
 app.synth()
