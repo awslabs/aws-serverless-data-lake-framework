@@ -2,23 +2,21 @@
 # SPDX-License-Identifier: MIT
 
 from aws_cdk import (
-    RemovalPolicy,
-    CfnParameter,
     CfnOutput,
-    aws_athena as athena,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_sns as sns,
-    aws_ssm as ssm,
+    CfnParameter,
+    RemovalPolicy,
 )
+from aws_cdk import aws_athena as athena
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_kms as kms
+from aws_cdk import aws_sns as sns
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
 class Team(Construct):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id)
-
-        run_in_vpc = False
 
         # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
         # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
@@ -234,7 +232,7 @@ class Team(Construct):
                 publish_cloud_watch_metrics_enabled=True,
                 result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
                     encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
-                        encryption_option="SSE_KMS", kms_key=data_kms_key.key_arn
+                        encryption_option="SSE_KMS", kms_key=infra_kms_key.key_arn
                     ),
                     output_location=f"s3://{p_athenabucket.value_as_string}/{p_teamname.value_as_string}/",
                 ),
