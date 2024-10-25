@@ -17,6 +17,12 @@ else:  # app.py not used in a seedfarmer context somehow
 
 app = cdk.App()
 stack = cdk.Stack(app, stack_name)
-Foundations(stack, "foundations")
+stack_foundations = Foundations(stack, "foundations")
+
+cdk.CfnOutput(
+    scope=stack,
+    id="metadata",
+    value=stack.to_json_string(stack_foundations.external_interface),
+)
 
 app.synth()
