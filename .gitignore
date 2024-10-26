@@ -160,3 +160,4 @@ cdk.context.json
 
 # AWS CodeSeeder/SeedFarmer
 codeseeder.out/
+seedfarmer.gitmodules/
