@@ -12,11 +12,8 @@ deploy:
     build:
       commands:
         - |-
-          cdk deploy --all --require-approval never --progress events --app "python src/app.py" --outputs-file ./cdk-exports.json \
-            --no-previous-parameters \
-            --parameters pOrg="$SEEDFARMER_PARAMETER_ORG" \
-            --parameters pDomain="$SEEDFARMER_PARAMETER_DOMAIN" \
-            --parameters pChildAccountId="$AWS_ACCOUNT_ID"
+          env | grep "SEEDFARMER"
+          cdk deploy --all --require-approval never --progress events --app "python src/app.py" --outputs-file ./cdk-exports.json
         - seedfarmer metadata convert -f cdk-exports.json || true
 destroy:
   phases:
