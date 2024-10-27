@@ -28,7 +28,7 @@ from constructs import Construct
 class Foundations(Construct):
     external_interface = {}
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, org: str, data_domain: str, account_id: str, **kwargs) -> None:
         super().__init__(scope, id)
 
         dirname = os.path.dirname(__file__)
@@ -50,6 +50,7 @@ class Foundations(Construct):
             type="String",
             allowed_pattern="(\\d{12}|^$)",
             constraint_description="Must be an AWS account ID",
+            default=str(account_id),
         )
         p_childaccountid.override_logical_id("pChildAccountId")
         p_org = CfnParameter(
@@ -58,6 +59,7 @@ class Foundations(Construct):
             description="Name of the organization owning the datalake (all lowercase, no symbols or spaces)",
             type="String",
             allowed_pattern="[a-z0-9]{2,9}",
+            default=org,
         )
         p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
@@ -65,6 +67,7 @@ class Foundations(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
+            default=data_domain,
         )
         p_domain.override_logical_id("pDomain")
         # p_cloudwatchlogsretentionindays = CfnParameter(self, "pCloudWatchLogsRetentionInDays",
