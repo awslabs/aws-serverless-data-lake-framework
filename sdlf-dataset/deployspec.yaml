@@ -12,10 +12,7 @@ deploy:
     build:
       commands:
         - |-
-          cdk deploy --all --require-approval never --progress events --app "python src/app.py" --outputs-file ./cdk-exports.json \
-            --no-previous-parameters \
-            --parameters DatasetStack:pDatasetName="$SEEDFARMER_PARAMETER_DATASET" \
-            --parameters DatasetStack:pS3Prefix="$SEEDFARMER_PARAMETER_S3_PREFIX"
+          cdk deploy --all --require-approval never --progress events --app "python src/app.py" --outputs-file ./cdk-exports.json
         - seedfarmer metadata convert -f cdk-exports.json || true
 destroy:
   phases:

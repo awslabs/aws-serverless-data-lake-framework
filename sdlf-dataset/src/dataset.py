@@ -28,11 +28,37 @@ from constructs import Construct
 class Dataset(Construct):
     external_interface = {}
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        id: str,
+        dataset: str,
+        s3_prefix: str,
+        org: str = None,
+        data_domain: str = None,
+        raw_bucket: str = None,
+        stage_bucket: str = None,
+        analytics_bucket: str = None,
+        artifacts_bucket: str = None,
+        lakeformation_dataaccess_role: str = None,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, id)
 
-        # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
-        # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
+        # if arguments are passed to the constructor, their values are fed to CfnParameter() below as default
+        # if arguments aren't specified, standard SDLF SSM parameters are checked instead
+        # the jury is still out on the usage of CfnParameter(),
+        # and there is still work to get the latest SSM parameter values as well as using a prefix to allow multiple deployments TODO
+        raw_bucket = raw_bucket or "{{resolve:ssm:/sdlf/storage/rRawBucket:1}}"
+        stage_bucket = stage_bucket or "{{resolve:ssm:/sdlf/storage/rStageBucket:1}}"
+        analytics_bucket = analytics_bucket or "{{resolve:ssm:/sdlf/storage/rAnalyticsBucket:1}}"
+        artifacts_bucket = artifacts_bucket or "{{resolve:ssm:/sdlf/storage/rArtifactsBucket:1}}"
+        lakeformation_dataaccess_role = (
+            lakeformation_dataaccess_role or "{{resolve:ssm:/sdlf/storage/rLakeFormationDataAccessRoleArn:1}}"
+        )
+        org = org or "{{resolve:ssm:/sdlf/storage/rOrganization:1}}"
+        data_domain = data_domain or "{{resolve:ssm:/sdlf/storage/rDomain:1}}"
+
         p_pipelinereference = CfnParameter(
             self,
             "pPipelineReference",
@@ -45,7 +71,7 @@ class Dataset(Construct):
             "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/pOrg:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rOrganization:1}}",
         )
         p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
@@ -53,7 +79,7 @@ class Dataset(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/pDomain:1}}",
+            default="{{resolve:ssm:/sdlf/storage/rDomain:1}}",
         )
         p_domain.override_logical_id("pDomain")
         p_rawbucket = CfnParameter(
@@ -61,7 +87,7 @@ class Dataset(Construct):
             "pRawBucket",
             description="The raw bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rRawBucket:1}}",
+            default=raw_bucket,
         )
         p_rawbucket.override_logical_id("pRawBucket")
         p_stagebucket = CfnParameter(
@@ -69,7 +95,7 @@ class Dataset(Construct):
             "pStageBucket",
             description="The stage bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rStageBucket:1}}",
+            default=stage_bucket,
         )
         p_stagebucket.override_logical_id("pStageBucket")
         p_analyticsbucket = CfnParameter(
@@ -77,7 +103,7 @@ class Dataset(Construct):
             "pAnalyticsBucket",
             description="The analytics bucket for the solution",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rAnalyticsBucket:1}}",
+            default=analytics_bucket,
         )
         p_analyticsbucket.override_logical_id("pAnalyticsBucket")
         p_artifactsbucket = CfnParameter(
@@ -85,14 +111,14 @@ class Dataset(Construct):
             "pArtifactsBucket",
             description="The artifacts bucket  used by CodeBuild and CodePipeline",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rArtifactsBucket:1}}",
+            default=artifacts_bucket,
         )
         p_artifactsbucket.override_logical_id("pArtifactsBucket")
         p_lakeformationdataaccessrole = CfnParameter(
             self,
             "pLakeFormationDataAccessRole",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rLakeFormationDataAccessRoleArn:1}}",
+            default=lakeformation_dataaccess_role,
         )
         p_lakeformationdataaccessrole.override_logical_id("pLakeFormationDataAccessRole")
         p_datasetname = CfnParameter(
@@ -101,6 +127,7 @@ class Dataset(Construct):
             description="The name of the dataset (all lowercase, no symbols or spaces)",
             type="String",
             allowed_pattern="[a-z0-9]{2,14}",
+            default=dataset,
         )
         p_datasetname.override_logical_id("pDatasetName")
         p_s3prefix = CfnParameter(
@@ -109,6 +136,7 @@ class Dataset(Construct):
             description="S3 prefix or full bucket if empty/not provided",
             type="String",
             allowed_pattern="[a-z0-9]*",
+            default=s3_prefix,
         )
         p_s3prefix.override_logical_id("pS3Prefix")
         p_cicdrole = CfnParameter(
