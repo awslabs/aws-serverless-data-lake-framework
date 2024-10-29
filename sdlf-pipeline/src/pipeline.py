@@ -193,11 +193,33 @@ class Pipeline(Construct):
             string_value="placeholder",
         )
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        id: str,
+        dataset: str,
+        pipeline: str,
+        stage: str,
+        stage_enabled: str,
+        trigger_type: str,
+        schedule: str,
+        event_pattern: str,
+        org: str,
+        data_domain: str,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, id)
 
-        # using context values would be better(?) for CDK but we haven't decided yet what the story is around ServiceCatalog and CloudFormation modules
-        # perhaps both (context values feeding into CfnParameter) would be a nice-enough solution. Not sure though. TODO
+        # if arguments are passed to the constructor, their values are fed to CfnParameter() below as default
+        # if arguments aren't specified, standard SDLF SSM parameters are checked instead
+        # the jury is still out on the usage of CfnParameter(),
+        # and there is still work to get the latest SSM parameter values as well as using a prefix to allow multiple deployments TODO
+        trigger_type = trigger_type or "event"
+        schedule = schedule or "cron(*/5 * * * ? *)"
+        event_pattern = event_pattern or ""
+        org = org or "{{resolve:ssm:/sdlf/storage/rOrganization:1}}"
+        data_domain = data_domain or "{{resolve:ssm:/sdlf/storage/rDomain:1}}"
+
         self.p_pipelinereference = CfnParameter(
             self,
             "pPipelineReference",
@@ -210,7 +232,7 @@ class Pipeline(Construct):
             "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
+            default=org,
         )
         self.p_org.override_logical_id("pOrg")
         self.p_domain = CfnParameter(
@@ -218,7 +240,7 @@ class Pipeline(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
+            default=data_domain,
         )
         self.p_domain.override_logical_id("pDomain")
         self.p_datasetname = CfnParameter(
@@ -227,6 +249,7 @@ class Pipeline(Construct):
             description="Name of the dataset (all lowercase, no symbols or spaces)",
             type="String",
             allowed_pattern="[a-z0-9]{2,14}",
+            default=dataset,
         )
         self.p_datasetname.override_logical_id("pDatasetName")
         self.p_pipeline = CfnParameter(
@@ -235,6 +258,7 @@ class Pipeline(Construct):
             description="The name of the pipeline (all lowercase, no symbols or spaces)",
             type="String",
             allowed_pattern="[a-z0-9]*",
+            default=pipeline,
         )
         self.p_pipeline.override_logical_id("pPipeline")
         self.p_stagename = CfnParameter(
@@ -243,6 +267,7 @@ class Pipeline(Construct):
             description="Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)",
             type="String",
             allowed_pattern="[a-zA-Z0-9\\-]{1,12}",
+            default=stage,
         )
         self.p_stagename.override_logical_id("pStageName")
         self.p_stageenabled = CfnParameter(
@@ -251,6 +276,7 @@ class Pipeline(Construct):
             description="Whether the stage is enabled or not",
             type="String",
             allowed_values=["true", "false"],
+            default=stage_enabled,
         )
         self.p_stageenabled.override_logical_id("pStageEnabled")
         self.p_triggertype = CfnParameter(
@@ -259,7 +285,7 @@ class Pipeline(Construct):
             description="Trigger type of the stage (event or schedule)",
             type="String",
             allowed_values=["event", "schedule"],
-            default="event",
+            default=trigger_type,
         )
         self.p_triggertype.override_logical_id("pTriggerType")
         self.p_schedule = CfnParameter(
@@ -267,7 +293,7 @@ class Pipeline(Construct):
             "pSchedule",
             description="Cron expression when trigger type is schedule",
             type="String",
-            default="cron(*/5 * * * ? *)",
+            default=schedule,
         )
         self.p_schedule.override_logical_id("pSchedule")
         self.p_eventpattern = CfnParameter(
@@ -275,7 +301,7 @@ class Pipeline(Construct):
             "pEventPattern",
             description="Event pattern to match from previous stage",
             type="String",
-            default="",
+            default=event_pattern,
         )
         self.p_eventpattern.override_logical_id("pEventPattern")
 
