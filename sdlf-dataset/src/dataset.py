@@ -71,7 +71,7 @@ class Dataset(Construct):
             "pOrg",
             description="Name of the organization owning the datalake",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rOrganization:1}}",
+            default=org,
         )
         p_org.override_logical_id("pOrg")
         p_domain = CfnParameter(
@@ -79,7 +79,7 @@ class Dataset(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
-            default="{{resolve:ssm:/sdlf/storage/rDomain:1}}",
+            default=domain,
         )
         p_domain.override_logical_id("pDomain")
         p_rawbucket = CfnParameter(
