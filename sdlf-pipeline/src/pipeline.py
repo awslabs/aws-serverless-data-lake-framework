@@ -162,7 +162,6 @@ class Pipeline(Construct):
                     "event_pattern": "true",
                     "org": self.p_org.value_as_string,
                     "domain": self.p_domain.value_as_string,
-                    "env": self.p_env.value_as_string,
                 }
             ),
         }
@@ -222,10 +221,6 @@ class Pipeline(Construct):
             default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
         )
         self.p_domain.override_logical_id("pDomain")
-        self.p_env = CfnParameter(
-            self, "pEnv", description="Environment name", type="String", default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}"
-        )
-        self.p_env.override_logical_id("pEnv")
         self.p_datasetname = CfnParameter(
             self,
             "pDatasetName",
