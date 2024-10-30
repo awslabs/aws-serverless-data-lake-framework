@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdlf.stage-lambda"
-version = "2.7.0-alpha.0"
+version = "2.7.0-alpha.1"
 description = "AWS Serverless Data Lake Framework"
 authors = ["Amazon Web Services"]
 license = "MIT-0"
@@ -15,10 +15,10 @@ packages = [
 exclude = ["**/*.yaml"]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 aws-cdk-lib = "^2.159.1"
 constructs = ">=10.0.0,<11.0.0"
-sdlf-pipeline = "^2.7.0a0"
+#sdlf-pipeline = "^2.7.0a1"
 
 [build-system]
 requires = ["poetry-core"]
