@@ -33,7 +33,7 @@
                     "ResultPath": "$",
                     "Parameters": {
                       "Payload.$": "$.Items",
-                      "FunctionName.$": "$.Items[0].transform.transform"
+                      "FunctionName": "${lTransform}:$LATEST"
                     },
                     "Retry": [
                       {

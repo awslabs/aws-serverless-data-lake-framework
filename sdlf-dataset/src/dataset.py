@@ -79,7 +79,7 @@ class Dataset(Construct):
             "pDomain",
             description="Data domain name",
             type="String",
-            default=domain,
+            default=data_domain,
         )
         p_domain.override_logical_id("pDomain")
         p_rawbucket = CfnParameter(
