@@ -7,9 +7,8 @@ from decimal import Decimal
 import boto3
 from boto3.dynamodb.types import TypeSerializer
 
-from .config import DynamoConfiguration
-
 from ..commons import deserialize_dynamodb_item, serialize_dynamodb_item
+from .config import DynamoConfiguration
 from .utils import (
     get_duration_sec,
     get_local_date,
@@ -172,7 +171,7 @@ class PipelineExecutionHistoryAPI:
 
         current_time = datetime.datetime.now(datetime.UTC)
         utc_time_iso = get_timestamp_iso(current_time)
-        local_date_iso = get_local_date()
+        #local_date_iso = get_local_date()
 
         if status in [PEH_STATUS_COMPLETED, PEH_STATUS_CANCELED, PEH_STATUS_FAILED]:
             duration_sec = get_duration_sec(start_time, utc_time_iso)
