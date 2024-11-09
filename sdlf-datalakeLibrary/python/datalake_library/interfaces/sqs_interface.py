@@ -44,8 +44,7 @@ class SQSInterface:
             return messages
 
         # Only pull batch sizes of max_batch_size
-        if num_messages_queue > max_items_process:
-            num_messages_queue = max_items_process
+        num_messages_queue = min(num_messages_queue, max_items_process)
         max_batch_size = 10
         batch_sizes = [max_batch_size] * math.floor(num_messages_queue / max_batch_size)
         if num_messages_queue % max_batch_size > 0:
