@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DynamoInterface:
     def __init__(self, configuration, log_level=None, dynamodb_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
@@ -442,6 +443,7 @@ class _TableBatchWriter:
             self._flush()
 
         return None
+
 
 def clean_table(dynamodb, table_name, pk_name, sk_name=""):
     logger.debug(f"Clean dynamodb table {table_name}, PK: {pk_name}, SK: {sk_name}")

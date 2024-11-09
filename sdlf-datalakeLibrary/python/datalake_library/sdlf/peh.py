@@ -32,17 +32,17 @@ class PipelineExecutionHistoryAPI:
     pipelines = dict()  # Pipelines cache across all instances
 
     def __init__(
-            self,
-            run_in_context,
-            region: str = "us-east-1",
-            profile: str = "default",
-            instance: str = "dev",
-            sns_topic: str = None,
-        ):
+        self,
+        run_in_context,
+        region: str = "us-east-1",
+        profile: str = "default",
+        instance: str = "dev",
+        sns_topic: str = None,
+    ):
         self.dynamodb = boto3.client("dynamodb")
         dynamo_config = DynamoConfiguration()
         self.peh_table = dynamo_config.peh_table
-        self.peh_ttl = 120 # TODO property of dynamo_config?
+        self.peh_ttl = 120  # TODO property of dynamo_config?
 
         self._logger = logging.getLogger(__name__)
 
@@ -78,8 +78,9 @@ class PipelineExecutionHistoryAPI:
         sts_endpoint_url = "https://sts." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self.account_id = boto3.client("sts", endpoint_url=sts_endpoint_url).get_caller_identity().get("Account")
 
-
-    def start_pipeline_execution(self, pipeline_name: str, dataset_name: str = None, dataset_date: str = None, comment: str = None) -> str:
+    def start_pipeline_execution(
+        self, pipeline_name: str, dataset_name: str = None, dataset_date: str = None, comment: str = None
+    ) -> str:
         """Creates a record for Pipeline Execution History
 
         Arguments:
@@ -171,7 +172,7 @@ class PipelineExecutionHistoryAPI:
 
         current_time = datetime.datetime.now(datetime.UTC)
         utc_time_iso = get_timestamp_iso(current_time)
-        #local_date_iso = get_local_date()
+        # local_date_iso = get_local_date()
 
         if status in [PEH_STATUS_COMPLETED, PEH_STATUS_CANCELED, PEH_STATUS_FAILED]:
             duration_sec = get_duration_sec(start_time, utc_time_iso)
@@ -305,9 +306,7 @@ class PipelineExecutionHistoryAPI:
         Returns:
             bool -- True if successful
         """
-        return self.update_pipeline_execution(
-            PEH_STATUS_FAILED, component=component, issue_comment=issue_comment
-        )
+        return self.update_pipeline_execution(PEH_STATUS_FAILED, component=component, issue_comment=issue_comment)
 
     def end_pipeline_execution_success(self, component: str = None) -> bool:
         """Closes Pipeline Execution History record with COMPLETED status
@@ -330,9 +329,7 @@ class PipelineExecutionHistoryAPI:
         Returns:
             bool -- True if successful
         """
-        return self.update_pipeline_execution(
-            PEH_STATUS_CANCELED, component=component, issue_comment=issue_comment
-        )
+        return self.update_pipeline_execution(PEH_STATUS_CANCELED, component=component, issue_comment=issue_comment)
 
     def is_pipeline_set(self) -> bool:
         """Check if current pipeline execution is set
