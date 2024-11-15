@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Resources to be created by the common stack
 
@@ -85,6 +85,22 @@ Globals:
       - !Ref "AWS::NoValue"
 
 Resources:
+  rOrganizationSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/pOrg
+      Type: String
+      Value: !Ref pOrg
+      Description: Name of the Organization owning the datalake
+
+  rDomainSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/pDomain
+      Type: String
+      Value: !Ref pDomain
+      Description: Data domain name
+
   ######## LAKE FORMATION #########
   rDataLakeSettings:
     Type: AWS::LakeFormation::DataLakeSettings
@@ -93,7 +109,7 @@ Resources:
         - DataLakePrincipalIdentifier: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
       CreateDatabaseDefaultPermissions: []
       CreateTableDefaultPermissions: []
-      MutationType: REPLACE
+      MutationType: APPEND
 
   rLakeFormationDataAccessRole: # https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
     Type: AWS::IAM::Role
@@ -120,6 +136,22 @@ Resources:
               Resource:
                 - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-lakeformation-acceleration/*"
                 - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-lakeformation-acceleration/*:log-stream:*"
+
+  rLakeFormationDataAccessRoleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rLakeFormationDataAccessRoleArn
+      Type: String
+      Value: !GetAtt rLakeFormationDataAccessRole.Arn
+      Description: Lake Formation Data Access Role
+
+  rLakeFormationDataAccessRoleNameSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rLakeFormationDataAccessRole
+      Type: String
+      Value: !Ref rLakeFormationDataAccessRole
+      Description: Lake Formation Data Access Role
 
   ######## KMS #########
   rKMSKey:
@@ -241,30 +273,13 @@ Resources:
       AliasName: alias/sdlf-kms-key
       TargetKeyId: !Ref rKMSKey
 
-  ######## SSM #########
   rKMSKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /SDLF/KMS/KeyArn
+      Name: /sdlf/storage/rKMSKey
       Type: String
       Value: !GetAtt rKMSKey.Arn
       Description: ARN of the KMS key
-
-  rLakeFormationDataAccessRoleSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/IAM/LakeFormationDataAccessRoleArn
-      Type: String
-      Value: !GetAtt rLakeFormationDataAccessRole.Arn
-      Description: Lake Formation Data Access Role
-
-  rLakeFormationDataAccessRoleNameSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/IAM/LakeFormationDataAccessRole
-      Type: String
-      Value: !Ref rLakeFormationDataAccessRole
-      Description: Lake Formation Data Access Role
 
   ######## S3 #########
   ####### Access Logging Bucket ######
@@ -286,7 +301,7 @@ Resources:
           - Id: InfrequentAccess
             Status: Enabled
             Transitions:
-              - TransitionInDays: 30
+              - TransitionInDays: 30 # 60? TODO
                 StorageClass: STANDARD_IA
           - Id: DeepArchive
             Status: Enabled
@@ -330,53 +345,13 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
 
-  ####### S3 Buckets #########
-  rLakeFormationDataAccessRolePolicy:
-    Type: AWS::IAM::Policy
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W12
-            reason: Condition Applied to restrict access, and the KMS keys do not exist at this stage
+  rS3AccessLogsBucketSsm:
+    Type: AWS::SSM::Parameter
     Properties:
-      PolicyName: sdlf-lakeformation
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:GetObject*
-              - s3:GetBucket*
-              - s3:List*
-              - s3:DeleteObject*
-              - s3:PutObject
-              - s3:PutObjectLegalHold
-              - s3:PutObjectRetention
-              - s3:PutObjectTagging
-              - s3:PutObjectVersionTagging
-              - s3:Abort*
-            Resource:
-              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}"
-              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}"
-              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}"
-              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}/*"
-              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}/*"
-              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*"
-          - Effect: Allow
-            Action:
-              - kms:Encrypt*
-              - kms:Decrypt*
-              - kms:ReEncrypt*
-              - kms:GenerateDataKey*
-              - kms:Describe*
-            Resource: "*"
-            Condition:
-              "ForAnyValue:StringLike":
-                "kms:ResourceAliases":
-                  - alias/sdlf-kms-key
-                  - alias/sdlf-*-kms-data-key
-      Roles:
-        - !Ref rLakeFormationDataAccessRole
+      Name: /sdlf/storage/rS3AccessLogsBucket
+      Type: String
+      Value: !Ref rS3AccessLogsBucket
+      Description: S3 Access Logs Bucket
 
   rArtifactsBucket:
     Type: AWS::S3::Bucket
@@ -422,6 +397,14 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
+
+  rS3ArtifactBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rArtifactsBucket
+      Type: String
+      Value: !Ref rArtifactsBucket
+      Description: Name of the Artifacts S3 bucket
 
   # To Enforce KMS encryption: https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-store-kms-encrypted-objects/
   rRawBucket:
@@ -482,6 +465,14 @@ Resources:
       RoleArn: !GetAtt rLakeFormationDataAccessRole.Arn
       UseServiceLinkedRole: False
 
+  rS3RawBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rRawBucket
+      Type: String
+      Value: !Ref rRawBucket
+      Description: Name of the Raw S3 bucket
+
   rStageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -539,6 +530,14 @@ Resources:
       ResourceArn: !Sub arn:${AWS::Partition}:s3:::${rStageBucket}/
       RoleArn: !GetAtt rLakeFormationDataAccessRole.Arn
       UseServiceLinkedRole: False
+
+  rS3StageBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rStageBucket
+      Type: String
+      Value: !Ref rStageBucket
+      Description: Name of the Stage S3 bucket
 
   rAnalyticsBucket:
     Type: AWS::S3::Bucket
@@ -598,6 +597,14 @@ Resources:
       RoleArn: !GetAtt rLakeFormationDataAccessRole.Arn
       UseServiceLinkedRole: False
 
+  rS3AnalyticsBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rAnalyticsBucket
+      Type: String
+      Value: !Ref rAnalyticsBucket
+      Description: Name of the Analytics S3 bucket
+
   rAthenaBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -642,6 +649,91 @@ Resources:
               Bool:
                 aws:SecureTransport: False
             Principal: "*"
+
+  rAthenaBucketSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rAthenaBucket
+      Type: String
+      Value: !Ref rAthenaBucket
+      Description: Name of the Athena results S3 bucket
+
+  rLakeFormationDataAccessRolePolicy:
+    Type: AWS::IAM::Policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: Condition Applied to restrict access, and the KMS keys do not exist at this stage
+    Properties:
+      PolicyName: sdlf-lakeformation
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Resource:
+              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}"
+              - !Sub "arn:${AWS::Partition}:s3:::${rRawBucket}/*"
+              - !Sub "arn:${AWS::Partition}:s3:::${rStageBucket}/*"
+              - !Sub "arn:${AWS::Partition}:s3:::${rAnalyticsBucket}/*"
+          - Effect: Allow
+            Action:
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: "*"
+            Condition:
+              "ForAnyValue:StringLike":
+                "kms:ResourceAliases":
+                  - alias/sdlf-kms-key
+                  - alias/sdlf-*-kms-data-key
+      Roles:
+        - !Ref rLakeFormationDataAccessRole
+
+  ######## DYNAMODB #########
+  rDynamoObjectMetadata:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      SSESpecification:
+        SSEEnabled: True
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt rKMSKey.Arn
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  rDynamoObjectMetadataSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/storage/rDynamoObjectMetadata
+      Type: String
+      Value: !Ref rDynamoObjectMetadata
+      Description: Name of the DynamoDB used to store metadata
 
   ######## Lambda & SQS #########
   rQueueCatalog:
@@ -718,42 +810,6 @@ Resources:
       EventSourceArn: !GetAtt rQueueCatalog.Arn
       FunctionName: !GetAtt rLambdaCatalog.Arn
 
-  rLambdaCatalog:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ./lambda/catalog/src
-      FunctionName: sdlf-catalog
-      # Environment:
-      #   Variables:
-      #     ENV: !Ref p
-      Description: Catalogs S3 Put and Delete to ObjectMetaDataCatalog
-      MemorySize: 256
-      Timeout: 60
-      Role: !GetAtt rRoleLambdaExecution.Arn
-
-  rLambdaCatalogRedrive:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ./lambda/catalog-redrive/src
-      FunctionName: sdlf-catalog-redrive
-      Environment:
-        Variables:
-          QUEUE: !GetAtt rQueueCatalog.QueueName
-          DLQ: !GetAtt rDeadLetterQueueCatalog.QueueName
-      Description: Redrives Failed S3 Put/Delete to Catalog Lambda
-      MemorySize: 256
-      Timeout: 60
-      Role: !GetAtt rRoleLambdaExecution.Arn
-
-  rLambdaCatalogRedriveLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !GetAtt rKMSKey.Arn
-
   rRoleLambdaExecution:
     Type: AWS::IAM::Role
     Properties:
@@ -822,104 +878,43 @@ Resources:
                   - ssm:GetParameters
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/EventBridge/*
 
-  ####### SSM #######
-  rS3ArtifactBucketSsm:
-    Type: AWS::SSM::Parameter
+  rLambdaCatalog:
+    Type: AWS::Serverless::Function
     Properties:
-      Name: /SDLF/S3/ArtifactsBucket
-      Type: String
-      Value: !Ref rArtifactsBucket
-      Description: Name of the Artifacts S3 bucket
-  rS3CentralBucketSsm: # kept for backward compatibility
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/CentralBucket
-      Type: String
-      Value: !Ref rRawBucket
-      Description: Name of the Central S3 bucket (deprecrated, use /SDLF/S3/RawBucket instead)
-  rS3RawBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/RawBucket
-      Type: String
-      Value: !Ref rRawBucket
-      Description: Name of the Raw S3 bucket
-  rS3StageBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/StageBucket
-      Type: String
-      Value: !Ref rStageBucket
-      Description: Name of the Stage S3 bucket
-  rS3AnalyticsBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/AnalyticsBucket
-      Type: String
-      Value: !Ref rAnalyticsBucket
-      Description: Name of the Analytics S3 bucket
-  rS3AthenaBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/AthenaBucket
-      Type: String
-      Value: !Ref rAthenaBucket
-      Description: Name of the Athena results S3 bucket
+      CodeUri: ./lambda/catalog/src
+      FunctionName: sdlf-catalog
+      Environment:
+        Variables:
+          OBJECTMETADATA_TABLE: !Ref rDynamoObjectMetadata
+      Description: Catalogs S3 Put and Delete to ObjectMetaDataCatalog
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecution.Arn
 
-  ######## DYNAMODB #########
-  rObjectMetadata:
-    Type: AWS::DynamoDB::Table
+  rLambdaCatalogRedrive:
+    Type: AWS::Serverless::Function
     Properties:
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
-      SSESpecification:
-        SSEEnabled: True
-        SSEType: KMS
-        KMSMasterKeyId: !GetAtt rKMSKey.Arn
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: True
-    UpdateReplacePolicy: Retain
+      CodeUri: ./lambda/catalog-redrive/src
+      FunctionName: sdlf-catalog-redrive
+      Environment:
+        Variables:
+          QUEUE: !GetAtt rQueueCatalog.QueueName
+          DLQ: !GetAtt rDeadLetterQueueCatalog.QueueName
+      Description: Redrives Failed S3 Put/Delete to Catalog Lambda
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt rRoleLambdaExecution.Arn
+
+  rLambdaCatalogRedriveLogGroup:
+    Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
-
-  rDynamoObjectMetadataSsm:
-    Type: AWS::SSM::Parameter
+    UpdateReplacePolicy: Delete
     Properties:
-      Name: /SDLF/Dynamo/ObjectCatalog
-      Type: String
-      Value: !Ref rObjectMetadata
-      Description: Name of the DynamoDB used to store metadata
+      LogGroupName: !Sub /aws/lambda/${rLambdaCatalogRedrive}
+      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
+      KmsKeyId: !GetAtt rKMSKey.Arn
 
-  ######## SSM OUTPUTS #########
-  rOrganizationSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/Misc/pOrg
-      Type: String
-      Value: !Ref pOrg
-      Description: Name of the Organization owning the datalake
 
-  rDomainSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/Misc/pDomain
-      Type: String
-      Value: !Ref pDomain
-      Description: Data domain name
-
-  rS3AccessLogsBucketSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/S3/AccessLogsBucket
-      Type: String
-      Value: !Ref rS3AccessLogsBucket
-      Description: S3 Access Logs Bucket
 
 Outputs:
   oPipelineReference:
