@@ -130,7 +130,7 @@ Resources:
   rKMSInfraKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/KMS/${pDatasetName}/InfraKeyId
+      Name: /sdlf/dataset/rKMSInfraKey
       Type: String
       Value: !GetAtt rKMSInfraKey.Arn
       Description: !Sub ${pDatasetName} KMS infrastructure key ARN
@@ -178,68 +178,12 @@ Resources:
     Type: AWS::SSM::Parameter
     Condition: IsS3Prefix
     Properties:
-      Name: !Sub /SDLF/KMS/${pDatasetName}/DataKeyId
+      Name: !Sub /sdlf/dataset/rKMSDataKey
       Type: String
       Value: !GetAtt rKMSDataKey.Arn
       Description: !Sub ${pDatasetName} KMS data key ARN
 
   ######## GLUE #########
-  rGlueDataCatalog:
-    Type: AWS::Glue::Database
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput: 
-        Description: !Sub "${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_stage
-
-  rGlueDataCatalogSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/DataCatalog
-      Type: String
-      Value: !Ref rGlueDataCatalog
-      Description: !Sub "${pDatasetName} stage metadata catalog"
-
-  rStageGlueDataCatalogSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/StageDataCatalog
-      Type: String
-      Value: !Ref rGlueDataCatalog
-      Description: !Sub "${pDatasetName} stage metadata catalog"
-
-  rRawGlueDataCatalog:
-    Type: AWS::Glue::Database
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Description: !Sub "${pDatasetName} raw metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_raw
-
-  rRawGlueDataCatalogSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/RawDataCatalog
-      Type: String
-      Value: !Ref rRawGlueDataCatalog
-      Description: !Sub "${pDatasetName} raw metadata catalog"
-
-  rAnalyticsGlueDataCatalog:
-    Type: AWS::Glue::Database
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Description: !Sub "${pDatasetName} analytics metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_analytics
-
-  rAnalyticsGlueDataCatalogSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/AnalyticsDataCatalog
-      Type: String
-      Value: !Ref rAnalyticsGlueDataCatalog
-      Description: !Sub "${pDatasetName} analytics metadata catalog"
-
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
     Properties:
@@ -256,12 +200,12 @@ Resources:
             KmsKeyArn: !If
               - IsS3Prefix
               - !GetAtt rKMSDataKey.Arn
-              - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+              - "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
 
   rGlueSecurityConfigurationSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/SecurityConfigurationId
+      Name: !Sub /sdlf/dataset/rGlueSecurityConfiguration
       Type: String
       Value: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       Description: !Sub Name of the ${pDatasetName} Glue security configuration
@@ -302,11 +246,11 @@ Resources:
                 "AtRestEncryptionConfiguration" : {
                   "S3EncryptionConfiguration" : {
                     "EncryptionMode" : "SSE-KMS",
-                    "AwsKmsKey": "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                    "AwsKmsKey": "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
                   },
                   "LocalDiskEncryptionConfiguration" : {
                     "EncryptionKeyProviderType" : "AwsKms",
-                    "AwsKmsKey" : "{{resolve:ssm:/SDLF/KMS/KeyArn}}",
+                    "AwsKmsKey" : "{{resolve:ssm:/sdlf/storage/rKMSKey}}",
                     "EnableEbsEncryption" : true
                   }
                 }
@@ -316,6 +260,14 @@ Resources:
                 "HttpPutResponseHopLimit": 1
               }
             }
+
+  rEMRSecurityConfigurationSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/dataset/rEMRSecurityConfiguration
+      Type: String
+      Value: !Ref rEMRSecurityConfiguration
+      Description: !Sub Name of the ${pDatasetName} EMR security configuration
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
@@ -386,9 +338,9 @@ Resources:
                   - IsS3Prefix
                   - - !GetAtt rKMSInfraKey.Arn
                     - !GetAtt rKMSDataKey.Arn
-                    - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                    - "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
                   - - !GetAtt rKMSInfraKey.Arn
-                    - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                    - "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
               - Effect: Allow
                 Action:
                   - lakeformation:GetDataAccess # W11 exception
@@ -405,42 +357,47 @@ Resources:
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/IAM/${pDatasetName}/CrawlerRoleArn
+      Name: !Sub /sdlf/dataset/rDatalakeCrawlerRole
       Type: String
       Value: !GetAtt rDatalakeCrawlerRole.Arn
       Description: ARN of the Crawler role
 
-  rGlueCrawler:
-    Type: AWS::Glue::Crawler
+  rLakeFormationTag:
+    Type: AWS::LakeFormation::Tag
     Properties:
-      Role: !GetAtt rDatalakeCrawlerRole.Arn
-      CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
-      DatabaseName: !Ref rGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-stage-crawler
-      Targets:
-        S3Targets:
-          - Path: !Sub s3://${pStageBucket}/${pS3Prefix}
+      CatalogId: !Ref AWS::AccountId
+      TagKey: "sdlf:dataset"
+      TagValues:
+        - !Ref pDatasetName
 
-  rGlueCrawlerLakeFormationPermissions:
-    Type: AWS::LakeFormation::Permissions
+  rRawGlueDataCatalog:
+    Type: AWS::Glue::Database
     Properties:
-      DataLakePrincipal:
-        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-      Permissions:
-        - CREATE_TABLE
-        - ALTER
-        - DROP
-      Resource:
-        DatabaseResource:
-          Name: !Ref rGlueDataCatalog
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: !Sub "${pDatasetName} raw metadata catalog"
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_raw
 
-  rGlueCrawlerSsm:
+  rRawGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/GlueCrawler
+      Name: /sdlf/dataset/rRawGlueDataCatalog
       Type: String
-      Value: !Ref rGlueCrawler
-      Description: !Sub "${pDatasetName} Glue crawler"
+      Value: !Ref rRawGlueDataCatalog
+      Description: !Sub "${pDatasetName} raw metadata catalog"
+
+  rRawGlueDataCatalogLakeFormationTag:
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
+      Resource:
+        Database:
+          CatalogId: !Ref AWS::AccountId
+          Name: !Ref rRawGlueDataCatalog
+      LFTags:
+        - CatalogId: !Ref AWS::AccountId
+          TagKey: "sdlf:dataset"
+          TagValues:
+            - !Ref pDatasetName
 
   rRawGlueCrawler:
     Type: AWS::Glue::Crawler
@@ -448,12 +405,12 @@ Resources:
       Role: !GetAtt rDatalakeCrawlerRole.Arn
       CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       DatabaseName: !Ref rRawGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-crawler-raw
+      Name: !Sub sdlf-${pDatasetName}-raw-crawler
       Targets:
         S3Targets:
           - Path: !Sub s3://${pRawBucket}/${pS3Prefix}
 
-  rRawGlueCrawlerLakeFormationPermissions:
+  rRawGlueCrawlerGlueLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
@@ -466,13 +423,125 @@ Resources:
         DatabaseResource:
           Name: !Ref rRawGlueDataCatalog
 
+  rRawGlueCrawlerS3LakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - DATA_LOCATION_ACCESS
+      Resource:
+        DataLocationResource:
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/
+
   rRawGlueCrawlerSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/RawGlueCrawler
+      Name: !Sub /sdlf/dataset/rRawGlueCrawler
       Type: String
       Value: !Ref rRawGlueCrawler
       Description: !Sub "${pDatasetName} Raw Glue crawler"
+
+  rStageGlueDataCatalog:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: !Sub "${pDatasetName} stage metadata catalog"
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_stage
+
+  rStageGlueDataCatalogSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/dataset/rStageGlueDataCatalog
+      Type: String
+      Value: !Ref rStageGlueDataCatalog
+      Description: !Sub "${pDatasetName} stage metadata catalog"
+
+  rStageGlueDataCatalogLakeFormationTag:
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
+      Resource:
+        Database:
+          CatalogId: !Ref AWS::AccountId
+          Name: !Ref rStageGlueDataCatalog
+      LFTags:
+        - CatalogId: !Ref AWS::AccountId
+          TagKey: "sdlf:dataset"
+          TagValues:
+            - !Ref pDatasetName
+
+  rStageGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Role: !GetAtt rDatalakeCrawlerRole.Arn
+      CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      DatabaseName: !Ref rStageGlueDataCatalog
+      Name: !Sub sdlf-${pDatasetName}-stage-crawler
+      Targets:
+        S3Targets:
+          - Path: !Sub s3://${pStageBucket}/${pS3Prefix}
+
+  rStageGlueCrawlerGlueLakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - CREATE_TABLE
+        - ALTER
+        - DROP
+      Resource:
+        DatabaseResource:
+          Name: !Ref rStageGlueDataCatalog
+
+  rStageGlueCrawlerS3LakeFormationPermissions:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
+      Permissions:
+        - DATA_LOCATION_ACCESS
+      Resource:
+        DataLocationResource:
+          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/
+
+  rStageGlueCrawlerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/dataset/rStageGlueCrawler
+      Type: String
+      Value: !Ref rStageGlueCrawler
+      Description: !Sub "${pDatasetName} Stage Glue crawler"
+
+  rAnalyticsGlueDataCatalog:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: !Sub "${pDatasetName} analytics metadata catalog"
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_analytics
+
+  rAnalyticsGlueDataCatalogSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /sdlf/dataset/rAnalyticsGlueDataCatalog
+      Type: String
+      Value: !Ref rAnalyticsGlueDataCatalog
+      Description: !Sub "${pDatasetName} analytics metadata catalog"
+
+  rAnalyticsGlueDataCatalogLakeFormationTag:
+    Type: AWS::LakeFormation::TagAssociation
+    Properties:
+      Resource:
+        Database:
+          CatalogId: !Ref AWS::AccountId
+          Name: !Ref rAnalyticsGlueDataCatalog
+      LFTags:
+        - CatalogId: !Ref AWS::AccountId
+          TagKey: "sdlf:dataset"
+          TagValues:
+            - !Ref pDatasetName
 
   rAnalyticsGlueCrawler:
     Type: AWS::Glue::Crawler
@@ -480,12 +549,12 @@ Resources:
       Role: !GetAtt rDatalakeCrawlerRole.Arn
       CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       DatabaseName: !Ref rAnalyticsGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-crawler-analytics
+      Name: !Sub sdlf-${pDatasetName}-analytics-crawler
       Targets:
         S3Targets:
           - Path: !Sub s3://${pAnalyticsBucket}/${pS3Prefix}
 
-  rAnalyticsGlueCrawlerLakeFormationPermissions:
+  rAnalyticsGlueCrawlerGlueLakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
@@ -498,80 +567,7 @@ Resources:
         DatabaseResource:
           Name: !Ref rAnalyticsGlueDataCatalog
 
-  rAnalyticsGlueCrawlerSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Glue/${pDatasetName}/AnalyticsGlueCrawler
-      Type: String
-      Value: !Ref rAnalyticsGlueCrawler
-      Description: !Sub "${pDatasetName} Analytics Glue crawler"
-
-  rLakeFormationTag:
-    Type: AWS::LakeFormation::Tag
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      TagKey: "sdlf:dataset"
-      TagValues:
-        - !Ref pDatasetName
-
-  rLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
-    Type: AWS::LakeFormation::PrincipalPermissions
-    Properties:
-      Principal:
-        DataLakePrincipalIdentifier: !If
-          - CicdRoleProvided
-          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
-          - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pDatasetName}
-      Resource:
-        LFTagPolicy:
-          CatalogId: !Ref AWS::AccountId
-          ResourceType: TABLE
-          Expression:
-            - TagKey: !Ref rLakeFormationTag
-              TagValues:
-                - !Ref pDatasetName
-      Permissions:
-        - ALL
-      PermissionsWithGrantOption:
-        - ALL
-
-  rGlueDataCatalogLakeFormationTag:
-    Type: AWS::LakeFormation::TagAssociation
-    Properties:
-      Resource:
-        Database:
-          CatalogId: !Ref AWS::AccountId
-          Name: !Ref rGlueDataCatalog
-      LFTags:
-        - CatalogId: !Ref AWS::AccountId
-          TagKey: "sdlf:dataset"
-          TagValues:
-            - !Ref pDatasetName
-
-  ######## LAKEFORMATION PERMISSIONS #########
-  rRawLakeFormationPermissions:
-    Type: AWS::LakeFormation::Permissions
-    Properties:
-      DataLakePrincipal:
-        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-      Permissions:
-        - DATA_LOCATION_ACCESS
-      Resource:
-        DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/
-
-  rStageLakeFormationPermissions:
-    Type: AWS::LakeFormation::Permissions
-    Properties:
-      DataLakePrincipal:
-        DataLakePrincipalIdentifier: !GetAtt rDatalakeCrawlerRole.Arn
-      Permissions:
-        - DATA_LOCATION_ACCESS
-      Resource:
-        DataLocationResource:
-          S3Resource: !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/
-
-  rAnalyticsLakeFormationPermissions:
+  rAnalyticsGlueCrawlerS3LakeFormationPermissions:
     Type: AWS::LakeFormation::Permissions
     Properties:
       DataLakePrincipal:
@@ -582,6 +578,36 @@ Resources:
         DataLocationResource:
           S3Resource: !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pS3Prefix}/
 
+  rAnalyticsGlueCrawlerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/dataset/rAnalyticsGlueCrawler
+      Type: String
+      Value: !Ref rAnalyticsGlueCrawler
+      Description: !Sub "${pDatasetName} Analytics Glue crawler"
+
+  # rLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
+  #   Type: AWS::LakeFormation::PrincipalPermissions
+  #   Properties:
+  #     Principal:
+  #       DataLakePrincipalIdentifier: !If
+  #         - CicdRoleProvided
+  #         - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
+  #         - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pDatasetName}
+  #     Resource:
+  #       LFTagPolicy:
+  #         CatalogId: !Ref AWS::AccountId
+  #         ResourceType: TABLE
+  #         Expression:
+  #           - TagKey: !Ref rLakeFormationTag
+  #             TagValues:
+  #               - !Ref pDatasetName
+  #     Permissions:
+  #       - ALL
+  #     PermissionsWithGrantOption:
+  #       - ALL
+
+
   ######## EVENTBRIDGE #########
   rEventBus:
     Type: AWS::Events::EventBus
@@ -591,7 +617,7 @@ Resources:
   rEventBusSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/EventBridge/${pDatasetName}/EventBusName
+      Name: !Sub /sdlf/dataset/rEventBus
       Type: String
       Value: !Ref rEventBus
       Description: !Sub Name of the ${pDatasetName} event bus
@@ -604,7 +630,7 @@ Resources:
   rScheduleGroupSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/EventBridge/${pDatasetName}/ScheduleGroupName
+      Name: !Sub /sdlf/dataset/rScheduleGroup
       Type: String
       Value: !Ref rScheduleGroup
       Description: !Sub Name of the ${pDatasetName} schedule group
@@ -687,30 +713,6 @@ Resources:
               - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pS3Prefix}/*
               - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pS3Prefix}/*
               - !Sub arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pS3Prefix}/*
-          - Sid: AllowFullCodeCommitOnTeamRepositories
-            Effect: Allow
-            Action:
-              - codecommit:AssociateApprovalRuleTemplateWithRepository
-              - codecommit:Batch* # Get, Describe, ApprovalRuleTemplate
-              - codecommit:Create*
-              - codecommit:DeleteBranch
-              - codecommit:DeleteFile
-              - codecommit:Describe*
-              - codecommit:DisassociateApprovalRuleTemplateFromRepository
-              - codecommit:EvaluatePullRequestApprovalRules
-              - codecommit:Get*
-              - codecommit:List*
-              - codecommit:Merge*
-              - codecommit:OverridePullRequestApprovalRules
-              - codecommit:Put*
-              - codecommit:Post*
-              - codecommit:TagResource
-              - codecommit:Test*
-              - codecommit:UntagResource
-              - codecommit:Update*
-              - codecommit:Git*
-            Resource:
-              - !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:sdlf-${pDatasetName}-*
           - Sid: AllowTeamKMSDataKeyUsage
             Effect: Allow
             Action:
@@ -724,15 +726,15 @@ Resources:
               - IsS3Prefix
               - - !GetAtt rKMSInfraKey.Arn
                 - !GetAtt rKMSDataKey.Arn
-                - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                - "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
               - - !GetAtt rKMSInfraKey.Arn
-                - "{{resolve:ssm:/SDLF/KMS/KeyArn}}"
+                - "{{resolve:ssm:/sdlf/storage/rKMSKey}}"
           - Effect: Allow
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
-          - Sid: AllowOctagonDynamoAccess
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sdlf/*
+          - Sid: AllowDynamoAccess
             Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -746,7 +748,7 @@ Resources:
               - dynamodb:Scan
               - dynamodb:UpdateItem
             Resource:
-              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/octagon-*
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/sdlf-*
           - Sid: AllowSQSManagement
             Effect: Allow
             Action:
@@ -874,7 +876,7 @@ Resources:
   rIamManagedPolicySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/IAM/${pDatasetName}/TeamPermissionsBoundary
+      Name: !Sub /sdlf/dataset/rIamManagedPolicy
       Type: String
       Value: !Ref rIamManagedPolicy
       Description: The permissions boundary IAM Managed policy for the team
@@ -973,7 +975,7 @@ Resources:
   rDynamoPipelineExecutionHistorySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Dynamo/${pDatasetName}/PipelineExecutionHistory
+      Name: !Sub /sdlf/dataset/rDynamoPipelineExecutionHistory
       Type: String
       Value: !Ref rDynamoPipelineExecutionHistory
       Description: Name of the DynamoDB used to store pipeline execution metadata
@@ -1007,7 +1009,7 @@ Resources:
   rDynamoManifestsSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/Dynamo/${pDatasetName}/Manifests
+      Name: !Sub /sdlf/dataset/rDynamoManifests
       Type: String
       Value: !Ref rDynamoManifests
       Description: Name of the DynamoDB used to store manifest process metadata
