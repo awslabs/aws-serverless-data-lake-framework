@@ -26,10 +26,6 @@ Parameters:
     Description: S3 Athena bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/AthenaBucket}}"
-  pEnvironment:
-    Description: Environment name
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
     Type: String
