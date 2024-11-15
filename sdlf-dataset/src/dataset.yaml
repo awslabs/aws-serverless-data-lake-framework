@@ -13,10 +13,6 @@ Parameters:
     Description: Data domain name
     Type: String
     Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
-  pEnvironment:
-    Description: Environment name
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pRawBucket:
     Description: The raw bucket for the solution
     Type: String
@@ -194,7 +190,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput: 
         Description: !Sub "${pDatasetName} metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_stage
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_stage
 
   rGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -218,7 +214,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pDatasetName} raw metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_raw
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_raw
 
   rRawGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -234,7 +230,7 @@ Resources:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
         Description: !Sub "${pDatasetName} analytics metadata catalog"
-        Name: !Sub ${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_analytics
+        Name: !Sub ${pOrg}_${pDomain}_${pDatasetName}_analytics
 
   rAnalyticsGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -792,11 +788,11 @@ Resources:
               - glue:GetDataQualityRule*
             Resource:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pEnvironment}_${pDatasetName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pDatasetName}_*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pDatasetName}_*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pDatasetName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pDatasetName}-*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pEnvironment}-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pDatasetName}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
           - Effect: Allow
             Action:
