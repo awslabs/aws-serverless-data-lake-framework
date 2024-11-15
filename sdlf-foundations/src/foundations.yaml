@@ -22,9 +22,6 @@ Parameters:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
-  pEnvironment:
-    Description: Environment name
-    Type: String
   pCicdRole:
     Description: Name of the IAM role used to deploy SDLF constructs
     Type: String
@@ -283,7 +280,7 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-s3logs"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-s3logs"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-s3logs"
       LifecycleConfiguration:
         Rules:
           - Id: InfrequentAccess
@@ -329,7 +326,7 @@ Resources:
                   !If
                     - UseCustomBucketPrefix
                     - !Sub "arn:${AWS::Partition}:s3:::${pCustomBucketPrefix}*"
-                    - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}*"
+                    - !Sub "arn:${AWS::Partition}:s3:::${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}*"
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
 
@@ -388,14 +385,14 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-artifacts"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
             - !Sub "${pCustomBucketPrefix}-artifacts"
-            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-artifacts"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -434,14 +431,14 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-raw"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
             - !Sub "${pCustomBucketPrefix}-raw"
-            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-raw"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -492,14 +489,14 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-stage"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
             - !Sub "${pCustomBucketPrefix}-stage"
-            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-stage"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -550,14 +547,14 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-analytics"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
             - !Sub "${pCustomBucketPrefix}-analytics"
-            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-analytics"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -608,14 +605,14 @@ Resources:
         !If
           - UseCustomBucketPrefix
           - !Sub "${pCustomBucketPrefix}-athena"
-          - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
             - !Sub "${pCustomBucketPrefix}-athena"
-            - !Sub "${pOrg}-${pDomain}-${pEnvironment}-${AWS::Region}-${AWS::AccountId}-athena"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -726,9 +723,9 @@ Resources:
     Properties:
       CodeUri: ./lambda/catalog/src
       FunctionName: sdlf-catalog
-      Environment:
-        Variables:
-          ENV: !Ref pEnvironment
+      # Environment:
+      #   Variables:
+      #     ENV: !Ref p
       Description: Catalogs S3 Put and Delete to ObjectMetaDataCatalog
       MemorySize: 256
       Timeout: 60
@@ -915,14 +912,6 @@ Resources:
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
-
-  rEnvironmentSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: /SDLF/Misc/pEnv
-      Type: String
-      Value: !Ref pEnvironment
-      Description: Environment name
 
   rS3AccessLogsBucketSsm:
     Type: AWS::SSM::Parameter
