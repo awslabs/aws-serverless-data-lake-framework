@@ -36,10 +36,6 @@ Parameters:
     Description: The name of the pipeline (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]*"
-  pEnv:
-    Description: Environment name
-    Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pEnv}}"
   pStageName:
     Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
     Type: String
@@ -139,7 +135,6 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         ORG: !Ref pOrg
         DOMAIN: !Ref pDomain
-        ENV: !Ref pEnv
     KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
     VpcConfig: !If
       - RunInVpc
@@ -155,7 +150,6 @@ Resources:
       pPipelineReference: !Ref pPipelineReference
       pOrg: !Ref pOrg
       pDomain: !Ref pDomain
-      pEnv: !Ref pEnv
       pTeamName: !Ref pDataset
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
