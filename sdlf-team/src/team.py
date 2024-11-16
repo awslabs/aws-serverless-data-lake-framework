@@ -27,30 +27,6 @@ class Team(Construct):
             default="none",
         )
         p_pipelinereference.override_logical_id("pPipelineReference")
-        p_org = CfnParameter(
-            self,
-            "pOrg",
-            description="Name of the organization owning the datalake",
-            type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pOrg:1}}",
-        )
-        p_org.override_logical_id("pOrg")
-        p_domain = CfnParameter(
-            self,
-            "pDomain",
-            description="Data domain name",
-            type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pDomain:1}}",
-        )
-        p_domain.override_logical_id("pDomain")
-        p_environment = CfnParameter(
-            self,
-            "pEnvironment",
-            description="Environment name",
-            type="String",
-            default="{{resolve:ssm:/SDLF/Misc/pEnv:1}}",
-        )
-        p_environment.override_logical_id("pEnvironment")
         p_teamname = CfnParameter(
             self,
             "pTeamName",
@@ -59,22 +35,6 @@ class Team(Construct):
             allowed_pattern="[a-z0-9]{2,12}",
         )
         p_teamname.override_logical_id("pTeamName")
-        p_lakeformationdataaccessrole = CfnParameter(
-            self,
-            "pLakeFormationDataAccessRole",
-            description="Name of the team (all lowercase, no symbols or spaces)",
-            type="String",
-            default="{{resolve:ssm:/SDLF/IAM/LakeFormationDataAccessRoleArn:1}}",
-        )
-        p_lakeformationdataaccessrole.override_logical_id("pLakeFormationDataAccessRole")
-        p_artifactsbucket = CfnParameter(
-            self,
-            "pArtifactsBucket",
-            description="The artifacts bucket used by CodeBuild and CodePipeline",
-            type="String",
-            default="{{resolve:ssm:/SDLF/S3/ArtifactsBucket:1}}",
-        )
-        p_artifactsbucket.override_logical_id("pArtifactsBucket")
         p_athenabucket = CfnParameter(
             self,
             "pAthenaBucket",
@@ -83,30 +43,6 @@ class Team(Construct):
             default="{{resolve:ssm:/SDLF/S3/AthenaBucket:1}}",
         )
         p_athenabucket.override_logical_id("pAthenaBucket")
-        p_rawbucket = CfnParameter(
-            self,
-            "pRawBucket",
-            description="The raw bucket for the solution",
-            type="String",
-            default="{{resolve:ssm:/SDLF/S3/RawBucket:1}}",
-        )
-        p_rawbucket.override_logical_id("pRawBucket")
-        p_stagebucket = CfnParameter(
-            self,
-            "pStageBucket",
-            description="The stage bucket for the solution",
-            type="String",
-            default="{{resolve:ssm:/SDLF/S3/StageBucket:1}}",
-        )
-        p_stagebucket.override_logical_id("pStageBucket")
-        p_analyticsbucket = CfnParameter(
-            self,
-            "pAnalyticsBucket",
-            description="The analytics bucket for the solution",
-            type="String",
-            default="{{resolve:ssm:/SDLF/S3/AnalyticsBucket:1}}",
-        )
-        p_analyticsbucket.override_logical_id("pAnalyticsBucket")
 
         ######## KMS #########
         infra_kms_key_policy = iam.PolicyDocument(
