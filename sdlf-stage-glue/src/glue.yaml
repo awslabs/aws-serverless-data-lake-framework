@@ -23,11 +23,6 @@ Parameters:
     Description: Stage Bucket
     Type: String
     Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
-  pTeamName:
-    Description: Name of the team owning the pipeline (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]*"
-    Default: ""
   pDataset:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -129,13 +124,12 @@ Globals:
       - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
     Environment:
       Variables:
-        TEAM: !Ref pDataset
         DATASET: !Ref pDataset
         PIPELINE: !Ref pPipeline
         PIPELINE_STAGE: !Ref pStageName
         ORG: !Ref pOrg
         DOMAIN: !Ref pDomain
-    KmsKeyArn: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
+    KmsKeyArn: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
     VpcConfig: !If
       - RunInVpc
       - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
@@ -150,7 +144,7 @@ Resources:
       pPipelineReference: !Ref pPipelineReference
       pOrg: !Ref pOrg
       pDomain: !Ref pDomain
-      pTeamName: !Ref pDataset
+      pDataset: !Ref pDataset
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
       pStageEnabled: !Ref pStageEnabled
@@ -202,7 +196,7 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
+              - !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
 
   # Routing Role
   rRoleLambdaExecutionRoutingStep:
@@ -224,7 +218,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-routing-${pStageName}
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-routing
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -267,7 +261,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-metadata-${pStageName}
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-metadata
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -303,7 +297,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-error-${pStageName}
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-error
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -330,7 +324,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/routing/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-routing-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-routing
       Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
@@ -348,7 +342,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/redrive/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-redrive-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-redrive
       Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
@@ -363,7 +357,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/postupdate-metadata/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-postupdate-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-postupdate
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 192
       Timeout: 300
@@ -378,13 +372,21 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/error/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-error-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-error
       Description: Fallback lambda to handle messages which failed processing
       MemorySize: 192
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionErrorStep.Arn
 
   ######## CLOUDWATCH #########
+  rRoutingLambdaSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/pipeline/rLambdaRoutingStep
+      Type: String
+      Value: !GetAtt rLambdaRoutingStep.Arn
+      Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pPipeline} Routing Lambda" # TODO
+
   rLambdaRoutingStepLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
@@ -392,35 +394,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterRoutingStep:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaRoutingStepLogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rLambdaRoutingStepCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Condition: DeployElasticSearch
-    Properties:
-      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda Alarm
-      AlarmActions:
-        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
-      MetricName: Errors
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 5
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref rLambdaRoutingStep
+      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
 
   rLambdaRedriveStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -429,16 +403,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterRedriveStep:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaRedriveStepLogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
 
   rLambdaPostMetadataStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -447,16 +412,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterPostMetadataStep:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaPostMetadataStepLogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
+      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -465,35 +421,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/SDLF/KMS/${pDataset}/InfraKeyId}}"
-
-  rUpdateSubscriptionFilterErrorStep:
-    Type: AWS::Logs::SubscriptionFilter
-    Condition: DeployElasticSearch
-    Properties:
-      LogGroupName: !Ref rLambdaErrorStepLogGroup
-      DestinationArn: !Ref pKibanaStream
-      RoleArn: !Ref pKibanaStreamRole
-      FilterPattern: "[log_type, log_timestamp, log_id, log_message]"
-
-  rLambdaErrorStepCloudWatchAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Condition: DeployElasticSearch
-    Properties:
-      AlarmDescription: !Sub ${pStageName} ${pTeamName} ${pPipeline} Error Lambda Alarm
-      AlarmActions:
-        - !Sub "{{resolve:ssm:/SDLF/SNS/${pTeamName}/Notifications}}"
-      MetricName: Invocations
-      EvaluationPeriods: 5
-      Period: 60
-      ComparisonOperator: GreaterThanThreshold
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Threshold: 5
-      Unit: Count
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref rLambdaErrorStep
+      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
 
   ######## STATE MACHINE #########
   rStatesExecutionRole:
@@ -518,7 +446,7 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-states-execution
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-sm
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -566,31 +494,23 @@ Resources:
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub sdlf-${pDataset}-${pPipeline}-sm-${pStageName}
+      Name: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-sm
       DefinitionUri: ./state-machine/stage-glue.asl.json
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
+        lTransform: !GetAtt rLambdaTransformStep.Arn
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
         Enabled: !If [EnableTracing, true, false]
 
-  ######## SSM OUTPUTS #########
-  rRoutingLambdaSsm:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub /SDLF/Lambda/${pDataset}/${pPipeline}${pStageName}RoutingLambda
-      Type: String
-      Value: !GetAtt rLambdaRoutingStep.Arn
-      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} Routing Lambda" # TODO
-
   rStateMachineSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /SDLF/SM/${pDataset}/${pPipeline}${pStageName}SM
+      Name: !Sub /sdlf/pipeline/rStateMachine
       Type: String
       Value: !Ref rStateMachine
-      Description: !Sub "ARN of the ${pStageName} ${pTeamName} ${pPipeline} State Machine" # TODO
+      Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pPipeline} State Machine" # TODO
 
 Outputs:
   oPipelineReference:
