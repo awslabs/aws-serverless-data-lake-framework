@@ -53,18 +53,6 @@ Parameters:
     Description: Event pattern to match from previous stage
     Type: String
     Default: ""
-  pElasticSearchEnabled:
-    Description: Boolean for wether ElasticSearch is enabled
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/ElasticSearch/Enabled
-  pKibanaStreamRole:
-    Description: ARN of the role used to forward logs to Kinesis
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/KibanaStreamRoleArn
-  pKibanaStream:
-    Description: ARN of the Kinesis stream that collates logs
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /SDLF/Lambda/KibanaStreamArn
   pCloudWatchLogsRetentionInDays:
     Description: The number of days log events are kept in CloudWatch Logs
     Type: Number
@@ -112,7 +100,6 @@ Parameters:
     Default: ""
 
 Conditions:
-  DeployElasticSearch: !Equals [!Ref pElasticSearchEnabled, "true"]
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
