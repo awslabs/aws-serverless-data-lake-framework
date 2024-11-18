@@ -49,7 +49,7 @@ deploy:
 
             : "${SEEDFARMER_PARAMETER_LIBRARY_ORG:=awslabs}" "${SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK:=sdlf}" "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
             cd src || exit
-            sam package --template-file ./template.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+            sam package --template-file ./glue.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
             python3 ../sam-translate.py --template-file=template.yaml --output-template=translated-template.json
 
             SSM_ENDPOINT="https://ssm.$AWS_REGION.amazonaws.com"
