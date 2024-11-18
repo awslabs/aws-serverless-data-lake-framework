@@ -49,10 +49,6 @@ Parameters:
     Type: String
     AllowedPattern: "[a-z0-9]*"
     Default: ""
-  pCicdRole:
-    Description: Name of the IAM role used to deploy SDLF constructs
-    Type: String
-    Default: ""
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
@@ -63,7 +59,6 @@ Parameters:
     Default: false
 
 Conditions:
-  CicdRoleProvided: !Not [!Equals [!Ref pCicdRole, ""]]
   IsS3Prefix: !Not [!Equals [!Ref pS3Prefix, ""]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
@@ -246,7 +241,7 @@ Resources:
                 "HttpPutResponseHopLimit": 1
               }
             }
-        - |
+        - !Sub |
             {
               "EncryptionConfiguration": {
                 "EnableInTransitEncryption" : false,
