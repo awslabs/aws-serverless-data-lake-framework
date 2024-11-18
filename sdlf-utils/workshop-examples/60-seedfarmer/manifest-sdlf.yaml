@@ -3,9 +3,9 @@ forceDependencyRedeploy: True
 toolchainRegion: eu-west-1
 groups:
   - name: base
-    path: sdlf-utils/workshop-examples/30-seedfarmer/manifest-sdlf-base.yaml
+    path: sdlf-utils/workshop-examples/60-seedfarmer/manifest-sdlf-base.yaml
   - name: stages
-    path: sdlf-utils/workshop-examples/30-seedfarmer/manifest-sdlf-stages.yaml
+    path: sdlf-utils/workshop-examples/60-seedfarmer/manifest-sdlf-stages.yaml
 targetAccountMappings:
   - alias: datadomain1
     accountId: 111111111111
