@@ -365,13 +365,13 @@ Resources:
       Value: !GetAtt rDatalakeCrawlerRole.Arn
       Description: ARN of the Crawler role
 
-  rLakeFormationTag:
-    Type: AWS::LakeFormation::Tag
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      TagKey: "sdlf:dataset"
-      TagValues:
-        - !Ref pDatasetName
+  # rLakeFormationTag:
+  #   Type: AWS::LakeFormation::Tag
+  #   Properties:
+  #     CatalogId: !Ref AWS::AccountId
+  #     TagKey: "sdlf:dataset"
+  #     TagValues:
+  #       - !Ref pDatasetName
 
   rRawGlueDataCatalog:
     Type: AWS::Glue::Database
@@ -389,18 +389,18 @@ Resources:
       Value: !Ref rRawGlueDataCatalog
       Description: !Sub "${pDatasetName} raw metadata catalog"
 
-  rRawGlueDataCatalogLakeFormationTag:
-    Type: AWS::LakeFormation::TagAssociation
-    Properties:
-      Resource:
-        Database:
-          CatalogId: !Ref AWS::AccountId
-          Name: !Ref rRawGlueDataCatalog
-      LFTags:
-        - CatalogId: !Ref AWS::AccountId
-          TagKey: "sdlf:dataset"
-          TagValues:
-            - !Ref pDatasetName
+  # rRawGlueDataCatalogLakeFormationTag:
+  #   Type: AWS::LakeFormation::TagAssociation
+  #   Properties:
+  #     Resource:
+  #       Database:
+  #         CatalogId: !Ref AWS::AccountId
+  #         Name: !Ref rRawGlueDataCatalog
+  #     LFTags:
+  #       - CatalogId: !Ref AWS::AccountId
+  #         TagKey: "sdlf:dataset"
+  #         TagValues:
+  #           - !Ref pDatasetName
 
   rRawGlueCrawler:
     Type: AWS::Glue::Crawler
@@ -461,18 +461,18 @@ Resources:
       Value: !Ref rStageGlueDataCatalog
       Description: !Sub "${pDatasetName} stage metadata catalog"
 
-  rStageGlueDataCatalogLakeFormationTag:
-    Type: AWS::LakeFormation::TagAssociation
-    Properties:
-      Resource:
-        Database:
-          CatalogId: !Ref AWS::AccountId
-          Name: !Ref rStageGlueDataCatalog
-      LFTags:
-        - CatalogId: !Ref AWS::AccountId
-          TagKey: "sdlf:dataset"
-          TagValues:
-            - !Ref pDatasetName
+  # rStageGlueDataCatalogLakeFormationTag:
+  #   Type: AWS::LakeFormation::TagAssociation
+  #   Properties:
+  #     Resource:
+  #       Database:
+  #         CatalogId: !Ref AWS::AccountId
+  #         Name: !Ref rStageGlueDataCatalog
+  #     LFTags:
+  #       - CatalogId: !Ref AWS::AccountId
+  #         TagKey: "sdlf:dataset"
+  #         TagValues:
+  #           - !Ref pDatasetName
 
   rStageGlueCrawler:
     Type: AWS::Glue::Crawler
@@ -533,18 +533,18 @@ Resources:
       Value: !Ref rAnalyticsGlueDataCatalog
       Description: !Sub "${pDatasetName} analytics metadata catalog"
 
-  rAnalyticsGlueDataCatalogLakeFormationTag:
-    Type: AWS::LakeFormation::TagAssociation
-    Properties:
-      Resource:
-        Database:
-          CatalogId: !Ref AWS::AccountId
-          Name: !Ref rAnalyticsGlueDataCatalog
-      LFTags:
-        - CatalogId: !Ref AWS::AccountId
-          TagKey: "sdlf:dataset"
-          TagValues:
-            - !Ref pDatasetName
+  # rAnalyticsGlueDataCatalogLakeFormationTag:
+  #   Type: AWS::LakeFormation::TagAssociation
+  #   Properties:
+  #     Resource:
+  #       Database:
+  #         CatalogId: !Ref AWS::AccountId
+  #         Name: !Ref rAnalyticsGlueDataCatalog
+  #     LFTags:
+  #       - CatalogId: !Ref AWS::AccountId
+  #         TagKey: "sdlf:dataset"
+  #         TagValues:
+  #           - !Ref pDatasetName
 
   rAnalyticsGlueCrawler:
     Type: AWS::Glue::Crawler
