@@ -38,7 +38,7 @@ Resources:
   rOrganizationSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /sdlf/storage/pOrg/${pDeploymentInstance}
+      Name: !Sub /sdlf/storage/rOrganization/${pDeploymentInstance}
       Type: String
       Value: !Ref pOrg
       Description: Name of the Organization owning the datalake
@@ -46,7 +46,7 @@ Resources:
   rDomainSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /sdlf/storage/pDomain/${pDeploymentInstance}
+      Name: !Sub /sdlf/storage/rDomain/${pDeploymentInstance}
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
@@ -659,6 +659,9 @@ Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with
     Value: !Ref pPipelineReference
+  oDeploymentInstance:
+    Description: A string uniquely identifying this deployment in this AWS account
+    Value: !Ref pDeploymentInstance
   oChildAccountId:
     Description: Child AWS account ID
     Value: !Ref pChildAccountId
