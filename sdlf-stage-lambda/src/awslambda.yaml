@@ -7,22 +7,30 @@ Parameters:
     Description: Workaround for CloudFormation resolve:ssm not updating on stack update (https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/844)
     Type: String
     Default: none
+  pDeploymentInstance:
+    Type: String
+    Description: A string uniquely identifying this deployment in this AWS account
+    Default: lambda
+  pDatasetInfraKmsKey:
+    Description: KMS key set as infra key for the dataset
+    Type: String
+    Default: "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/dev}}"
   pOrg:
     Description: Name of the organization owning the datalake
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pOrg}}"
+    Default: "{{resolve:ssm:/sdlf/storage/rOrganization/dev}}"
   pDomain:
     Description: Data domain name
     Type: String
-    Default: "{{resolve:ssm:/SDLF/Misc/pDomain}}"
+    Default: "{{resolve:ssm:/sdlf/storage/rDomain/dev}}"
   pRawBucket:
     Description: Raw bucket
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/RawBucket}}"
+    Default: "{{resolve:ssm:/sdlf/storage/rRawBucket/dev}}"
   pStageBucket:
-    Description: Stage Bucket
+    Description: Stage bucket
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/StageBucket}}"
+    Default: "{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}"
   pDataset:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -116,7 +124,7 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         ORG: !Ref pOrg
         DOMAIN: !Ref pDomain
-    KmsKeyArn: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+    KmsKeyArn: !Ref pDatasetInfraKmsKey
     VpcConfig: !If
       - RunInVpc
       - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
@@ -129,8 +137,7 @@ Resources:
     Type: awslabs::sdlf::pipeline::MODULE
     Properties:
       pPipelineReference: !Ref pPipelineReference
-      pOrg: !Ref pOrg
-      pDomain: !Ref pDomain
+      pDeploymentInstance: !Ref pDeploymentInstance
       pDataset: !Ref pDataset
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
@@ -159,7 +166,7 @@ Resources:
             Action:
               - ssm:GetParameter
               - ssm:GetParameters
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sdlf/*
           - Effect: Allow
             Action:
               - dynamodb:BatchGetItem
@@ -182,14 +189,14 @@ Resources:
               - kms:Encrypt
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
-            Resource: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+            Resource: !Ref pDatasetInfraKmsKey
 
   # Processing Role
   rRoleLambdaExecutionProcessingStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pDataset}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
+      # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -218,7 +225,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: !If
+                Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDataset}/*
                   - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*
               - Effect: Allow
@@ -235,7 +242,7 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:CreateGrant
                 Resource:
-                  - !Sub "{{resolve:ssm:/sdlf/dataset/rKMSDataKey}}" # TODO: may not exist
+                  - "{{resolve:ssm:/sdlf/dataset/rKMSDataKey/dev}}" # TODO: may not exist
 
 
   ######## LAMBDA FUNCTIONS #########
@@ -244,7 +251,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pDataset}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
+      # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -307,12 +314,12 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+      KmsKeyId: !Ref pDatasetInfraKmsKey
 
   rRoutingLambdaSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /sdlf/pipeline/rLambdaRoutingStep
+      Name: !Sub /sdlf/pipeline/rLambdaRoutingStep/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rLambdaRoutingStep.Arn
       Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pPipeline} Routing Lambda" # TODO
@@ -339,7 +346,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+      KmsKeyId: !Ref pDatasetInfraKmsKey
 
   rLambdaTransformStep:
     Type: AWS::Serverless::Function
@@ -363,14 +370,14 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaTransformStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+      KmsKeyId: !Ref pDatasetInfraKmsKey
 
   # Metadata Step Role (fetch metadata, update pipeline execution history...)
   rRoleLambdaExecutionMetadataStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pDataset}/
-      PermissionsBoundary: "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
+      # PermissionsBoundary: "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -423,14 +430,14 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+      KmsKeyId: !Ref pDatasetInfraKmsKey
 
   # Error Handling Lambda Role
   rRoleLambdaExecutionErrorStep:
     Type: AWS::IAM::Role
     Properties:
       Path: !Sub /sdlf-${pDataset}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
+      # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
         - !If
@@ -484,7 +491,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+      KmsKeyId: !Ref pDatasetInfraKmsKey
 
   ######## STATE MACHINE #########
   rStatesExecutionRole:
@@ -496,7 +503,7 @@ Resources:
             reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
       Path: !Sub /sdlf-${pDataset}/
-      PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
+      # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -558,7 +565,7 @@ Resources:
   rStateMachineSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /sdlf/pipeline/rStateMachine
+      Name: !Sub /sdlf/pipeline/rStateMachine/${pDeploymentInstance}
       Type: String
       Value: !Ref rStateMachine
       Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pPipeline} State Machine" # TODO
