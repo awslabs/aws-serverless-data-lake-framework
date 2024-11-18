@@ -2,26 +2,26 @@ import json
 import os
 from decimal import Decimal
 
-from datalake_library import octagon
-from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import (
-    DynamoConfiguration,
+from datalake_library.sdlf import (
+    PipelineExecutionHistoryAPI,
     SQSConfiguration,
     StateMachineConfiguration,
 )
-from datalake_library.interfaces.dynamo_interface import DynamoInterface
+from datalake_library.commons import init_logger
+
 from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.interfaces.states_interface import StatesInterface
 
 logger = init_logger(__name__)
-team = os.environ["TEAM"]
 dataset = os.environ["DATASET"]
 pipeline = os.environ["PIPELINE"]
 pipeline_stage = os.environ["PIPELINE_STAGE"]
 org = os.environ["ORG"]
 domain = os.environ["DOMAIN"]
-env = os.environ["ENV"]
-
+deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
+object_metadata_table_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
+peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
+manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 
 def serializer(obj):
     if isinstance(obj, Decimal):
@@ -32,10 +32,10 @@ def serializer(obj):
     raise TypeError("Type not serializable")
 
 
-def pipeline_start(octagon_client, event):
-    peh_id = octagon_client.start_pipeline_execution(
-        pipeline_name=f"{team}-{pipeline}-{pipeline_stage}",
-        dataset_name=f"{team}-{dataset}",
+def pipeline_start(pipeline_execution, event):
+    peh_id = pipeline_execution.start_pipeline_execution(
+        pipeline_name=f"{pipeline}-{pipeline_stage}",
+        dataset_name=f"{dataset}",
         comment=event,  # TODO test maximum size
     )
     logger.info(f"peh_id: {peh_id}")
@@ -46,7 +46,7 @@ def pipeline_start(octagon_client, event):
 # event: run stage when an event received on the team's event bus matches the configured event pattern
 # event-schedule: store events received on the team's event bus matching the configured event pattern, then process them on the configured schedule
 # schedule: run stage on the configured schedule, without any event as input
-def get_source_records(event, dynamo_interface):
+def get_source_records(event):
     records = []
 
     if event.get("trigger_type") == "schedule" and "event_pattern" not in event:
@@ -54,17 +54,14 @@ def get_source_records(event, dynamo_interface):
         records.append(event)
     elif event.get("trigger_type") == "schedule" and "event_pattern" in event:
         logger.info("Stage trigger: event-schedule")
-        pipeline_info = dynamo_interface.get_pipelines_table_item(f"{team}-{pipeline}-{pipeline_stage}")
         min_items_to_process = 1
         max_items_to_process = 100
         logger.info(f"Pipeline is {pipeline}, stage is {pipeline_stage}")
-        logger.info(f"Details from DynamoDB: {pipeline_info.get('pipeline', {})}")
-        min_items_to_process = pipeline_info["pipeline"].get("min_items_process", min_items_to_process)
-        max_items_to_process = pipeline_info["pipeline"].get("max_items_process", max_items_to_process)
+        logger.info(f"Pipeline stage configuration: min_items_to_process {min_items_to_process}, max_items_to_process {max_items_to_process}")
 
-        sqs_config = SQSConfiguration(team, pipeline, pipeline_stage)
-        queue_interface = SQSInterface(sqs_config.get_stage_queue_name)
-        logger.info(f"Querying {team}-{pipeline}-{pipeline_stage} objects waiting for processing")
+        sqs_config = SQSConfiguration(instance=deployment_instance)
+        queue_interface = SQSInterface(sqs_config.stage_queue)
+        logger.info(f"Querying {dataset} {pipeline}-{pipeline_stage} objects waiting for processing")
         messages = queue_interface.receive_min_max_messages(min_items_to_process, max_items_to_process)
         logger.info(f"{len(messages)} Objects ready for processing")
 
@@ -89,30 +86,18 @@ def enrich_records(records, metadata):
     return enriched_records
 
 
-def get_transform_details(dynamo_interface):
-    transform_info = dynamo_interface.get_transform_table_item(f"{team}-{dataset}")
-    logger.info(f"Pipeline is {pipeline}, stage is {pipeline_stage}")
-    # an example transform is bundled with any sdlf-stage-*
-    # if needed, either make changes to it, or deploy a custom transform (preferred)
+def get_transform_details():
     transform_details = dict(transform=os.environ["STAGE_TRANSFORM"])
-    if pipeline in transform_info.get("pipeline", {}):
-        if pipeline_stage in transform_info["pipeline"][pipeline]:
-            transform_details = transform_details | transform_info["pipeline"][pipeline][pipeline_stage]
-            logger.info(f"Details from DynamoDB: {transform_details}")
 
     return transform_details
 
 
 def lambda_handler(event, context):
     try:
-        octagon_client = octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(env).build()
-        dynamo_config = DynamoConfiguration()
-        dynamo_interface = DynamoInterface(dynamo_config)
-        peh_id = pipeline_start(octagon_client, event)
-        records = get_source_records(event, dynamo_interface)
-        metadata = get_transform_details(
-            dynamo_interface
-        )  # allow customising the transform through sdlf-dataset's pPipelineDetails
+        pipeline_execution = PipelineExecutionHistoryAPI(run_in_context="LAMBDA", region=os.getenv("AWS_REGION"), object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
+        peh_id = pipeline_start(pipeline_execution, event)
+        records = get_source_records(event)
+        metadata = get_transform_details()
         metadata = dict(peh_id=peh_id, **metadata)
         records = enrich_records(records, metadata)
 
@@ -121,22 +106,22 @@ def lambda_handler(event, context):
                 logger.info("Starting State Machine Execution (scheduled run without source events)")
             else:
                 logger.info(f"Starting State Machine Execution (processing {len(records)} source events)")
-            state_config = StateMachineConfiguration(team, pipeline, pipeline_stage)
+            state_config = StateMachineConfiguration(instance=deployment_instance)
             StatesInterface().run_state_machine(
-                state_config.get_stage_state_machine_arn, json.dumps(records, default=serializer)
+                state_config.stage_state_machine, json.dumps(records, default=serializer)
             )
-            octagon_client.update_pipeline_execution(
-                status=f"{pipeline_stage} Transform Processing", component="Transform"
+            pipeline_execution.update_pipeline_execution(
+                status=f"{pipeline}-{pipeline_stage} Transform Processing", component="Transform"
             )
         else:
             logger.info("Nothing to process, exiting pipeline")
-            octagon_client.end_pipeline_execution_success()
+            pipeline_execution.end_pipeline_execution_success()
 
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         component = context.function_name.split("-")[-2].title()
-        octagon_client.end_pipeline_execution_failed(
+        pipeline_execution.end_pipeline_execution_failed(
             component=component,
-            issue_comment=f"{pipeline_stage} {component} Error: {repr(e)}",
+            issue_comment=f"{pipeline}-{pipeline_stage} {component} Error: {repr(e)}",
         )
         raise e

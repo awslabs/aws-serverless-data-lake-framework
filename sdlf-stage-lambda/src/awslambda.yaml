@@ -124,6 +124,9 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         ORG: !Ref pOrg
         DOMAIN: !Ref pDomain
+        DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
+        STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
+        DATASET_DEPLOYMENT_INSTANCE: dev # TODO
     KmsKeyArn: !Ref pDatasetInfraKmsKey
     VpcConfig: !If
       - RunInVpc
@@ -211,7 +214,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-process-${pStageName}
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-process
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -266,7 +269,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-routing-${pStageName}
+        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-routing
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -298,7 +301,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/routing/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-routing-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-routing
       Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
@@ -333,7 +336,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/redrive/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-redrive-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-redrive
       Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
@@ -357,7 +360,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/process-object/src
-      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-process-${pStageName}
+      FunctionName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-process
       Description: Processing pipeline
       MemorySize: 1536
       Timeout: 600
