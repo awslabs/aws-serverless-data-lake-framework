@@ -1,17 +1,18 @@
 import os
 
-from datalake_library import octagon
+from datalake_library.sdlf import PipelineExecutionHistoryAPI
 from datalake_library.commons import init_logger
-from datalake_library.octagon import peh
 
 logger = init_logger(__name__)
-team = os.environ["TEAM"]
 dataset = os.environ["DATASET"]
 pipeline = os.environ["PIPELINE"]
 pipeline_stage = os.environ["PIPELINE_STAGE"]
 org = os.environ["ORG"]
 domain = os.environ["DOMAIN"]
-env = os.environ["ENV"]
+deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
+object_metadata_table_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
+peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
+manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 
 
 def lambda_handler(event, context):
@@ -27,9 +28,9 @@ def lambda_handler(event, context):
     try:
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
-        octagon_client = octagon.OctagonClient().with_run_lambda(True).with_configuration_instance(env).build()
+        pipeline_execution = PipelineExecutionHistoryAPI(run_in_context="LAMBDA", region=os.getenv("AWS_REGION"), object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
         peh_id = event[0]["Items"][0]["transform"]["peh_id"]
-        peh.PipelineExecutionHistoryAPI(octagon_client).retrieve_pipeline_execution(peh_id)
+        pipeline_execution.retrieve_pipeline_execution(peh_id)
 
         partial_failure = False
         for records in event:
@@ -38,16 +39,16 @@ def lambda_handler(event, context):
                     partial_failure = True
 
         if not partial_failure:
-            octagon_client.update_pipeline_execution(
-                status="{} {} Processing".format(pipeline_stage, component), component=component
+            pipeline_execution.update_pipeline_execution(
+                status=f"{pipeline}-{pipeline_stage} {component} Processing", component=component
             )
-            octagon_client.end_pipeline_execution_success()
+            pipeline_execution.end_pipeline_execution_success()
         else:
             raise Exception("Failure: Processing failed for one or more record")
 
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
-        octagon_client.end_pipeline_execution_failed(
-            component=component, issue_comment=f"{pipeline_stage} {component} Error: {repr(e)}"
+        pipeline_execution.end_pipeline_execution_failed(
+            component=component, issue_comment=f"{pipeline}-{pipeline_stage} {component} Error: {repr(e)}"
         )
         raise e

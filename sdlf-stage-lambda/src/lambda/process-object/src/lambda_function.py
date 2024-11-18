@@ -3,26 +3,25 @@ import os
 from pathlib import PurePath
 
 from datalake_library.commons import init_logger
-from datalake_library.configuration.resource_configs import (
+from datalake_library.sdlf import (
     KMSConfiguration,
     S3Configuration,
 )
 from datalake_library.interfaces.s3_interface import S3Interface
 
 logger = init_logger(__name__)
-team = os.environ["TEAM"]
 dataset = os.environ["DATASET"]
 pipeline = os.environ["PIPELINE"]
 pipeline_stage = os.environ["PIPELINE_STAGE"]
 org = os.environ["ORG"]
 domain = os.environ["DOMAIN"]
-env = os.environ["ENV"]
+storage_deployment_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 
 
 def transform_object(bucket, key):
     s3_interface = S3Interface()
     # IMPORTANT: Stage bucket where transformed data must be uploaded
-    stage_bucket = S3Configuration().stage_bucket
+    stage_bucket = S3Configuration(instance=storage_deployment_instance).stage_bucket
     # Download S3 object locally to /tmp directory
     # The s3_helper.download_object method
     # returns the local path where the file was saved
@@ -56,9 +55,9 @@ def transform_object(bucket, key):
 
     # Uploading file to Stage bucket at appropriate path
     # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
-    s3_path = f"{team}/{dataset}/{pipeline_stage}/{PurePath(output_path).name}"
+    s3_path = f"{dataset}/{pipeline}/{pipeline_stage}/{PurePath(output_path).name}"
     # IMPORTANT: Notice "stage_bucket" not "bucket"
-    kms_key = KMSConfiguration(team).get_kms_arn
+    kms_key = KMSConfiguration(instance=storage_deployment_instance).data_kms_key
     s3_interface.upload_object(output_path, stage_bucket, s3_path, kms_key=kms_key)
 
     return s3_path
