@@ -7,7 +7,16 @@ from ..commons import init_logger
 
 
 class S3Configuration:
-    def __init__(self, log_level=None, ssm_interface=None, instance=None):
+    def __init__(
+        self,
+        log_level=None,
+        ssm_interface=None,
+        instance=None,
+        raw_bucket_instance=None,
+        stage_bucket_instance=None,
+        analytics_bucket_instance=None,
+        artifacts_bucket_instance=None,
+    ):
         """
         Complementary S3 config stores the S3 specific parameters
         :param log_level: level the class logger should log at
@@ -15,7 +24,10 @@ class S3Configuration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.instance = instance
+        self.raw_bucket_instance = raw_bucket_instance or instance
+        self.stage_bucket_instance = stage_bucket_instance or instance
+        self.analytics_bucket_instance = analytics_bucket_instance or instance
+        self.artifacts_bucket_instance = artifacts_bucket_instance or instance
 
         ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
@@ -29,22 +41,22 @@ class S3Configuration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instance: {self.instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instances: {self.raw_bucket_instance} {self.stage_bucket_instance} {self.analytics_bucket_instance} {self.artifacts_bucket_instance}"
         )
         try:
-            raw_bucket_ssm = "/sdlf/storage/rRawBucket"
+            raw_bucket_ssm = f"/sdlf/storage/rRawBucket/{self.raw_bucket_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {raw_bucket_ssm}")
             self.raw_bucket = self._ssm.get_parameter(Name=raw_bucket_ssm)["Parameter"]["Value"]
 
-            stage_bucket_ssm = "/sdlf/storage/rStageBucket"
+            stage_bucket_ssm = f"/sdlf/storage/rStageBucket/{self.stage_bucket_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {stage_bucket_ssm}")
             self.stage_bucket = self._ssm.get_parameter(Name=stage_bucket_ssm)["Parameter"]["Value"]
 
-            analytics_bucket_ssm = "/sdlf/storage/rAnalyticsBucket"
+            analytics_bucket_ssm = f"/sdlf/storage/rAnalyticsBucket/{self.analytics_bucket_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {analytics_bucket_ssm}")
             self.analytics_bucket = self._ssm.get_parameter(Name=analytics_bucket_ssm)["Parameter"]["Value"]
 
-            artifacts_bucket_ssm = "/sdlf/storage/rArtifactsBucket"
+            artifacts_bucket_ssm = f"/sdlf/storage/rArtifactsBucket/{self.artifacts_bucket_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {artifacts_bucket_ssm}")
             self.artifacts_bucket = self._ssm.get_parameter(Name=artifacts_bucket_ssm)["Parameter"]["Value"]
         except ClientError as e:
@@ -56,7 +68,7 @@ class S3Configuration:
 
 
 class DynamoConfiguration:
-    def __init__(self, log_level=None, ssm_interface=None, instance=None):
+    def __init__(self, log_level=None, ssm_interface=None, instance=None, object_metadata_table_instance=None, peh_table_instance=None, manifests_table_instance=None):
         """
         Complementary Dynamo config stores the parameters required to access dynamo tables
         :param log_level: level the class logger should log at
@@ -64,7 +76,9 @@ class DynamoConfiguration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.instance = instance
+        self.object_metadata_table_instance = object_metadata_table_instance or instance
+        self.peh_table_instance = peh_table_instance or instance
+        self.manifests_table_instance = manifests_table_instance or instance
 
         ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
@@ -73,18 +87,18 @@ class DynamoConfiguration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instance: {self.instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instances: {self.object_metadata_table_instance} {self.peh_table_instance} {self.manifests_table_instance}"
         )
         try:
-            object_metadata_table_ssm = "/sdlf/storage/rDynamoObjectMetadata"
+            object_metadata_table_ssm = f"/sdlf/storage/rDynamoObjectMetadata/{self.object_metadata_table_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {object_metadata_table_ssm}")
             self.object_metadata_table = self._ssm.get_parameter(Name=object_metadata_table_ssm)["Parameter"]["Value"]
 
-            peh_table_ssm = "/sdlf/dataset/rDynamoPipelineExecutionHistory"
+            peh_table_ssm = f"/sdlf/dataset/rDynamoPipelineExecutionHistory/{self.peh_table_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {peh_table_ssm}")
             self.peh_table = self._ssm.get_parameter(Name=peh_table_ssm)["Parameter"]["Value"]
 
-            manifests_table_ssm = "/sdlf/dataset/rDynamoManifests"
+            manifests_table_ssm = f"/sdlf/dataset/rDynamoManifests/{self.manifests_table_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {manifests_table_ssm}")
             self.manifests_table = self._ssm.get_parameter(Name=manifests_table_ssm)["Parameter"]["Value"]
         except ClientError as e:
@@ -104,7 +118,7 @@ class SQSConfiguration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.instance = instance
+        self.stage_queue_instance = instance
 
         ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
@@ -113,14 +127,14 @@ class SQSConfiguration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instance: {self.instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instance: {self.stage_queue_instance}"
         )
         try:
-            stage_queue_ssm = "/sdlf/pipeline/rQueueRoutingStep"
+            stage_queue_ssm = f"/sdlf/pipeline/rQueueRoutingStep/{self.stage_queue_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {stage_queue_ssm}")
             self.stage_queue = self._ssm.get_parameter(Name=stage_queue_ssm)["Parameter"]["Value"]
 
-            stage_dlq_ssm = "/sdlf/pipeline/rDeadLetterQueueRoutingStep"
+            stage_dlq_ssm = f"/sdlf/pipeline/rDeadLetterQueueRoutingStep/{self.stage_queue_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {stage_dlq_ssm}")
             self.stage_dlq = self._ssm.get_parameter(Name=stage_dlq_ssm)["Parameter"]["Value"]
         except ClientError as e:
@@ -140,7 +154,7 @@ class StateMachineConfiguration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.instance = instance
+        self.stage_state_machine_instance = instance
 
         ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
@@ -149,10 +163,10 @@ class StateMachineConfiguration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instance: {self.instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instance: {self.stage_state_machine_instance}"
         )
         try:
-            stage_state_machine_ssm = "/sdlf/pipeline/rStateMachine"
+            stage_state_machine_ssm = f"/sdlf/pipeline/rStateMachine/{self.stage_state_machine_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {stage_state_machine_ssm}")
             self.stage_state_machine = self._ssm.get_parameter(Name=stage_state_machine_ssm)["Parameter"]["Value"]
         except ClientError as e:
@@ -172,7 +186,7 @@ class KMSConfiguration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.instance = instance
+        self.data_kms_key_instance = instance
 
         ssm_endpoint_url = "https://ssm." + os.getenv("AWS_REGION") + ".amazonaws.com"
         self._ssm = ssm_interface or boto3.client("ssm", endpoint_url=ssm_endpoint_url)
@@ -181,10 +195,10 @@ class KMSConfiguration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instance: {self.instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instance: {self.data_kms_key_instance}"
         )
         try:
-            data_kms_key_ssm = "/sdlf/dataset/rKMSDataKey"
+            data_kms_key_ssm = f"/sdlf/dataset/rKMSDataKey/{self.data_kms_key_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {data_kms_key_ssm}")
             self.data_kms_key = self._ssm.get_parameter(Name=data_kms_key_ssm)["Parameter"]["Value"]
         except ClientError as e:

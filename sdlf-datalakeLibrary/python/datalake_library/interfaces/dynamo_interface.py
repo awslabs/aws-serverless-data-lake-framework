@@ -30,29 +30,15 @@ class DynamoInterface:
         self._config = configuration
 
         self.object_metadata_table = None
-        self.transform_mapping_table = None
-        self.pipelines_table = None
         self.manifests_control_table = None
 
         self._get_object_metadata_table()
-        self._get_transform_mapping_table()
-        self._get_pipelines_table()
         self._get_manifests_control_table()
 
     def _get_object_metadata_table(self):
         if not self.object_metadata_table:
             self.object_metadata_table = self._config.object_metadata_table
         return self.object_metadata_table
-
-    def _get_transform_mapping_table(self):
-        if not self.transform_mapping_table:
-            self.transform_mapping_table = self._config.transform_mapping_table
-        return self.transform_mapping_table
-
-    def _get_pipelines_table(self):
-        if not self.pipelines_table:
-            self.pipelines_table = self._config.pipelines_table
-        return self.pipelines_table
 
     def _get_manifests_control_table(self):
         if not self.manifests_control_table:
@@ -61,7 +47,7 @@ class DynamoInterface:
 
     @staticmethod
     def build_id(bucket, key):
-        return "s3://{}/{}".format(bucket, key)
+        return f"s3://{bucket}/{key}"
 
     @staticmethod
     def manifest_keys(dataset_name, manifest_file_name, data_file_name):
@@ -91,12 +77,6 @@ class DynamoInterface:
             msg = "Error putting item {} into {} table".format(item, table)
             self._logger.exception(msg)
             raise
-
-    def get_transform_table_item(self, dataset):
-        return self.get_item(self.transform_mapping_table, {"name": dataset})
-
-    def get_pipelines_table_item(self, pipeline):
-        return self.get_item(self.pipelines_table, {"name": pipeline})
 
     def update_object_metadata_catalog(self, item):
         item["id"] = self.build_id(item["bucket"], item["key"])
@@ -338,6 +318,22 @@ class DynamoInterface:
 
             return self.update_manifests_control_table(ddb_key, update_expr, expr_names, expr_values)
 
+    def clean_table(dynamodb, table_name, pk_name, sk_name=""):
+        logger.debug(f"Clean dynamodb table {table_name}, PK: {pk_name}, SK: {sk_name}")
+        table = dynamodb.Table(table_name)
+        while True:
+            result = table.scan()
+            if result["Count"] == 0:
+                logger.debug(f"Clean dynamodb table {table_name}... DONE")
+                return
+
+            with table.batch_writer() as batch:
+                for item in result["Items"]:
+                    if not sk_name:
+                        batch.delete_item(Key={pk_name: item[pk_name]})
+                    else:
+                        batch.delete_item(Key={pk_name: item[pk_name], sk_name: item[sk_name]})
+
 
 class _TableBatchWriter:
     """Automatically handle batch writes to DynamoDB for a single table."""
@@ -443,20 +439,3 @@ class _TableBatchWriter:
             self._flush()
 
         return None
-
-
-def clean_table(dynamodb, table_name, pk_name, sk_name=""):
-    logger.debug(f"Clean dynamodb table {table_name}, PK: {pk_name}, SK: {sk_name}")
-    table = dynamodb.Table(table_name)
-    while True:
-        result = table.scan()
-        if result["Count"] == 0:
-            logger.debug(f"Clean dynamodb table {table_name}... DONE")
-            return
-
-        with table.batch_writer() as batch:
-            for item in result["Items"]:
-                if not sk_name:
-                    batch.delete_item(Key={pk_name: item[pk_name]})
-                else:
-                    batch.delete_item(Key={pk_name: item[pk_name], sk_name: item[sk_name]})
