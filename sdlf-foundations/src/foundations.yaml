@@ -6,6 +6,10 @@ Parameters:
   pPipelineReference:
     Type: String
     Default: none
+  pDeploymentInstance:
+    Type: String
+    Description: A string uniquely identifying this deployment in this AWS account
+    Default: dev
   pChildAccountId: # used by cicd lambda
     Description: Child AWS account ID
     Type: String
@@ -34,7 +38,7 @@ Resources:
   rOrganizationSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/pOrg
+      Name: !Sub /sdlf/storage/pOrg/${pDeploymentInstance}
       Type: String
       Value: !Ref pOrg
       Description: Name of the Organization owning the datalake
@@ -42,7 +46,7 @@ Resources:
   rDomainSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/pDomain
+      Name: !Sub /sdlf/storage/pDomain/${pDeploymentInstance}
       Type: String
       Value: !Ref pDomain
       Description: Data domain name
@@ -86,7 +90,7 @@ Resources:
   rLakeFormationDataAccessRoleSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rLakeFormationDataAccessRoleArn
+      Name: !Sub /sdlf/storage/rLakeFormationDataAccessRoleArn/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rLakeFormationDataAccessRole.Arn
       Description: Lake Formation Data Access Role
@@ -94,7 +98,7 @@ Resources:
   rLakeFormationDataAccessRoleNameSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rLakeFormationDataAccessRole
+      Name: !Sub /sdlf/storage/rLakeFormationDataAccessRole/${pDeploymentInstance}
       Type: String
       Value: !Ref rLakeFormationDataAccessRole
       Description: Lake Formation Data Access Role
@@ -216,13 +220,13 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      AliasName: alias/sdlf-kms-key
+      AliasName: !Sub alias/sdlf-kms-key-${pDeploymentInstance}
       TargetKeyId: !Ref rKMSKey
 
   rKMSKeySsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rKMSKey
+      Name: !Sub /sdlf/storage/rKMSKey/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rKMSKey.Arn
       Description: ARN of the KMS key
@@ -240,8 +244,8 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-s3logs"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-s3logs"
+          - !Sub "${pCustomBucketPrefix}-s3logs-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-s3logs-${pDeploymentInstance}"
       LifecycleConfiguration:
         Rules:
           - Id: InfrequentAccess
@@ -294,7 +298,7 @@ Resources:
   rS3AccessLogsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rS3AccessLogsBucket
+      Name: !Sub /sdlf/storage/rS3AccessLogsBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rS3AccessLogsBucket
       Description: S3 Access Logs Bucket
@@ -305,15 +309,15 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-artifacts"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts"
+          - !Sub "${pCustomBucketPrefix}-artifacts-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts-${pDeploymentInstance}"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
-            - !Sub "${pCustomBucketPrefix}-artifacts"
-            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts"
+            - !Sub "${pCustomBucketPrefix}-artifacts-${pDeploymentInstance}"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-artifacts-${pDeploymentInstance}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -347,7 +351,7 @@ Resources:
   rS3ArtifactBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rArtifactsBucket
+      Name: !Sub /sdlf/storage/rArtifactsBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rArtifactsBucket
       Description: Name of the Artifacts S3 bucket
@@ -359,15 +363,15 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-raw"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw"
+          - !Sub "${pCustomBucketPrefix}-raw-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw-${pDeploymentInstance}"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
-            - !Sub "${pCustomBucketPrefix}-raw"
-            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw"
+            - !Sub "${pCustomBucketPrefix}-raw-${pDeploymentInstance}"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-raw-${pDeploymentInstance}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -414,7 +418,7 @@ Resources:
   rS3RawBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rRawBucket
+      Name: !Sub /sdlf/storage/rRawBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rRawBucket
       Description: Name of the Raw S3 bucket
@@ -425,15 +429,15 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-stage"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage"
+          - !Sub "${pCustomBucketPrefix}-stage-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage-${pDeploymentInstance}"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
-            - !Sub "${pCustomBucketPrefix}-stage"
-            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage"
+            - !Sub "${pCustomBucketPrefix}-stage-${pDeploymentInstance}"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-stage-${pDeploymentInstance}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -480,7 +484,7 @@ Resources:
   rS3StageBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rStageBucket
+      Name: !Sub /sdlf/storage/rStageBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rStageBucket
       Description: Name of the Stage S3 bucket
@@ -491,15 +495,15 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-analytics"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics"
+          - !Sub "${pCustomBucketPrefix}-analytics-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics-${pDeploymentInstance}"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
-            - !Sub "${pCustomBucketPrefix}-analytics"
-            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics"
+            - !Sub "${pCustomBucketPrefix}-analytics-${pDeploymentInstance}"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-analytics-${pDeploymentInstance}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -546,7 +550,7 @@ Resources:
   rS3AnalyticsBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rAnalyticsBucket
+      Name: !Sub /sdlf/storage/rAnalyticsBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rAnalyticsBucket
       Description: Name of the Analytics S3 bucket
@@ -557,15 +561,15 @@ Resources:
       BucketName:
         !If
           - UseCustomBucketPrefix
-          - !Sub "${pCustomBucketPrefix}-athena"
-          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena"
+          - !Sub "${pCustomBucketPrefix}-athena-${pDeploymentInstance}"
+          - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena-${pDeploymentInstance}"
       LoggingConfiguration:
         DestinationBucketName: !Ref rS3AccessLogsBucket
         LogFilePrefix:
           !If
             - UseCustomBucketPrefix
-            - !Sub "${pCustomBucketPrefix}-athena"
-            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena"
+            - !Sub "${pCustomBucketPrefix}-athena-${pDeploymentInstance}"
+            - !Sub "${pOrg}-${pDomain}-${AWS::Region}-${AWS::AccountId}-athena-${pDeploymentInstance}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - BucketKeyEnabled: True
@@ -599,13 +603,13 @@ Resources:
   rAthenaBucketSsm:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /sdlf/storage/rAthenaBucket
+      Name: !Sub /sdlf/storage/rAthenaBucket/${pDeploymentInstance}
       Type: String
       Value: !Ref rAthenaBucket
       Description: Name of the Athena results S3 bucket
 
   rLakeFormationDataAccessRolePolicy:
-    Type: AWS::IAM::Policy
+    Type: AWS::IAM::Policy # TODO: use ::RolePolicy
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -646,8 +650,8 @@ Resources:
             Condition:
               "ForAnyValue:StringLike":
                 "kms:ResourceAliases":
-                  - alias/sdlf-kms-key
-                  - alias/sdlf-*-kms-data-key
+                  - !Sub alias/sdlf-kms-key-${pDeploymentInstance}
+                  - alias/sdlf-kms-data-key-*
       Roles:
         - !Ref rLakeFormationDataAccessRole
 
