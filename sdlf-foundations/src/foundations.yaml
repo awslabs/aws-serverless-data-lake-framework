@@ -18,7 +18,7 @@ Parameters:
   pOrg:
     Description: Name of the organization owning the datalake (all lowercase, no symbols or spaces)
     Type: String
-    AllowedPattern: "[a-z0-9]{2,9}"
+    AllowedPattern: "[a-z0-9]{2,10}"
   pDomain:
     Description: Data domain name
     Type: String
