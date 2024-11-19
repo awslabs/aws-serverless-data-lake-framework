@@ -1,7 +1,6 @@
 #!/bin/bash
 sflag=false
 pflag=false
-tflag=false
 
 DIRNAME=$(dirname "$0")
 
@@ -9,15 +8,13 @@ usage () { echo "
     -h -- Opens up this help message
     -p -- Name of the AWS profile to use
     -s -- Name of S3 bucket to upload artifacts to
-    -t -- Name of SDLF team
 "; }
-options=':p:s:t:h'
+options=':p:s:h'
 while getopts "$options" option
 do
     case "$option" in
         p  ) pflag=true; PROFILE=$OPTARG;;
         s  ) sflag=true; S3_BUCKET=$OPTARG;;
-        t  ) tflag=true; TEAM_NAME=$OPTARG;;
         h  ) usage; exit;;
         \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
         :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
@@ -30,17 +27,10 @@ then
     echo "-p not specified, using default..." >&2
     PROFILE="default"
 fi
-if ! "$tflag"
-then
-    echo "-t not specified, using default value: engineering..." >&2
-    TEAM_NAME="engineering"
-else
-    echo "Team name: $TEAM_NAME"
-fi
 REGION=$(aws configure get region --profile "$PROFILE")
 if ! "$sflag"
 then
-    S3_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
+    S3_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rArtifactsBucket/dev --query "Parameter.Value" --output text)
 fi
 
 echo "Checking if bucket exists ..."
@@ -55,7 +45,7 @@ if ! aws s3 ls "$S3_BUCKET" --profile "$PROFILE"; then
   fi
 fi
 
-ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/ArtifactsBucket --query "Parameter.Value" --output text)
+ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rArtifactsBucket/dev --query "Parameter.Value" --output text)
 aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" --profile "$PROFILE"
 
 mkdir "$DIRNAME"/output
@@ -64,9 +54,9 @@ function send_legislators()
 {
   ORIGIN="$DIRNAME/data/"
   
-  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/RawBucket --query "Parameter.Value" --output text)
-  STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /SDLF/S3/StageBucket --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/SDLF/KMS/$TEAM_NAME/DataKeyId" --query "Parameter.Value" --output text)
+  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rRawBucket/dev --query "Parameter.Value" --output text)
+  STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rStageBucket/dev --query "Parameter.Value" --output text)
+  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/dataset/rKMSDataKey/dev --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$RAW_BUCKET/
   COUNT=0
@@ -74,9 +64,9 @@ function send_legislators()
   do
     (( COUNT++ )) || true
     if [ "$RAW_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp "$FILE" "${S3_DESTINATION}raw/$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}raw/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     else
-      aws s3 cp "$FILE" "${S3_DESTINATION}$TEAM_NAME/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+      aws s3 cp "$FILE" "${S3_DESTINATION}/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     fi
     echo "transferred $COUNT files"
   done
@@ -87,13 +77,12 @@ aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-j
   --profile "$PROFILE" \
   --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
-STACK_NAME="sdlf-$TEAM_NAME-legislators-glue-job"
+STACK_NAME="sdlf-legislators-glue-job"
 if ! aws cloudformation describe-stacks --profile "$PROFILE" --stack-name "$STACK_NAME"; then
   echo -e "Stack does not exist, creating ..."
   aws cloudformation create-stack \
   --profile "$PROFILE" \
   --stack-name "$STACK_NAME" \
-  --parameters ParameterKey=pTeamName,ParameterValue="$TEAM_NAME" \
   --template-body file://"$DIRNAME"/output/packaged-template.yaml \
   --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND"
 
@@ -108,7 +97,6 @@ else
   update_output=$(aws cloudformation update-stack \
     --profile "$PROFILE" \
     --stack-name "$STACK_NAME" \
-    --parameters ParameterKey=pTeamName,ParameterValue="$TEAM_NAME" \
     --template-body file://"$DIRNAME"/output/packaged-template.yaml \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" 2>&1)
   status=$?
