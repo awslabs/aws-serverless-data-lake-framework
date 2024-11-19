@@ -192,7 +192,9 @@ Resources:
               - kms:Encrypt
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
-            Resource: !Ref pDatasetInfraKmsKey
+            Resource:
+              - "{{resolve:ssm:/sdlf/storage/rKMSKey/dev}}"
+              - !Ref pDatasetInfraKmsKey
 
   # Processing Role
   rRoleLambdaExecutionProcessingStep:
