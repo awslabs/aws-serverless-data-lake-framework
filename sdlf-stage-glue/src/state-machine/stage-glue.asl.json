@@ -41,7 +41,7 @@
               "MaxConcurrency": 50,
               "ToleratedFailurePercentage": 100,
               "ItemBatcher": {
-                "MaxItemsPerBatch": 1
+                "MaxItemsPerBatch": 3
               },
               "InputPath": "$.Items",
               "Next": "Run Glue Crawler"

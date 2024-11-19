@@ -500,7 +500,7 @@ Resources:
         lWorkerType: "G.1X"
         lNumberOfWorkers: 10
         # lArguments:
-        lCrawlerName: "sdlf-legislators-stage-crawler"
+        lCrawlerName: "sdlf-legislators-analytics-crawler"
         lWaitTime: 75
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
