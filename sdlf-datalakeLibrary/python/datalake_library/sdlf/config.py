@@ -90,10 +90,6 @@ class DynamoConfiguration:
             f"Reading configuration from SSM Parameter Store with configuration instances: {self.object_metadata_table_instance} {self.peh_table_instance} {self.manifests_table_instance}"
         )
         try:
-            object_metadata_table_ssm = f"/sdlf/storage/rDynamoObjectMetadata/{self.object_metadata_table_instance}"
-            self._logger.debug(f"Obtaining SSM Parameter: {object_metadata_table_ssm}")
-            self.object_metadata_table = self._ssm.get_parameter(Name=object_metadata_table_ssm)["Parameter"]["Value"]
-
             peh_table_ssm = f"/sdlf/dataset/rDynamoPipelineExecutionHistory/{self.peh_table_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {peh_table_ssm}")
             self.peh_table = self._ssm.get_parameter(Name=peh_table_ssm)["Parameter"]["Value"]
