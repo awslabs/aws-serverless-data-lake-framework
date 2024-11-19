@@ -45,11 +45,7 @@ function send_legislators()
   for FILE in "$ORIGIN"/*.json;
   do
     (( COUNT++ )) || true
-    if [ "$RAW_BUCKET" == "$STAGE_BUCKET" ];then
-      aws s3 cp "$FILE" "${S3_DESTINATION}raw/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
-    else
-      aws s3 cp "$FILE" "${S3_DESTINATION}/legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
-    fi
+    aws s3 cp "$FILE" "${S3_DESTINATION}legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
     echo "transferred $COUNT files"
   done
 }
