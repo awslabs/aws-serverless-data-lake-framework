@@ -7,14 +7,12 @@ DIRNAME=$(dirname "$0")
 usage () { echo "
     -h -- Opens up this help message
     -p -- Name of the AWS profile to use
-    -s -- Name of S3 bucket to upload artifacts to
 "; }
-options=':p:s:h'
+options=':p:h'
 while getopts "$options" option
 do
     case "$option" in
         p  ) pflag=true; PROFILE=$OPTARG;;
-        s  ) sflag=true; S3_BUCKET=$OPTARG;;
         h  ) usage; exit;;
         \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
         :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
@@ -28,22 +26,6 @@ then
     PROFILE="default"
 fi
 REGION=$(aws configure get region --profile "$PROFILE")
-if ! "$sflag"
-then
-    S3_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rArtifactsBucket/dev --query "Parameter.Value" --output text)
-fi
-
-echo "Checking if bucket exists ..."
-if ! aws s3 ls "$S3_BUCKET" --profile "$PROFILE"; then
-  echo "S3 bucket named $S3_BUCKET does not exist. Create? [Y/N]"
-  read -r choice
-  if [ "$choice" == "Y" ] || [ "$choice" == "y" ]; then
-    aws s3 mb s3://"$S3_BUCKET" --profile "$PROFILE"
-  else
-    echo "Bucket does not exist. Deploy aborted."
-    exit 1
-  fi
-fi
 
 ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rArtifactsBucket/dev --query "Parameter.Value" --output text)
 aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" --profile "$PROFILE"
@@ -73,7 +55,7 @@ function send_legislators()
 }
 
 aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-job.yaml \
-  --s3-bucket "$S3_BUCKET" \
+  --s3-bucket "$ARTIFACTS_BUCKET" \
   --profile "$PROFILE" \
   --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
