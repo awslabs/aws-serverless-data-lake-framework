@@ -9,7 +9,7 @@ Parameters:
   pAthenaBucket:
     Description: S3 Athena bucket
     Type: String
-    Default: "{{resolve:ssm:/SDLF/S3/AthenaBucket}}"
+    Default: "{{resolve:ssm:/sdlf/storage/rAthenaBucket/dev}}"
 #  pSNSNotificationsEmail:
 #    Description: Email address for SNS notifications
 #    Type: String
