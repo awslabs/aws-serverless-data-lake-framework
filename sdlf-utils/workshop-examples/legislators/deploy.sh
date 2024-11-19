@@ -26,7 +26,7 @@ then
 fi
 REGION=$(aws configure get region --profile "$PROFILE")
 
-ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rArtifactsBucket/dev --query "Parameter.Value" --output text)
+ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/storage/rArtifactsBucket/dev" --query "Parameter.Value" --output text)
 aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" --profile "$PROFILE"
 
 mkdir "$DIRNAME"/output
@@ -35,8 +35,8 @@ function send_legislators()
 {
   ORIGIN="$DIRNAME/data/"
   
-  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rRawBucket/dev --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/dataset/rKMSDataKey/dev --query "Parameter.Value" --output text)
+  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/storage/rRawBucket/dev" --query "Parameter.Value" --output text)
+  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/dataset/rKMSDataKey/dev" --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$RAW_BUCKET/
   COUNT=0
@@ -47,6 +47,12 @@ function send_legislators()
     echo "transferred $COUNT files"
   done
 }
+
+VPC_SUPPORT=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/SDLF/VPC/Enabled" --query "Parameter.Value" --output text 2>/dev/null)
+if [ -z "$VPC_SUPPORT" ]
+then
+  aws --region "$REGION" --profile "$PROFILE" ssm put-parameter --name "/SDLF/VPC/Enabled" --value "false" --type String
+fi
 
 aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-job.yaml \
   --s3-bucket "$ARTIFACTS_BUCKET" \
