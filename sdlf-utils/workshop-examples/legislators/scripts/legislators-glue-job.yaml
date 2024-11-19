@@ -50,9 +50,9 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:ReEncrypt*
                 Resource:
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
-                  - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId:1}}"
-                  - "{{resolve:ssm:/SDLF/KMS/KeyArn:1}}"
+                  - "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/dev:1}}"
+                  - "{{resolve:ssm:/sdlf/dataset/rKMSDataKey/dev:1}}"
+                  - "{{resolve:ssm:/sdlf/storage/rKMSKey/dev:1}}"
 
   rGlueJob:
     Type: AWS::Glue::Job
