@@ -29,14 +29,14 @@ def lambda_handler(event, context):
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
         pipeline_execution = PipelineExecutionHistoryAPI(run_in_context="LAMBDA", region=os.getenv("AWS_REGION"), object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
-        peh_id = event[0]["Items"][0]["transform"]["peh_id"]
+        peh_id = event[0]["run_output"][0]["transform"]["peh_id"]
         pipeline_execution.retrieve_pipeline_execution(peh_id)
 
         partial_failure = False
-        for records in event:
-            for record in records:
-                if "processed" not in record or not record["processed"]:
-                    partial_failure = True
+        # for records in event:
+        #     for record in records:
+        #         if "processed" not in record or not record["processed"]:
+        #             partial_failure = True
 
         if not partial_failure:
             pipeline_execution.update_pipeline_execution(
