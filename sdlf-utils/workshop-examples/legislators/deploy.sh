@@ -60,45 +60,13 @@ aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-j
   --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
 STACK_NAME="sdlf-legislators-glue-job"
-if ! aws cloudformation describe-stacks --profile "$PROFILE" --stack-name "$STACK_NAME"; then
-  echo -e "Stack does not exist, creating ..."
-  aws cloudformation create-stack \
-  --profile "$PROFILE" \
-  --stack-name "$STACK_NAME" \
-  --template-body file://"$DIRNAME"/output/packaged-template.yaml \
-  --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND"
-
-  echo "Waiting for stack to be created ..."
-  aws cloudformation wait stack-create-complete --profile "$PROFILE" \
-    --stack-name "$STACK_NAME"
-  send_legislators
-else
-  echo -e "Stack exists, attempting update ..."
-
-  set +e
-  update_output=$(aws cloudformation update-stack \
-    --profile "$PROFILE" \
+aws cloudformation deploy \
+    --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf-utils \
     --stack-name "$STACK_NAME" \
-    --template-body file://"$DIRNAME"/output/packaged-template.yaml \
-    --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" 2>&1)
-  status=$?
-  set -e
+    --template-file "$DIRNAME"/output/packaged-template.yaml \
+    --tags Framework=sdlf \
+    --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+    --region "$REGION" \
+    --profile "$PROFILE" || exit 1
 
-  echo "$update_output"
-
-  if [ "$status" -ne 0 ] ; then
-    # Don't fail for no-op update
-    if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
-      echo -e "\nFinished create/update - no updates to be performed";
-      send_legislators;
-      exit 0;
-    else
-      exit "$status"
-    fi
-  fi
-
-  echo "Waiting for stack update to complete ..."
-  aws cloudformation wait stack-update-complete --profile "$PROFILE" \
-    --stack-name "$STACK_NAME"
-  echo "Finished create/update successfully!"
-fi
+send_legislators
