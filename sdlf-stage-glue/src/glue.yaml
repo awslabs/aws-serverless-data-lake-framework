@@ -124,6 +124,9 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         ORG: !Ref pOrg
         DOMAIN: !Ref pDomain
+        DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
+        STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
+        DATASET_DEPLOYMENT_INSTANCE: dev # TODO
     KmsKeyArn: !Ref pDatasetInfraKmsKey
     VpcConfig: !If
       - RunInVpc
@@ -190,7 +193,7 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey}}"
+              - !Ref pDatasetInfraKmsKey
 
   # Routing Role
   rRoleLambdaExecutionRoutingStep:
@@ -493,7 +496,12 @@ Resources:
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
-        lTransform: !GetAtt rLambdaTransformStep.Arn
+        lTransform: sdlf-legislators-glue-job
+        lWorkerType: "G.1X"
+        lNumberOfWorkers: 10
+        # lArguments:
+        lCrawlerName: "sdlf-legislators-crawler"
+        lWaitTime: 75
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
         Enabled: !If [EnableTracing, true, false]

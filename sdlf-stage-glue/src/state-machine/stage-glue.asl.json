@@ -29,10 +29,9 @@
                     "Resource": "arn:aws:states:::glue:startJobRun.sync",
                     "ResultPath": "$.run_output",
                     "Parameters": {
-                      "JobName.$": "$.Items[0].transform.transform",
-                      "WorkerType.$": "$.Items[0].transform.WorkerType",
-                      "NumberOfWorkers.$": "$.Items[0].transform.NumberOfWorkers",
-                      "Arguments.$": "$.Items[0].transform.arguments"
+                      "JobName": "${lTransform}",
+                      "WorkerType": "${lWorkerType}",
+                      "NumberOfWorkers": ${lNumberOfWorkers}
                     },
                     "End": true
                   }
@@ -52,13 +51,13 @@
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "ResultPath": null,
               "Parameters": {
-                "Name.$": "$[0].Items[0].transform.crawler_name"
+                "Name": "${lCrawlerName}"
               },
               "Next": "Wait X Seconds"
             },
             "Wait X Seconds": {
               "Type": "Wait",
-              "SecondsPath": "$[0].Items[0].transform.wait_time",
+              "Seconds": ${lWaitTime},
               "Next": "GetCrawler"
             },
             "GetCrawler": {
@@ -66,7 +65,7 @@
               "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
               "ResultPath": "$[0].run_output.crawler_response",
               "Parameters": {
-                "Name.$": "$[0].Items[0].transform.crawler_name"
+                "Name": "${lCrawlerName}"
               },
               "Next": "Crawler Complete?"
             },
