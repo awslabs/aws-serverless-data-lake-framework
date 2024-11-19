@@ -536,7 +536,7 @@ Resources:
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
         lGlueArguments: !Ref pGlueArguments
         # lArguments:
-        lCrawlerName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rStageGlueCrawler/${pDatasetDeploymentInstance}}}", !Ref pGlueCrawler]
+        lCrawlerName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rAnalyticsGlueCrawler/${pDatasetDeploymentInstance}}}", !Ref pGlueCrawler]
         lWaitTime: 75
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:

@@ -35,10 +35,10 @@ def lambda_handler(event, context):
         pipeline_execution.retrieve_pipeline_execution(peh_id)
 
         partial_failure = False
-        for records in event:
-            for record in records:
-                if "processed" not in record or not record["processed"]:
-                    partial_failure = True
+        # for records in event:
+        #     for record in records:
+        #         if "processed" not in record or not record["processed"]:
+        #             partial_failure = True
 
         if not partial_failure:
             pipeline_execution.update_pipeline_execution(
