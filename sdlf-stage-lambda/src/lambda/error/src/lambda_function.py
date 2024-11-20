@@ -2,8 +2,8 @@ import json
 import os
 
 from datalake_library.commons import init_logger
-from datalake_library.sdlf import SQSConfiguration
 from datalake_library.interfaces.sqs_interface import SQSInterface
+from datalake_library.sdlf import SQSConfiguration
 
 logger = init_logger(__name__)
 dataset = os.environ["DATASET"]
