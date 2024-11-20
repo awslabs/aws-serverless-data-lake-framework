@@ -16,9 +16,9 @@ from aws_cdk import aws_lambda as _lambda
 from aws_cdk import aws_scheduler as scheduler
 from aws_cdk import aws_sqs as sqs
 from aws_cdk import aws_ssm as ssm
+from aws_cdk.aws_lambda_event_sources import SqsEventSource
 from constructs import Construct
 
-from aws_cdk.aws_lambda_event_sources import SqsEventSource
 
 class Pipeline(Construct):
     external_interface = {}
@@ -31,13 +31,13 @@ class Pipeline(Construct):
         pipeline: str,
         stage: str,
         trigger_type: str,
-        trigger_target: str, # here, a lambda arn. later: eventbridge universal target
+        trigger_target: str,  # here, a lambda arn. later: eventbridge universal target
         kms_key: str,
         stage_enabled: bool = True,
-        schedule: str = None, # only used if schedule or event-schedule
-        event_pattern: str = None, # only used if event or event-schedule
-        event_bus: str = "default", # can be default
-        schedule_group: str = "default", # can be default
+        schedule: str = None,  # only used if schedule or event-schedule
+        event_pattern: str = None,  # only used if event or event-schedule
+        event_bus: str = "default",  # can be default
+        schedule_group: str = "default",  # can be default
         # permissions boundary yeah well...
         **kwargs,
     ) -> None:
@@ -48,7 +48,7 @@ class Pipeline(Construct):
         # event-schedule: store events received on the team's event bus matching the configured event pattern, then process them on the configured schedule
         # schedule: run stage on the configured schedule, without any event as input
 
-        if event_pattern: # infra needed for event and event-schedule (trigger-type in ["event", "schedule"], and event_pattern specified)
+        if event_pattern:  # infra needed for event and event-schedule (trigger-type in ["event", "schedule"], and event_pattern specified)
             routing_dlq_resource_name = "rDeadLetterQueueRoutingStep"
             routing_dlq = sqs.Queue(
                 self,
@@ -107,7 +107,9 @@ class Pipeline(Construct):
                     event_bus,
                 ),
                 enabled=stage_enabled,
-                event_pattern={key.replace("-", "_"): value for key,value in json.loads(event_pattern).items()}, # events.EventPattern(**json.loads(event_pattern)), #{"source": ["aws.states"]},
+                event_pattern={
+                    key.replace("-", "_"): value for key, value in json.loads(event_pattern).items()
+                },  # events.EventPattern(**json.loads(event_pattern)), #{"source": ["aws.states"]},
                 targets=[
                     targets.SqsQueue(
                         routing_queue,
@@ -128,10 +130,12 @@ class Pipeline(Construct):
             )
             routing_queue.add_to_resource_policy(routing_queue_policy)  # TODO may be a cdk grant
 
-        if trigger_type == "event" and event_pattern: # infra needed for event only
-            _lambda.Function.from_function_arn(self, "rRoutingLambda", function_arn=trigger_target).add_event_source(SqsEventSource(routing_queue, batch_size=10))
+        if trigger_type == "event" and event_pattern:  # infra needed for event only
+            _lambda.Function.from_function_arn(self, "rRoutingLambda", function_arn=trigger_target).add_event_source(
+                SqsEventSource(routing_queue, batch_size=10)
+            )
 
-        if schedule: # infra needed for event-schedule and schedule (trigger-type in ["event", "schedule"], and schedule specified)
+        if schedule:  # infra needed for event-schedule and schedule (trigger-type in ["event", "schedule"], and schedule specified)
             poststateschedule_role_policy = iam.Policy(
                 self,
                 "sdlf-schedule",
@@ -168,9 +172,7 @@ class Pipeline(Construct):
                         "pipeline": pipeline,
                         "pipeline_stage": stage,
                         "trigger_type": trigger_type,
-                        "event_pattern": "true",  # TODO not too sure passing org, domain, is that useful, maybe others too
-                        "domain": data_domain,
-                        "org": org,
+                        "event_pattern": "true",
                     }
                 ),
             }
