@@ -94,6 +94,11 @@ Parameters:
     Default: 10
     MinValue: 2
     MaxValue: 100
+  pGlueWorkerType:
+    Description: Worker type to use for the Glue job
+    Type: String
+    Default: G.1X
+    AllowedValues: [G.1X, G.2X, G.4X, G.8X, G.025X]
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
@@ -503,7 +508,7 @@ Resources:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
         lTransform: sdlf-legislators-glue-job
-        lWorkerType: "G.1X"
+        lWorkerType: !Ref pGlueWorkerType
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
         # lArguments:
         lCrawlerName: "sdlf-legislators-stage-crawler"
