@@ -68,7 +68,15 @@ class S3Configuration:
 
 
 class DynamoConfiguration:
-    def __init__(self, log_level=None, ssm_interface=None, instance=None, object_metadata_table_instance=None, peh_table_instance=None, manifests_table_instance=None):
+    def __init__(
+        self,
+        log_level=None,
+        ssm_interface=None,
+        instance=None,
+        object_metadata_table_instance=None,
+        peh_table_instance=None,
+        manifests_table_instance=None,
+    ):
         """
         Complementary Dynamo config stores the parameters required to access dynamo tables
         :param log_level: level the class logger should log at

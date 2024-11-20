@@ -1,8 +1,14 @@
 import logging
 
 from .__version__ import __title__, __version__  # noqa: F401;
+from .config import (  # noqa: F401;
+    DynamoConfiguration,
+    KMSConfiguration,
+    S3Configuration,
+    SQSConfiguration,
+    StateMachineConfiguration,
+)
 from .peh import PipelineExecutionHistoryAPI  # noqa: F401;
-from .config import S3Configuration, DynamoConfiguration, SQSConfiguration, StateMachineConfiguration, KMSConfiguration  # noqa: F401;
 
 name = "sdlf"
 
