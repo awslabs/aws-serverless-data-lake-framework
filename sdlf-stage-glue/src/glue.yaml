@@ -88,6 +88,12 @@ Parameters:
   pEnableTracing:
     Description: Flag for whether XRay tracing is enabled
     Type: String
+  pGlueNumberOfWorkers:
+    Description: Number of workers assigned for the Glue job
+    Type: Number
+    Default: 10
+    MinValue: 2
+    MaxValue: 100
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
@@ -498,7 +504,7 @@ Resources:
         lError: !GetAtt rLambdaErrorStep.Arn
         lTransform: sdlf-legislators-glue-job
         lWorkerType: "G.1X"
-        lNumberOfWorkers: 10
+        lNumberOfWorkers: !Ref pGlueNumberOfWorkers
         # lArguments:
         lCrawlerName: "sdlf-legislators-stage-crawler"
         lWaitTime: 75
