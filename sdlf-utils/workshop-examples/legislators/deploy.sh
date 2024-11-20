@@ -1,5 +1,4 @@
 #!/bin/bash
-sflag=false
 pflag=false
 
 DIRNAME=$(dirname "$0")
@@ -37,7 +36,6 @@ function send_legislators()
   ORIGIN="$DIRNAME/data/"
   
   RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rRawBucket/dev --query "Parameter.Value" --output text)
-  STAGE_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/storage/rStageBucket/dev --query "Parameter.Value" --output text)
   KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name /sdlf/dataset/rKMSDataKey/dev --query "Parameter.Value" --output text)
 
   S3_DESTINATION=s3://$RAW_BUCKET/
