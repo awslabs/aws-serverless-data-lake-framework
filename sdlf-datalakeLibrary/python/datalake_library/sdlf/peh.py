@@ -36,14 +36,18 @@ class PipelineExecutionHistoryAPI:
         run_in_context,
         region: str = "us-east-1",
         profile: str = "default",
-        #instance: str = "dev",
+        # instance: str = "dev",
         object_metadata_table_instance=None,
         peh_table_instance=None,
         manifests_table_instance=None,
         sns_topic: str = None,
     ):
         self.dynamodb = boto3.client("dynamodb")
-        dynamo_config = DynamoConfiguration(object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
+        dynamo_config = DynamoConfiguration(
+            object_metadata_table_instance=object_metadata_table_instance,
+            peh_table_instance=peh_table_instance,
+            manifests_table_instance=manifests_table_instance,
+        )
         self.peh_table = dynamo_config.peh_table
         self.peh_ttl = 120  # TODO property of dynamo_config?
 
