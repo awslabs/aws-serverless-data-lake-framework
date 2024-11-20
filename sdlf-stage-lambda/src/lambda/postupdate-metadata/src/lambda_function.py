@@ -1,7 +1,7 @@
 import os
 
-from datalake_library.sdlf import PipelineExecutionHistoryAPI
 from datalake_library.commons import init_logger
+from datalake_library.sdlf import PipelineExecutionHistoryAPI
 
 logger = init_logger(__name__)
 dataset = os.environ["DATASET"]
@@ -28,7 +28,13 @@ def lambda_handler(event, context):
     try:
         logger.info("Initializing Octagon client")
         component = context.function_name.split("-")[-2].title()
-        pipeline_execution = PipelineExecutionHistoryAPI(run_in_context="LAMBDA", region=os.getenv("AWS_REGION"), object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
+        pipeline_execution = PipelineExecutionHistoryAPI(
+            run_in_context="LAMBDA",
+            region=os.getenv("AWS_REGION"),
+            object_metadata_table_instance=object_metadata_table_instance,
+            peh_table_instance=peh_table_instance,
+            manifests_table_instance=manifests_table_instance,
+        )
         peh_id = event[0]["Items"][0]["transform"]["peh_id"]
         pipeline_execution.retrieve_pipeline_execution(peh_id)
 

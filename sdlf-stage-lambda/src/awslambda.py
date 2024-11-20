@@ -17,7 +17,7 @@ from aws_cdk import aws_ssm as ssm
 from aws_cdk import aws_stepfunctions as sfn
 from constructs import Construct
 
-#from sdlf import pipeline
+# from sdlf import pipeline
 from pipeline import Pipeline
 
 
@@ -41,10 +41,10 @@ class StageLambda(Construct):
         infra_kms_key: str,
         data_kms_key: str,
         event_bus: str = "default",
-        schedule: str = None, # only used if schedule or event-schedule
+        schedule: str = None,  # only used if schedule or event-schedule
         stage_enabled: bool = True,
         xray_enabled: bool = False,
-        # logs_retention = 
+        # logs_retention =
         iam_prefix: str = "sdlf",
         **kwargs,
     ) -> None:
@@ -142,8 +142,8 @@ class StageLambda(Construct):
         ######## LAMBDA FUNCTIONS #########
         datalakelibrary_layer = _lambda.LayerVersion.from_layer_version_arn(
             self,
-            'rDatalakeLibraryLayer',
-            ssm.StringParameter.value_from_lookup(self, "/SDLF/Lambda/LatestDatalakeLibraryLayer")
+            "rDatalakeLibraryLayer",
+            ssm.StringParameter.value_from_lookup(self, "/SDLF/Lambda/LatestDatalakeLibraryLayer"),
         )
 
         transformstep_role_policy = iam.Policy(

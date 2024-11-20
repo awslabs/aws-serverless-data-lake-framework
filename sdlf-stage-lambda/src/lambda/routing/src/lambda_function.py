@@ -2,15 +2,14 @@ import json
 import os
 from decimal import Decimal
 
+from datalake_library.commons import init_logger
+from datalake_library.interfaces.sqs_interface import SQSInterface
+from datalake_library.interfaces.states_interface import StatesInterface
 from datalake_library.sdlf import (
     PipelineExecutionHistoryAPI,
     SQSConfiguration,
     StateMachineConfiguration,
 )
-from datalake_library.commons import init_logger
-
-from datalake_library.interfaces.sqs_interface import SQSInterface
-from datalake_library.interfaces.states_interface import StatesInterface
 
 logger = init_logger(__name__)
 dataset = os.environ["DATASET"]
@@ -22,6 +21,7 @@ deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
 object_metadata_table_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
+
 
 def serializer(obj):
     if isinstance(obj, Decimal):
@@ -57,7 +57,9 @@ def get_source_records(event):
         min_items_to_process = 1
         max_items_to_process = 100
         logger.info(f"Pipeline is {pipeline}, stage is {pipeline_stage}")
-        logger.info(f"Pipeline stage configuration: min_items_to_process {min_items_to_process}, max_items_to_process {max_items_to_process}")
+        logger.info(
+            f"Pipeline stage configuration: min_items_to_process {min_items_to_process}, max_items_to_process {max_items_to_process}"
+        )
 
         sqs_config = SQSConfiguration(instance=deployment_instance)
         queue_interface = SQSInterface(sqs_config.stage_queue)
@@ -94,7 +96,13 @@ def get_transform_details():
 
 def lambda_handler(event, context):
     try:
-        pipeline_execution = PipelineExecutionHistoryAPI(run_in_context="LAMBDA", region=os.getenv("AWS_REGION"), object_metadata_table_instance=object_metadata_table_instance, peh_table_instance=peh_table_instance, manifests_table_instance=manifests_table_instance)
+        pipeline_execution = PipelineExecutionHistoryAPI(
+            run_in_context="LAMBDA",
+            region=os.getenv("AWS_REGION"),
+            object_metadata_table_instance=object_metadata_table_instance,
+            peh_table_instance=peh_table_instance,
+            manifests_table_instance=manifests_table_instance,
+        )
         peh_id = pipeline_start(pipeline_execution, event)
         records = get_source_records(event)
         metadata = get_transform_details()

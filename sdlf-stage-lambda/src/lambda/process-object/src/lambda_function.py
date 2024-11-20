@@ -3,11 +3,11 @@ import os
 from pathlib import PurePath
 
 from datalake_library.commons import init_logger
+from datalake_library.interfaces.s3_interface import S3Interface
 from datalake_library.sdlf import (
     KMSConfiguration,
     S3Configuration,
 )
-from datalake_library.interfaces.s3_interface import S3Interface
 
 logger = init_logger(__name__)
 dataset = os.environ["DATASET"]
