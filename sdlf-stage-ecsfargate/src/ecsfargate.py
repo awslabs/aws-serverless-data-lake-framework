@@ -16,7 +16,6 @@ from aws_cdk import aws_logs as logs
 from aws_cdk import aws_ssm as ssm
 from aws_cdk import aws_stepfunctions as sfn
 from constructs import Construct
-
 from sdlf import pipeline
 
 
