@@ -13,8 +13,6 @@ logger = init_logger(__name__)
 dataset = os.environ["DATASET"]
 pipeline = os.environ["PIPELINE"]
 pipeline_stage = os.environ["PIPELINE_STAGE"]
-org = os.environ["ORG"]
-domain = os.environ["DOMAIN"]
 storage_deployment_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 
 
