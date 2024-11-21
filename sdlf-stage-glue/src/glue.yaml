@@ -19,14 +19,6 @@ Parameters:
     Description: Glue crawler for the dataset
     Type: String
     Default: "{{resolve:ssm:/sdlf/dataset/rStageGlueCrawler/dev}}"
-  pOrg:
-    Description: Name of the organization owning the datalake
-    Type: String
-    Default: "{{resolve:ssm:/sdlf/storage/rOrganization/dev}}"
-  pDomain:
-    Description: Data domain name
-    Type: String
-    Default: "{{resolve:ssm:/sdlf/storage/rDomain/dev}}"
   pRawBucket:
     Description: Raw bucket
     Type: String
@@ -137,8 +129,6 @@ Globals:
         DATASET: !Ref pDataset
         PIPELINE: !Ref pPipeline
         PIPELINE_STAGE: !Ref pStageName
-        ORG: !Ref pOrg
-        DOMAIN: !Ref pDomain
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
         DATASET_DEPLOYMENT_INSTANCE: dev # TODO
