@@ -84,6 +84,9 @@ Parameters:
   pEnableTracing:
     Description: Flag for whether XRay tracing is enabled
     Type: String
+  pGlueJobName:
+    Description: Glue job name
+    Type: String
   pGlueNumberOfWorkers:
     Description: Number of workers assigned for the Glue job
     Type: Number
@@ -501,7 +504,7 @@ Resources:
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
-        lTransform: sdlf-legislators-glue-job
+        lTransform: !Ref pGlueJobName
         lWorkerType: !Ref pGlueWorkerType
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
         # lArguments:
