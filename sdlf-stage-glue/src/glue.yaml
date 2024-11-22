@@ -11,6 +11,20 @@ Parameters:
     Type: String
     Description: A string uniquely identifying this deployment in this AWS account
     Default: glue
+  pDatasetDeploymentInstance:
+    Type: String
+    Description: The string uniquely identifying a sdlf-dataset deployment in this AWS account
+    Default: "" # see below comments
+  pPipelineExecutionHistoryDynamoTable:
+    Type: String
+    Description: Name of the Dynamo table storing pipeline execution data
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pManifestsDynamoTable:
+    Type: String
+    Description: Name of the Dynamo table storing pipeline execution data
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+
+
   pDatasetInfraKmsKey:
     Description: KMS key set as infra key for the dataset
     Type: String
@@ -134,7 +148,7 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
-        DATASET_DEPLOYMENT_INSTANCE: dev # TODO
+        DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
     KmsKeyArn: !Ref pDatasetInfraKmsKey
     VpcConfig: !If
       - RunInVpc
