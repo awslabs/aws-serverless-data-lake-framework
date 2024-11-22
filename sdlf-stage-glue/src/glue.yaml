@@ -23,16 +23,14 @@ Parameters:
     Type: String
     Description: Name of the Dynamo table storing pipeline execution data
     Default: "" # if not provided, pDatasetDeploymentInstance must be specified
-
-
-  pDatasetInfraKmsKey:
-    Description: KMS key set as infra key for the dataset
-    Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/dev}}"
-  pDatasetGlueCrawler:
+  pGlueCrawler:
     Description: Glue crawler for the dataset
     Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rStageGlueCrawler/dev}}"
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pInfraKmsKey:
+    Description: KMS key set as infra key for the dataset
+    Type: String
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
   pRawBucket:
     Description: Raw bucket
     Type: String
@@ -133,6 +131,7 @@ Parameters:
 
 Conditions:
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+  FetchFromDatasetSsm: !Not [!Equals [!Ref pDatasetDeploymentInstance, ""]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -149,7 +148,7 @@ Globals:
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
         DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
-    KmsKeyArn: !Ref pDatasetInfraKmsKey
+    KmsKeyArn: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
     VpcConfig: !If
       - RunInVpc
       - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
@@ -214,8 +213,8 @@ Resources:
               - kms:Encrypt
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
-            Resource:
-              - !Ref pDatasetInfraKmsKey
+            Resource: 
+              - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   # Routing Role
   rRoleLambdaExecutionRoutingStep:
@@ -413,7 +412,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rLambdaRedriveStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -422,7 +421,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rLambdaPostMetadataStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -431,7 +430,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rLambdaErrorStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -440,7 +439,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   ######## STATE MACHINE #########
   rStatesExecutionRole:
@@ -522,7 +521,7 @@ Resources:
         lWorkerType: !Ref pGlueWorkerType
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
         # lArguments:
-        lCrawlerName: !Ref pDatasetGlueCrawler
+        lCrawlerName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rStageGlueCrawler/${pDatasetDeploymentInstance}}}", !Ref pGlueCrawler]
         lWaitTime: 75
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
