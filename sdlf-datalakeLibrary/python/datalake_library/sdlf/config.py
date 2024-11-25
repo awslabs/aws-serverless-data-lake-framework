@@ -73,7 +73,6 @@ class DynamoConfiguration:
         log_level=None,
         ssm_interface=None,
         instance=None,
-        object_metadata_table_instance=None,
         peh_table_instance=None,
         manifests_table_instance=None,
     ):
@@ -84,7 +83,6 @@ class DynamoConfiguration:
         """
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.object_metadata_table_instance = object_metadata_table_instance or instance
         self.peh_table_instance = peh_table_instance or instance
         self.manifests_table_instance = manifests_table_instance or instance
 
@@ -95,13 +93,9 @@ class DynamoConfiguration:
 
     def _fetch_from_ssm(self):
         self._logger.info(
-            f"Reading configuration from SSM Parameter Store with configuration instances: {self.object_metadata_table_instance} {self.peh_table_instance} {self.manifests_table_instance}"
+            f"Reading configuration from SSM Parameter Store with configuration instances: {self.peh_table_instance} {self.manifests_table_instance}"
         )
         try:
-            object_metadata_table_ssm = f"/sdlf/storage/rDynamoObjectMetadata/{self.object_metadata_table_instance}"
-            self._logger.debug(f"Obtaining SSM Parameter: {object_metadata_table_ssm}")
-            self.object_metadata_table = self._ssm.get_parameter(Name=object_metadata_table_ssm)["Parameter"]["Value"]
-
             peh_table_ssm = f"/sdlf/dataset/rDynamoPipelineExecutionHistory/{self.peh_table_instance}"
             self._logger.debug(f"Obtaining SSM Parameter: {peh_table_ssm}")
             self.peh_table = self._ssm.get_parameter(Name=peh_table_ssm)["Parameter"]["Value"]
