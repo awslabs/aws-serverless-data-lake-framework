@@ -39,10 +39,10 @@ Parameters:
     Description: EventBridge schedule group for the dataset
     Type: String
     Default: "" # if not provided, pDatasetDeploymentInstance must be specified
-  # pStorageDeploymentInstance:
-  #   Type: String
-  #   Description: The string uniquely identifying a sdlf-foundations deployment in this AWS account
-  #   Default: "" # see below comments
+  pStorageDeploymentInstance:
+    Type: String
+    Description: The string uniquely identifying a sdlf-foundations deployment in this AWS account
+    Default: "" # see below comments
   # pRawBucket:
   #   Description: Raw bucket
   #   Type: String
@@ -162,7 +162,7 @@ Globals:
         PIPELINE: !Ref pPipeline
         PIPELINE_STAGE: !Ref pStageName
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
-        STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
+        STORAGE_DEPLOYMENT_INSTANCE: !Ref pStorageDeploymentInstance
         DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
         PIPELINE_EXECUTION_HISTORY_DYNAMO_TABLE: !Ref pPipelineExecutionHistoryDynamoTable
         MANIFESTS_DYNAMO_TABLE: !Ref pManifestsDynamoTable
