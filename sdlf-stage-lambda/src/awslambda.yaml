@@ -27,6 +27,14 @@ Parameters:
     Description: KMS key set as infra key for the dataset
     Type: String
     Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pDataKmsKey:
+    Description: KMS key set as data key for the dataset
+    Type: String
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pBucketPrefix:
+    Description: Bucket prefix for the dataset
+    Type: String
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
   pEventBus:
     Description: EventBridge bus for the dataset
     Type: String
@@ -35,14 +43,26 @@ Parameters:
     Description: EventBridge schedule group for the dataset
     Type: String
     Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pStorageDeploymentInstance:
+    Type: String
+    Description: The string uniquely identifying a sdlf-foundations deployment in this AWS account
+    Default: "" # see below comments
+  pBucketKey:
+    Description: KMS key set as bucket key for the solutions' buckets
+    Type: String
+    Default: "" # if not provided, pStorageDeploymentInstance must be specified
   pRawBucket:
     Description: Raw bucket
     Type: String
-    Default: "{{resolve:ssm:/sdlf/storage/rRawBucket/dev}}"
+    Default: "" # if not provided, pStorageDeploymentInstance must be specified
   pStageBucket:
     Description: Stage bucket
     Type: String
-    Default: "{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}"
+    Default: "" # if not provided, pStorageDeploymentInstance must be specified
+  pAnalyticsBucket:
+    Description: Analytics bucket
+    Type: String
+    Default: "" # if not provided, pStorageDeploymentInstance must be specified
   pDataset:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -122,6 +142,7 @@ Parameters:
 Conditions:
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
   FetchFromDatasetSsm: !Not [!Equals [!Ref pDatasetDeploymentInstance, ""]]
+  FetchFromStorageSsm: !Not [!Equals [!Ref pStorageDeploymentInstance, ""]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -210,7 +231,7 @@ Resources:
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
             Resource:
-              - "{{resolve:ssm:/sdlf/storage/rKMSKey/dev}}"
+              - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rKMSKey/${pStorageDeploymentInstance}}}", !Ref pBucketKey]
               - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   # Processing Role
@@ -242,19 +263,22 @@ Resources:
                   - s3:GetBucketVersioning
                   - s3:ListBucket
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rRawBucket/${pStorageDeploymentInstance}}}", !Sub "arn:${AWS::Partition}:s3:::${pRawBucket}"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}"]
               - Effect: Allow
                 Action:
                   - s3:GetObject
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}/${pDataset}/*
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rRawBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pRawBucket}/${pDataset}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDataset}/*"]
               - Effect: Allow
                 Action:
                   - s3:PutObject
                 Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDataset}/*"]
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -264,7 +288,7 @@ Resources:
                   - kms:GenerateDataKey*
                   - kms:CreateGrant
                 Resource:
-                  - "{{resolve:ssm:/sdlf/dataset/rKMSDataKey/dev}}" # TODO: may not exist
+                  - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSDataKey/${pDatasetDeploymentInstance}}}", !Ref pDataKmsKey] # TODO: may not exist
 
 
   ######## LAMBDA FUNCTIONS #########
@@ -413,22 +437,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pPipeline}-${pStageName}-metadata
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pRawBucket}
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                Resource:
-                  - !Sub arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*
 
   rLambdaPostMetadataStep:
     Type: AWS::Serverless::Function
