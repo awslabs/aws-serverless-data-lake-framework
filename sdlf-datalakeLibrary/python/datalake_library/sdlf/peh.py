@@ -37,14 +37,12 @@ class PipelineExecutionHistoryAPI:
         region: str = "us-east-1",
         profile: str = "default",
         # instance: str = "dev",
-        object_metadata_table_instance=None,
         peh_table_instance=None,
         manifests_table_instance=None,
         sns_topic: str = None,
     ):
         self.dynamodb = boto3.client("dynamodb")
         dynamo_config = DynamoConfiguration(
-            object_metadata_table_instance=object_metadata_table_instance,
             peh_table_instance=peh_table_instance,
             manifests_table_instance=manifests_table_instance,
         )
