@@ -9,19 +9,23 @@ Parameters:
   pDeploymentInstance:
     Type: String
     Description: A string uniquely identifying this deployment in this AWS account
-    Default: dev
-  pDatasetInfraKmsKey:
+    Default: pipeline
+  pDatasetDeploymentInstance:
+    Type: String
+    Description: The string uniquely identifying a sdlf-dataset deployment in this AWS account
+    Default: "" # see below comments
+  pInfraKmsKey:
     Description: KMS key set as infra key for the dataset
     Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/dev}}"
-  pDatasetEventBus:
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pEventBus:
     Description: EventBridge bus for the dataset
     Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rEventBus/dev}}"
-  pDatasetScheduleGroup:
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pScheduleGroup:
     Description: EventBridge schedule group for the dataset
     Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rScheduleGroup/dev}}"
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
   pDataset:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
@@ -57,6 +61,7 @@ Parameters:
     Type: String
 
 Conditions:
+  FetchFromDatasetSsm: !Not [!Equals [!Ref pDatasetDeploymentInstance, ""]]
   HasSourceEvents: !Not [!Equals [!Ref pEventPattern, ""]] # infra needed for event and event-schedule (trigger-type in ["event", "schedule"], and event_pattern specified)
   EventBased: !And # infra needed for event only
     - !Equals [!Ref pTriggerType, "event"]
@@ -75,7 +80,7 @@ Resources:
       FifoQueue: True
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 60
-      KmsMasterKeyId: !Ref pDatasetInfraKmsKey
+      KmsMasterKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rDeadLetterQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
@@ -100,7 +105,7 @@ Resources:
         maxReceiveCount: 1
       VisibilityTimeout: 60
       MessageRetentionPeriod: 604800
-      KmsMasterKeyId: !Ref pDatasetInfraKmsKey
+      KmsMasterKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rQueueRoutingStepSsm:
     Type: AWS::SSM::Parameter
@@ -118,7 +123,7 @@ Resources:
       Name: !Sub sdlf-${pDataset}-${pPipelineName}-rule-${pStageName}
       Description: !Sub Send events to ${pStageName} queue
       EventPattern: !Ref pEventPattern
-      EventBusName: !Ref pDatasetEventBus
+      EventBusName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rEventBus/${pDatasetDeploymentInstance}}}", !Ref pEventBus]
       State: !If
         - StageEnabled
         - ENABLED
@@ -188,15 +193,15 @@ Resources:
                 Action:
                   - kms:Decrypt
                 Resource:
-                  - !Ref pDatasetInfraKmsKey
+                  - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rPostStateSchedule:
     Type: AWS::Scheduler::Schedule
     Condition: ScheduleBased
     Properties:
       Description: !Sub Trigger ${pStageName} Routing Lambda on a specified schedule
-      GroupName: !Ref pDatasetScheduleGroup
-      KmsKeyArn: !Ref pDatasetInfraKmsKey
+      GroupName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rScheduleGroup/${pDatasetDeploymentInstance}}}", !Ref pScheduleGroup]
+      KmsKeyArn: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
       Name: !Sub sdlf-${pDataset}-${pPipelineName}-schedule-rule-${pStageName}
       ScheduleExpression: !Ref pSchedule
       FlexibleTimeWindow:
