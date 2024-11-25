@@ -8,7 +8,6 @@ dataset = os.environ["DATASET"]
 pipeline = os.environ["PIPELINE"]
 pipeline_stage = os.environ["PIPELINE_STAGE"]
 deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
-object_metadata_table_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 
@@ -29,7 +28,6 @@ def lambda_handler(event, context):
         pipeline_execution = PipelineExecutionHistoryAPI(
             run_in_context="LAMBDA",
             region=os.getenv("AWS_REGION"),
-            object_metadata_table_instance=object_metadata_table_instance,
             peh_table_instance=peh_table_instance,
             manifests_table_instance=manifests_table_instance,
         )
