@@ -11,10 +11,30 @@ Parameters:
     Type: String
     Description: A string uniquely identifying this deployment in this AWS account
     Default: lambda
-  pDatasetInfraKmsKey:
+  pDatasetDeploymentInstance:
+    Type: String
+    Description: The string uniquely identifying a sdlf-dataset deployment in this AWS account
+    Default: "" # see below comments
+  pPipelineExecutionHistoryDynamoTable:
+    Type: String
+    Description: Name of the Dynamo table storing pipeline execution data
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pManifestsDynamoTable:
+    Type: String
+    Description: Name of the Dynamo table storing pipeline execution data
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pInfraKmsKey:
     Description: KMS key set as infra key for the dataset
     Type: String
-    Default: "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/dev}}"
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pEventBus:
+    Description: EventBridge bus for the dataset
+    Type: String
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
+  pScheduleGroup:
+    Description: EventBridge schedule group for the dataset
+    Type: String
+    Default: "" # if not provided, pDatasetDeploymentInstance must be specified
   pRawBucket:
     Description: Raw bucket
     Type: String
@@ -101,6 +121,7 @@ Parameters:
 
 Conditions:
   EnableTracing: !Equals [!Ref pEnableTracing, "true"]
+  FetchFromDatasetSsm: !Not [!Equals [!Ref pDatasetDeploymentInstance, ""]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
 
 Globals:
@@ -116,8 +137,10 @@ Globals:
         PIPELINE_STAGE: !Ref pStageName
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
-        DATASET_DEPLOYMENT_INSTANCE: dev # TODO
-    KmsKeyArn: !Ref pDatasetInfraKmsKey
+        DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
+        PIPELINE_EXECUTION_HISTORY_DYNAMO_TABLE: !Ref pPipelineExecutionHistoryDynamoTable
+        MANIFESTS_DYNAMO_TABLE: !Ref pManifestsDynamoTable
+    KmsKeyArn: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
     VpcConfig: !If
       - RunInVpc
       - SecurityGroupIds: !Split [",", !Ref pVpcSecurityGroupIds]
@@ -131,6 +154,10 @@ Resources:
     Properties:
       pPipelineReference: !Ref pPipelineReference
       pDeploymentInstance: !Ref pDeploymentInstance
+      pDatasetDeploymentInstance: !Ref pDatasetDeploymentInstance
+      pInfraKmsKey: !Ref pInfraKmsKey
+      pEventBus: !Ref pEventBus
+      pScheduleGroup: !Ref pScheduleGroup
       pDataset: !Ref pDataset
       pPipelineName: !Ref pPipeline
       pStageName: !Ref pStageName
@@ -184,7 +211,7 @@ Resources:
               - kms:ReEncrypt*
             Resource:
               - "{{resolve:ssm:/sdlf/storage/rKMSKey/dev}}"
-              - !Ref pDatasetInfraKmsKey
+              - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   # Processing Role
   rRoleLambdaExecutionProcessingStep:
@@ -309,7 +336,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRoutingStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rRoutingLambdaSsm:
     Type: AWS::SSM::Parameter
@@ -341,7 +368,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaRedriveStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rLambdaTransformStep:
     Type: AWS::Serverless::Function
@@ -365,7 +392,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaTransformStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   # Metadata Step Role (fetch metadata, update pipeline execution history...)
   rRoleLambdaExecutionMetadataStep:
@@ -425,7 +452,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   # Error Handling Lambda Role
   rRoleLambdaExecutionErrorStep:
@@ -486,7 +513,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !Ref pDatasetInfraKmsKey
+      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   ######## STATE MACHINE #########
   rStatesExecutionRole:
