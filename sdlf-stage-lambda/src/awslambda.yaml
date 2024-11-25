@@ -157,7 +157,7 @@ Globals:
         PIPELINE: !Ref pPipeline
         PIPELINE_STAGE: !Ref pStageName
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
-        STORAGE_DEPLOYMENT_INSTANCE: dev # TODO
+        STORAGE_DEPLOYMENT_INSTANCE: !Ref pStorageDeploymentInstance
         DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
         PIPELINE_EXECUTION_HISTORY_DYNAMO_TABLE: !Ref pPipelineExecutionHistoryDynamoTable
         MANIFESTS_DYNAMO_TABLE: !Ref pManifestsDynamoTable
