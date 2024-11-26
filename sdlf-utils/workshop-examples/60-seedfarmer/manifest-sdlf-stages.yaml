@@ -1,11 +1,11 @@
 name: stage-lambda
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-lambda/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-lambda/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
 ---
 name: stage-glue
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-glue/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-stage-glue/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
