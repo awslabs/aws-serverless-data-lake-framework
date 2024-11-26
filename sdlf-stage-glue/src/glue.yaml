@@ -112,6 +112,10 @@ Parameters:
   pEnableTracing:
     Description: Flag for whether XRay tracing is enabled
     Type: String
+  pMaxItemsPerBatch:
+    Description: Maximum number of items to process per batch - each Glue job execution will process that many items, if available
+    Type: Number
+    Default: 5
   pGlueJobName:
     Description: Glue job name
     Type: String
@@ -523,6 +527,7 @@ Resources:
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
         lError: !GetAtt rLambdaErrorStep.Arn
+        lMaxItemsPerBatch: !Ref pMaxItemsPerBatch
         lTransform: !Ref pGlueJobName
         lWorkerType: !Ref pGlueWorkerType
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
