@@ -1,26 +1,26 @@
 name: foundations
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-foundations/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-foundations/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
 ---
 name: dataset
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-dataset/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-dataset/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
 ---
 name: datalakelibrary
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakeLibrary/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-datalakeLibrary/?ref=workshop-build-testing
 ---
 name: pipeline
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-pipeline/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-pipeline/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
 ---
 name: team
-path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-team/?ref=workshop-build
+path: git::https://github.com/awslabs/aws-serverless-data-lake-framework.git//sdlf-team/?ref=workshop-build-testing
 parameters:
   - name: deployment-type
     value: cfn-module
