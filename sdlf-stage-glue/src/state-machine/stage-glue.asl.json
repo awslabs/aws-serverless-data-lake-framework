@@ -31,8 +31,7 @@
                     "Parameters": {
                       "JobName": "${lTransform}",
                       "WorkerType": "${lWorkerType}",
-                      "NumberOfWorkers": ${lNumberOfWorkers},
-                      "Arguments.$": "States.StringToJson(${lGlueArguments})"
+                      "NumberOfWorkers": ${lNumberOfWorkers}
                     },
                     "End": true
                   }
