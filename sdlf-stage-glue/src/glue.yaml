@@ -130,6 +130,9 @@ Parameters:
     Type: String
     Default: G.1X
     AllowedValues: [G.1X, G.2X, G.4X, G.8X, G.025X]
+  pGlueArguments:
+    Description: Glue job arguments (JSON)
+    Type: String
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
   # Fn::ImportValue not being accepted in CloudFormation modules template fragments,
@@ -531,6 +534,7 @@ Resources:
         lTransform: !Ref pGlueJobName
         lWorkerType: !Ref pGlueWorkerType
         lNumberOfWorkers: !Ref pGlueNumberOfWorkers
+        lGlueArguments: !Ref pGlueArguments
         # lArguments:
         lCrawlerName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rStageGlueCrawler/${pDatasetDeploymentInstance}}}", !Ref pGlueCrawler]
         lWaitTime: 75
