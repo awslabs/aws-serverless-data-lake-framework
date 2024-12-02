@@ -32,7 +32,7 @@
                       "JobName": "${lTransform}",
                       "WorkerType": "${lWorkerType}",
                       "NumberOfWorkers": ${lNumberOfWorkers},
-                      "Arguments.$": "States.StringToJson(${lGlueArguments})"
+                      "Arguments": ${lGlueArguments}
                     },
                     "End": true
                   }
