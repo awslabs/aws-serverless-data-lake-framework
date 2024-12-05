@@ -1,11 +1,11 @@
 name: stage-lambda
-path: ../sdlf-stage-lambda/
+path: sdlf-stage-lambda/
 parameters:
   - name: deployment-type
     value: cfn-module
 ---
 name: stage-glue
-path: ../sdlf-stage-glue/
+path: sdlf-stage-glue/
 parameters:
   - name: deployment-type
     value: cfn-module
