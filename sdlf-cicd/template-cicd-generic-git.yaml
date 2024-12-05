@@ -1,0 +1,292 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD to deploy in any account SDLF is used
+
+Parameters:
+  pCustomBucketPrefix:
+    Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
+    Type: String
+    Default: sdlf
+
+Conditions:
+  UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
+
+Resources:
+  rKMSKey:
+    Type: AWS::KMS::Key
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - I3042
+    Properties:
+      Description: SDLF KMS key for encryption of CodePipeline artifacts
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service: !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+
+  rArtifactsBucket:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      BucketName:
+        !If [
+          UseCustomBucketPrefix,
+          !Sub "${pCustomBucketPrefix}-cicd-cfn-artifacts",
+          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-cicd-cfn-artifacts",
+        ]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Ref rKMSKey
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
+  rSdlfBootstrapCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: sdlf-codebuild
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}/*
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey*
+                  - kms:ReEncrypt*
+                Resource:
+                  - !Ref rKMSKey
+
+  rSdlfBootstrapCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: sdlf-cicd-bootstrap
+      Artifacts:
+        Type: NO_ARTIFACTS
+      EncryptionKey: !Ref rKMSKey
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt rSdlfBootstrapCodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.12
+              commands:
+                - |-
+                    aws --version # version 1 installed using pip by codebuild
+                    pip3 uninstall -y awscli
+                    aws --version # version 2
+            build:
+              commands:
+                - echo Configuring AWS credentials
+                - echo "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI $AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+                - curl -qL -o aws_credentials.json http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI > aws_credentials.json
+                - |-
+                  aws configure set aws_access_key_id `jq -r '.AccessKeyId' aws_credentials.json`
+                  aws configure set aws_secret_access_key `jq -r '.SecretAccessKey' aws_credentials.json`
+                  aws configure set aws_session_token `jq -r '.Token' aws_credentials.json`
+                  aws configure set default.region "$AWS_REGION"
+                  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+                - |-
+                  # section to remove and replace with CodeBuild source configuration
+                  git clone https://github.com/awslabs/aws-serverless-data-lake-framework.git
+                  cd aws-serverless-data-lake-framework/
+                - |-
+                  cd sdlf-cicd/
+
+                  python3 -m venv .venv
+                  source .venv/bin/activate
+                  pip3 install --upgrade pip setuptools
+                  pip3 install seed-farmer
+                - |-
+                  echo "project: sdlf" > seedfarmer.yaml
+                  seedfarmer version
+                - |-
+                  export PROJECT=sdlf
+                  export USER_ARN=$(aws sts get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev)
+
+                  seedfarmer bootstrap toolchain \
+                  --project "$PROJECT" \
+                  --trusted-principal "$USER_ARN" \
+                  --region "$AWS_REGION" \
+                  --as-target
+                - |-
+                  sed -i -e "s/111111111111/$AWS_ACCOUNT_ID/g" -e "s/eu-west-1/$AWS_REGION/g" manifest-sdlf.yaml
+                  seedfarmer apply manifest-sdlf.yaml
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+
+
+  rDatalakeCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: sdlf-cicd-datalake
+      Artifacts:
+        Type: NO_ARTIFACTS
+      EncryptionKey: !Ref rKMSKey
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref rArtifactsBucket
+      ServiceRole: !GetAtt rSdlfBootstrapCodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  python: 3.12
+              commands:
+                - |-
+                    aws --version # version 1 installed using pip by codebuild
+                    pip3 uninstall -y awscli
+                    aws --version # version 2
+              commands:
+                - |-
+                    CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
+                    for foundations_template in foundations-*.yaml
+                    do
+                      foundations_template_basename=$(basename "$foundations_template")
+                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$foundations_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$foundations_template_basename.yaml"
+
+                      STACK_NAME="sdlf-$foundations_template_basename"
+                      aws cloudformation deploy \
+                          --stack-name "$STACK_NAME" \
+                          --template-file "$DIRNAME/packaged-$foundations_template_basename.yaml" \
+                          --tags Framework=sdlf \
+                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                          --region "$AWS_REGION" || exit 1
+                    done
+
+                    for dataset_template in dataset-*.yaml
+                    do
+                      dataset_template_basename=$(basename "$dataset_template")
+                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$dataset_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$dataset_template_basename.yaml"
+
+                      STACK_NAME="sdlf-$dataset_template_basename"
+                      aws cloudformation deploy \
+                          --stack-name "$STACK_NAME" \
+                          --template-file "$DIRNAME/packaged-$dataset_template_basename.yaml" \
+                          --tags Framework=sdlf \
+                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                          --region "$AWS_REGION" || exit 1
+                    done
+
+                    for pipeline_template in pipeline-*.yaml
+                    do
+                      dataset_template_basename=$(basename "$pipeline_template")
+                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$pipeline_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$pipeline_template_basename.yaml"
+
+                      STACK_NAME="sdlf-$pipeline_template_basename"
+                      aws cloudformation deploy \
+                          --stack-name "$STACK_NAME" \
+                          --template-file "$DIRNAME/packaged-$pipeline_template_basename.yaml" \
+                          --tags Framework=sdlf \
+                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                          --region "$AWS_REGION" || exit 1
+                    done
+
+                    for team_template in team-*.yaml
+                    do
+                      team_template_basename=$(basename "$team_template")
+                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$team_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$team_template_basename.yaml"
+
+                      STACK_NAME="sdlf-$team_template_basename"
+                      aws cloudformation deploy \
+                          --stack-name "$STACK_NAME" \
+                          --template-file "$DIRNAME/packaged-$team_template_basename.yaml" \
+                          --tags Framework=sdlf \
+                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                          --region "$AWS_REGION" || exit 1
+                    done
+          artifacts:
+            files:
+              - "*"
+              - "**/*"
+
+
+

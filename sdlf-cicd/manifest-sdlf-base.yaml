@@ -1,0 +1,26 @@
+name: foundations
+path: ../sdlf-foundations/
+parameters:
+  - name: deployment-type
+    value: cfn-module
+---
+name: dataset
+path: ../sdlf-dataset/
+parameters:
+  - name: deployment-type
+    value: cfn-module
+---
+name: datalakelibrary
+path: ../sdlf-datalakeLibrary/
+---
+name: pipeline
+path: ../sdlf-pipeline/
+parameters:
+  - name: deployment-type
+    value: cfn-module
+---
+name: team
+path: ../sdlf-team/
+parameters:
+  - name: deployment-type
+    value: cfn-module
