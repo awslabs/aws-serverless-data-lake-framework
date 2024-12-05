@@ -324,7 +324,7 @@ Resources:
               commands:
                 - |-
                     # section to remove and replace with CodeBuild source configuration
-                    git clone --single-branch --branch octagon-tables https://github.com/awslabs/aws-serverless-data-lake-framework.git
+                    git clone --single-branch --branch main https://github.com/awslabs/aws-serverless-data-lake-framework.git
                     cd aws-serverless-data-lake-framework/sdlf-utils/workshop-examples/10-demo/sdlf-workshop/
                 - |-
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
