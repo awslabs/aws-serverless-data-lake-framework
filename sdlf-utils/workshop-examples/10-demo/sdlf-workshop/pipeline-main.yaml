@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Main pipeline
+
+Parameters:
+    pPipelineReference:
+        Type: String
+        Default: none
+
+Resources:
+    rMainA:
+        Type: awslabs::sdlf::stagelambda::MODULE
+        Properties:
+            pStageName: A
+            pPipeline: main
+            pDataset: legislators
+            pDeploymentInstance: maina
+            pStorageDeploymentInstance: dev
+            pDatasetDeploymentInstance: dev
+            pTriggerType: event
+            pEventPattern: !Sub >-
+                {
+                "source": ["aws.s3"],
+                "detail-type": ["Object Created"],
+                "detail": {
+                    "bucket": {
+                        "name": ["{{resolve:ssm:/sdlf/storage/rRawBucket/dev}}"]
+                    },
+                    "object": {
+                        "key": [{ "prefix": "legislators/" }]
+                    }
+                }
+                }
+            pEnableTracing: false
+
+    rMainB:
+        Type: awslabs::sdlf::stageglue::MODULE
+        Properties:
+            pStageName: B
+            pPipeline: main
+            pDataset: legislators
+            pDeploymentInstance: mainb
+            pStorageDeploymentInstance: dev
+            pDatasetDeploymentInstance: dev
+            pGlueJobName: sdlf-legislators-glue-job
+            pGlueNumberOfWorkers: 10
+            pGlueWorkerType: G.1X
+            pTriggerType: schedule
+            pEventPattern: !Sub >-
+                {
+                "source": ["aws.s3"],
+                "detail-type": ["Object Created"],
+                "detail": {
+                    "bucket": {
+                        "name": ["{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}"]
+                    },
+                    "object": {
+                        "key": [{ "prefix": "legislators/main/A/" }]
+                    }
+                }
+                }
+            pSchedule: "cron(*/5 * * * ? *)"
+            pEnableTracing: false
+            pGlueArguments: >-
+              {
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--enable-metrics": "",
+                "--enable-auto-scaling": "true",
+                "--SOURCE_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}/legislators/main/A",
+                "--OUTPUT_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/dev}}/legislators/main/B"
+              }
