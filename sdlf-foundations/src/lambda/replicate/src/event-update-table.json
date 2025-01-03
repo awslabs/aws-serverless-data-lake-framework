@@ -1,0 +1,19 @@
+{
+   "version":"0",
+   "id":"1a2ac50f-11dc-111c-09f3-102e0932d2bf",
+   "detail-type":"Glue Data Catalog Table State Change",
+   "source":"aws.glue",
+   "account":"123456789012",
+   "time":"2020-07-08T12:20:19Z",
+   "region":"us-east-1",
+   "resources":[
+      "arn:aws:glue:us-east-1:123456789012:table/forecourt_datalake_dev_engineering_legislators_db/persons"
+   ],
+   "detail":{
+      "databaseName":"forecourt_datalake_dev_engineering_legislators_db",
+      "typeOfChange":"UpdateTable",
+      "tableName":"persons",
+      "changedPartitions":[
+   ]
+   }
+}
