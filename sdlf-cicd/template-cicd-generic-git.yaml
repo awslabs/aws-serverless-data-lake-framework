@@ -190,15 +190,6 @@ Resources:
                     aws --version # version 2
             build:
               commands:
-                - echo Configuring AWS credentials
-                - echo "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI $AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-                - curl -qL -o aws_credentials.json http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI > aws_credentials.json
-                - |-
-                  aws configure set aws_access_key_id `jq -r '.AccessKeyId' aws_credentials.json`
-                  aws configure set aws_secret_access_key `jq -r '.SecretAccessKey' aws_credentials.json`
-                  aws configure set aws_session_token `jq -r '.Token' aws_credentials.json`
-                  aws configure set default.region "$AWS_REGION"
-                  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
                 - |-
                   # section to remove and replace with CodeBuild source configuration
                   git clone https://github.com/awslabs/aws-serverless-data-lake-framework.git
@@ -222,6 +213,7 @@ Resources:
                   --as-target
                 - |-
                   cp sdlf-cicd/manifest-*.yaml .
+                  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
                   sed -i -e "s/111111111111/$AWS_ACCOUNT_ID/g" -e "s/eu-west-1/$AWS_REGION/g" manifest-sdlf.yaml
                   seedfarmer apply manifest-sdlf.yaml
           artifacts:
