@@ -6,9 +6,18 @@ Parameters:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
+  pCodebuildBootstrap:
+    Description: Deploy the sdlf-cicd-bootstrap CodeBuild project
+    Type: String
+    Default: false
+  pCodeBuildSuffix:
+    Description: Suffix appended to the CodeBuild project name
+    Type: String
+    AllowedPattern: '[A-Za-z0-9\-_]{1,139}'
 
 Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
+  DeployCodeBuildBootstrap: !Equals [!Ref pCodebuildBootstrap, true]
 
 Resources:
   rKMSKey:
@@ -87,6 +96,7 @@ Resources:
 
   rSdlfBootstrapCodeBuildServiceRole:
     Type: AWS::IAM::Role
+    Condition: DeployCodeBuildBootstrap
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -165,6 +175,7 @@ Resources:
 
   rSdlfBootstrapCodeBuildProject:
     Type: AWS::CodeBuild::Project
+    Condition: DeployCodeBuildBootstrap
     Properties:
       Name: sdlf-cicd-bootstrap
       Artifacts:
@@ -286,7 +297,7 @@ Resources:
   rDatalakeCodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: sdlf-cicd-datalake
+      Name: !Sub sdlf-cicd-${pCodeBuildSuffix}
       Artifacts:
         Type: NO_ARTIFACTS
       EncryptionKey: !GetAtt rKMSKey.Arn
