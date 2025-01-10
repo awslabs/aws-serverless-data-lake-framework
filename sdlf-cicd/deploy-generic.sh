@@ -44,7 +44,8 @@ cflag=false
 
 DIRNAME=$(dirname "$0")
 
-while :; do
+while :
+do
     case $1 in
         -h|-\?|--help)
             usage
@@ -126,10 +127,29 @@ then
 fi
 
 STACK_NAME="sdlf-cicd-$1"
+DEPLOY_CODEBUILD_BOOTSTRAP=true
+# it is not expected to have that many of these stacks created, so pagination is not handled for now.
+stacks=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE --query "StackSummaries[?starts_with(StackName, 'sdlf-cicd-')].StackName" --output text)
+for stack in $stacks
+do
+    if aws cloudformation describe-stack-resource --stack-name "$stack" --logical-resource-id rSdlfBootstrapCodeBuildProject > /dev/null 2>&1
+    then
+        if [ "$stack" != "$STACK_NAME" ]
+        then
+            DEPLOY_CODEBUILD_BOOTSTRAP=false
+        fi
+        echo "SDLF CodeBuild bootstrap project found in stack $stack."
+        break
+    fi
+done
+
 echo "CloudFormation stack name: $STACK_NAME"
 aws cloudformation deploy \
     --stack-name "$STACK_NAME" \
     --template-file "$DIRNAME"/template-cicd-generic-git.yaml \
+    --parameter-overrides \
+        pCodebuildBootstrap="$DEPLOY_CODEBUILD_BOOTSTRAP" \
+        pCodeBuildSuffix="$1" \
     --tags Framework=sdlf \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
     ${REGION:+--region "$REGION"} \
