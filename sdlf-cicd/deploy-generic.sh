@@ -154,3 +154,5 @@ aws cloudformation deploy \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
     ${REGION:+--region "$REGION"} \
     ${PROFILE:+--profile "$PROFILE"} || exit 1
+
+echo "The list $CONSTRUCTS will be used in a future release to restrict CodeBuild permissions to the set of permissions required by the constructs it can deploy."
