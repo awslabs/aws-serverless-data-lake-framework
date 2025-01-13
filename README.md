@@ -2,16 +2,14 @@
 
 ## Table of Contents
 
-### Required
-
-1. [Overview](#overview-required)
+1. [Overview](#overview)
     - [Cost](#cost)
-2. [Prerequisites](#prerequisites-required)
-3. [Deployment Steps](#deployment-steps-required)
-4. [Deployment Validation](#deployment-validation-required)
-5. [Running the Guidance](#running-the-guidance-required)
-6. [Next Steps](#next-steps-required)
-7. [Cleanup](#cleanup-required)
+2. [Prerequisites](#prerequisites)
+3. [Deployment Steps](#deployment-steps)
+4. [Deployment Validation](#deployment-validation)
+5. [Running the Guidance](#running-the-guidance)
+6. [Cleanup](#cleanup)
+6. [Authors](#authors)
 
 ## Overview
 
@@ -32,9 +30,6 @@ To learn more about SDLF, its constructs and data architectures, please visit th
 You are responsible for the cost of the AWS services used while running this Guidance. As of December 2024, the cost for running this guidance with the default settings in the eu-west-1 region (Ireland) is approximately $15 per month.
 
 We recommend creating a [Budget](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html) through [AWS Cost Explorer](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/) to help manage costs. Prices are subject to change. For full details, refer to the pricing webpage for each AWS service used in this Guidance.
-
-
-### Sample Cost Table
 
 The following table provides a sample cost breakdown for deploying this guidance with the default parameters in the eu-west-1 region (Ireland) for one month.
 
@@ -62,6 +57,8 @@ AWS CloudShell can be used to deploy SDLF.
 * IAM deployment role
 
 ## Deployment Steps
+
+The [SDLF workshop](https://sdlf.workshop.aws/) walks you through the deployment of a data lake.
 
 **It is recommended to use the [latest stable release](https://github.com/awslabs/aws-serverless-data-lake-framework/releases) when setting up SDLF.**
 
