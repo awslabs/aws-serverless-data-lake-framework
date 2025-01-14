@@ -35,11 +35,11 @@ There is no SDLF-specific DevOps account in this setup.
 This would create the following:
 
 * `sdlf-cicd-bootstrap`
-** this is created only once, no matter how many times `./deploy-generic.sh` is used in a given account.
+  * this is created only once, no matter how many times `./deploy-generic.sh` is used in a given account.
 * `sdlf-cicd-sdlf-main`
-** this CodeBuild project could be linked to a git repository owned by a data platform team, creating centralized storage layers with `sdlf-foundations`.
+  * this CodeBuild project could be linked to a git repository owned by a data platform team, creating centralized storage layers with `sdlf-foundations`.
 * `sdlf-cicd-sdlf-engineering`
-** this CodeBuild project could be linked to a git repository owned by a data engineers team, creating technical catalogs and data processing pipelines with `sdlf-dataset` and the various `sdlf-stage-*`.
+  * this CodeBuild project could be linked to a git repository owned by a data engineers team, creating technical catalogs and data processing pipelines with `sdlf-dataset` and the various `sdlf-stage-*`.
 
 
 ## Infrastructure
