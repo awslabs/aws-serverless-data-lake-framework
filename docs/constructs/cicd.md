@@ -33,6 +33,7 @@ There is no SDLF-specific DevOps account in this setup.
 ```
 
 This would create the following:
+
 * `sdlf-cicd-bootstrap`
 ** this is created only once, no matter how many times `./deploy-generic.sh` is used in a given account.
 * `sdlf-cicd-sdlf-main`
