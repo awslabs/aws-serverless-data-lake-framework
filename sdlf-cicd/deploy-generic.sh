@@ -10,7 +10,7 @@ die() {
     exit 1
 }
 
-version () { echo "awssdlf/2.7.0"; }
+version () { echo "awssdlf/2.8.0"; }
 
 usage () { echo "
 Serverless Data Lake Framework (SDLF) is a collection of infrastructure-as-code artifacts to deploy data architectures on AWS.
@@ -89,6 +89,7 @@ do
             ;;
         -c|--construct)
             if [ "$2" ]; then
+                cflag=true;
                 CONSTRUCTS+=("$2")
                 shift
             else
@@ -96,6 +97,7 @@ do
             fi
             ;;
         --construct=?*)
+            cflag=true;
             CONSTRUCTS+=("${1#*=}") # delete everything up to "=" and assign the remainder
             ;;
         --construct=) # handle the case of an empty --profile=
@@ -155,4 +157,7 @@ aws cloudformation deploy \
     ${REGION:+--region "$REGION"} \
     ${PROFILE:+--profile "$PROFILE"} || exit 1
 
-echo "The list $CONSTRUCTS will be used in a future release to restrict CodeBuild permissions to the set of permissions required by the constructs it can deploy."
+if "$cflag"
+then
+    echo "The list ${CONSTRUCTS[*]} will be used in a future release to restrict CodeBuild permissions to the set of permissions required by the constructs it can deploy."
+fi
