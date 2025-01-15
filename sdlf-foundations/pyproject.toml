@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdlf.foundations"
-version = "2.7.0-alpha.0"
+version = "2.8.0"
 description = "AWS Serverless Data Lake Framework"
 authors = ["Amazon Web Services"]
 license = "MIT-0"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdlf.stage-emrserverless"
-version = "2.7.0-alpha.0"
+version = "2.8.0"
 description = "AWS Serverless Data Lake Framework"
 authors = ["Amazon Web Services"]
 license = "MIT-0"
@@ -18,7 +18,7 @@ exclude = ["**/*.yaml"]
 python = "^3.12"
 aws-cdk-lib = "^2.159.1"
 constructs = ">=10.0.0,<11.0.0"
-sdlf-pipeline = "^2.7.0a0"
+sdlf-pipeline = "^2.8.0"
 
 [build-system]
 requires = ["poetry-core"]
