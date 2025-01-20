@@ -188,6 +188,14 @@ Resources:
       Value: !GetAtt rKMSDataKey.Arn
       Description: !Sub ${pDeploymentInstance} KMS data key ARN
 
+  rS3PrefixSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/dataset/rS3Prefix/${pDeploymentInstance}
+      Type: String
+      Value: !Ref pS3Prefix
+      Description: S3 prefix (may be empty)
+
   ######## GLUE #########
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
