@@ -11,6 +11,7 @@ Parameters:
     Type: String
     Description: A string uniquely identifying this deployment in this AWS account
     Default: glue
+    AllowedPattern: "[a-zA-Z0-9\\-]{1,20}"
   pDatasetDeploymentInstance:
     Type: String
     Description: The string uniquely identifying a sdlf-dataset deployment in this AWS account
@@ -59,10 +60,6 @@ Parameters:
     Description: The name of the dataset (all lowercase, no symbols or spaces)
     Type: String
     AllowedPattern: "[a-z0-9]{2,14}"
-  pStageName:
-    Description: Name of the stage (all lowercase, hyphen allowed, no other symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-zA-Z0-9\\-]{1,12}"
   pStageEnabled:
     Description: Whether the stage is enabled or not
     Type: String
@@ -162,7 +159,6 @@ Globals:
     Environment:
       Variables:
         DATASET: !Ref pDataset
-        PIPELINE_STAGE: !Ref pStageName
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: !Ref pStorageDeploymentInstance
         DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
@@ -187,7 +183,6 @@ Resources:
       pEventBus: !Ref pEventBus
       pScheduleGroup: !Ref pScheduleGroup
       pDataset: !Ref pDataset
-      pStageName: !Ref pStageName
       pStageEnabled: !Ref pStageEnabled
       pTriggerType: !Ref pTriggerType
       pSchedule: !Ref pSchedule
@@ -259,7 +254,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-routing
+        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-routing
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -322,7 +317,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-error
+        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-error
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -349,7 +344,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/routing/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-routing
+      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-routing
       Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
@@ -367,7 +362,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/redrive/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-redrive
+      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-redrive
       Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
@@ -382,7 +377,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/postupdate-metadata/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-postupdate
+      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-postupdate
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 192
       Timeout: 300
@@ -397,7 +392,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/error/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-error
+      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-error
       Description: Fallback lambda to handle messages which failed processing
       MemorySize: 192
       Timeout: 300
@@ -410,7 +405,7 @@ Resources:
       Name: !Sub /sdlf/pipeline/rLambdaRoutingStep/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rLambdaRoutingStep.Arn
-      Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pDeploymentInstance} Routing Lambda" # TODO
+      Description: !Sub "ARN of the ${pDataset} ${pDeploymentInstance} Routing Lambda" # TODO
 
   rLambdaRoutingStepLogGroup:
     Type: AWS::Logs::LogGroup
@@ -471,7 +466,7 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-sm
+        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-sm
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -519,7 +514,7 @@ Resources:
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub sdlf-${pDataset}-${pDeploymentInstance}-${pStageName}-sm
+      Name: !Sub sdlf-${pDataset}-${pDeploymentInstance}-sm
       DefinitionUri: ./state-machine/stage-glue.asl.json
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
@@ -542,7 +537,7 @@ Resources:
       Name: !Sub /sdlf/pipeline/rStateMachine/${pDeploymentInstance}
       Type: String
       Value: !Ref rStateMachine
-      Description: !Sub "ARN of the ${pStageName} ${pDataset} ${pDeploymentInstance} State Machine" # TODO
+      Description: !Sub "ARN of the ${pDataset} ${pDeploymentInstance} State Machine" # TODO
 
 Outputs:
   oPipelineReference:
