@@ -45,14 +45,10 @@ Parameters:
     Description: https://docs.aws.amazon.com/lake-formation/latest/dg/registration-role.html
     Type: String
     Default: "" # if not provided, pStorageDeploymentInstance must be specified
-  pDatasetName:
-    Description: The name of the dataset (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,14}"
   pS3Prefix:
     Description: S3 prefix or full bucket if empty/not provided
     Type: String
-    AllowedPattern: "[a-z0-9]*"
+    AllowedPattern: "[a-z0-9]{0,14}"
     Default: ""
   # the ideal would be to fetch ssm:/SDLF/VPC/Enabled and not ask the user to set this variable to true manually.
   # however between AWS::SSM::Parameter::Value<String> not working in CloudFormation modules,
@@ -80,11 +76,11 @@ Resources:
           - id: F76
             reason: Full access is allowed to Key admin and some AWS services
     Properties:
-      Description: !Sub SDLF ${pDatasetName} Infrastructure KMS Key
+      Description: !Sub SDLF ${pDeploymentInstance} Infrastructure KMS Key
       EnableKeyRotation: True
       KeyPolicy:
         Version: "2012-10-17"
-        Id: !Sub sdlf-${pDatasetName}-infra-key-policy
+        Id: !Sub sdlf-${pDeploymentInstance}-infra-key-policy
         Statement:
           - Sid: Allow administration of the key
             Effect: Allow
@@ -142,7 +138,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rKMSInfraKey/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rKMSInfraKey.Arn
-      Description: !Sub ${pDatasetName} KMS infrastructure key ARN
+      Description: !Sub ${pDeploymentInstance} KMS infrastructure key ARN
 
   rKMSDataKey:
     Type: AWS::KMS::Key
@@ -150,11 +146,11 @@ Resources:
     UpdateReplacePolicy: Retain
     DeletionPolicy: RetainExceptOnCreate
     Properties:
-      Description: !Sub SDLF ${pDatasetName} Data KMS Key
+      Description: !Sub SDLF ${pDeploymentInstance} Data KMS Key
       EnableKeyRotation: True
       KeyPolicy:
         Version: "2012-10-17"
-        Id: !Sub sdlf-${pDatasetName}-data-key-policy
+        Id: !Sub sdlf-${pDeploymentInstance}-data-key-policy
         Statement:
           - Sid: Allow administration of the key
             Action: kms:*
@@ -190,13 +186,13 @@ Resources:
       Name: !Sub /sdlf/dataset/rKMSDataKey/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rKMSDataKey.Arn
-      Description: !Sub ${pDatasetName} KMS data key ARN
+      Description: !Sub ${pDeploymentInstance} KMS data key ARN
 
   ######## GLUE #########
   rGlueSecurityConfiguration:
     Type: AWS::Glue::SecurityConfiguration
     Properties:
-      Name: !Sub sdlf-${pDatasetName}-glue-security-config # TODO ${pDeploymentInstance}
+      Name: !Sub sdlf-${pDeploymentInstance}-glue-security-config # TODO ${pDeploymentInstance}
       EncryptionConfiguration:
         CloudWatchEncryption:
           CloudWatchEncryptionMode: SSE-KMS
@@ -216,13 +212,13 @@ Resources:
     Properties:
       Name: !Sub /sdlf/dataset/rGlueSecurityConfiguration/${pDeploymentInstance}
       Type: String
-      Value: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
-      Description: !Sub Name of the ${pDatasetName} Glue security configuration
+      Value: !Sub sdlf-${pDeploymentInstance}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      Description: !Sub Name of the ${pDeploymentInstance} Glue security configuration
 
   rEMRSecurityConfiguration:
     Type: AWS::EMR::SecurityConfiguration
     Properties:
-      Name: !Sub sdlf-${pDatasetName}-emr-security-config # TODO ${pDeploymentInstance}
+      Name: !Sub sdlf-${pDeploymentInstance}-emr-security-config # TODO ${pDeploymentInstance}
       SecurityConfiguration: !If
         - IsS3Prefix
         - !Sub |
@@ -276,7 +272,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rEMRSecurityConfiguration/${pDeploymentInstance}
       Type: String
       Value: !Ref rEMRSecurityConfiguration
-      Description: !Sub Name of the ${pDatasetName} EMR security configuration
+      Description: !Sub Name of the ${pDeploymentInstance} EMR security configuration
 
   rDatalakeCrawlerRole:
     Type: AWS::IAM::Role
@@ -286,7 +282,7 @@ Resources:
           - id: W11
             reason: The actions with "*" are all ones that only support the all resources wildcard
     Properties:
-      Path: !Sub /sdlf-${pDatasetName}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -299,7 +295,7 @@ Resources:
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDatasetName}-glue-crawler
+        - PolicyName: !Sub sdlf-${pDeploymentInstance}-glue-crawler
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -361,7 +357,7 @@ Resources:
                   - logs:PutLogEvents
                   - logs:AssociateKmsKey
                 Resource:
-                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/crawlers-role/sdlf-${pDatasetName}/*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/crawlers-role/sdlf-${pDeploymentInstance}/*
 
   rDatalakeCrawlerRoleArnSsm:
     Type: AWS::SSM::Parameter
@@ -377,18 +373,18 @@ Resources:
   #     CatalogId: !Ref AWS::AccountId
   #     TagKey: "sdlf:dataset"
   #     TagValues:
-  #       - !Ref pDatasetName
+  #       - !Ref pDeploymentInstance
 
   rRawGlueDataCatalog:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Description: !Sub "${pDatasetName} raw metadata catalog"
+        Description: !Sub "${pDeploymentInstance} raw metadata catalog"
         Name: !If
           - FetchFromStorageSsm
-          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDatasetName}_raw"
-          - !Sub ${pOrg}_${pDomain}_${pDatasetName}_raw
+          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDeploymentInstance}_raw"
+          - !Sub ${pOrg}_${pDomain}_${pDeploymentInstance}_raw
 
   rRawGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -396,7 +392,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rRawGlueDataCatalog/${pDeploymentInstance}
       Type: String
       Value: !Ref rRawGlueDataCatalog
-      Description: !Sub "${pDatasetName} raw metadata catalog"
+      Description: !Sub "${pDeploymentInstance} raw metadata catalog"
 
   # rRawGlueDataCatalogLakeFormationTag:
   #   Type: AWS::LakeFormation::TagAssociation
@@ -409,15 +405,15 @@ Resources:
   #       - CatalogId: !Ref AWS::AccountId
   #         TagKey: "sdlf:dataset"
   #         TagValues:
-  #           - !Ref pDatasetName
+  #           - !Ref pDeploymentInstance
 
   rRawGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
       Role: !GetAtt rDatalakeCrawlerRole.Arn
-      CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      CrawlerSecurityConfiguration: !Sub sdlf-${pDeploymentInstance}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       DatabaseName: !Ref rRawGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-raw-crawler
+      Name: !Sub sdlf-${pDeploymentInstance}-raw-crawler
       Targets:
         S3Targets:
           - Path: !If [FetchFromStorageSsm, !Sub "s3://{{resolve:ssm:/sdlf/storage/rRawBucket/${pStorageDeploymentInstance}}}/${pS3Prefix}", !Sub "s3://${pRawBucket}/${pS3Prefix}"]
@@ -452,18 +448,18 @@ Resources:
       Name: !Sub /sdlf/dataset/rRawGlueCrawler/${pDeploymentInstance}
       Type: String
       Value: !Ref rRawGlueCrawler
-      Description: !Sub "${pDatasetName} Raw Glue crawler"
+      Description: !Sub "${pDeploymentInstance} Raw Glue crawler"
 
   rStageGlueDataCatalog:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Description: !Sub "${pDatasetName} stage metadata catalog"
+        Description: !Sub "${pDeploymentInstance} stage metadata catalog"
         Name: !If
           - FetchFromStorageSsm
-          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDatasetName}_stage"
-          - !Sub ${pOrg}_${pDomain}_${pDatasetName}_stage
+          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDeploymentInstance}_stage"
+          - !Sub ${pOrg}_${pDomain}_${pDeploymentInstance}_stage
 
   rStageGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -471,7 +467,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rStageGlueDataCatalog/${pDeploymentInstance}
       Type: String
       Value: !Ref rStageGlueDataCatalog
-      Description: !Sub "${pDatasetName} stage metadata catalog"
+      Description: !Sub "${pDeploymentInstance} stage metadata catalog"
 
   # rStageGlueDataCatalogLakeFormationTag:
   #   Type: AWS::LakeFormation::TagAssociation
@@ -484,15 +480,15 @@ Resources:
   #       - CatalogId: !Ref AWS::AccountId
   #         TagKey: "sdlf:dataset"
   #         TagValues:
-  #           - !Ref pDatasetName
+  #           - !Ref pDeploymentInstance
 
   rStageGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
       Role: !GetAtt rDatalakeCrawlerRole.Arn
-      CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      CrawlerSecurityConfiguration: !Sub sdlf-${pDeploymentInstance}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       DatabaseName: !Ref rStageGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-stage-crawler
+      Name: !Sub sdlf-${pDeploymentInstance}-stage-crawler
       Targets:
         S3Targets:
           - Path: !If [FetchFromStorageSsm, !Sub "s3://{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/${pS3Prefix}", !Sub "s3://${pStageBucket}/${pS3Prefix}"]
@@ -527,18 +523,18 @@ Resources:
       Name: !Sub /sdlf/dataset/rStageGlueCrawler/${pDeploymentInstance}
       Type: String
       Value: !Ref rStageGlueCrawler
-      Description: !Sub "${pDatasetName} Stage Glue crawler"
+      Description: !Sub "${pDeploymentInstance} Stage Glue crawler"
 
   rAnalyticsGlueDataCatalog:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Description: !Sub "${pDatasetName} analytics metadata catalog"
+        Description: !Sub "${pDeploymentInstance} analytics metadata catalog"
         Name: !If
           - FetchFromStorageSsm
-          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDatasetName}_analytics"
-          - !Sub ${pOrg}_${pDomain}_${pDatasetName}_analytics
+          - !Sub "{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDeploymentInstance}_analytics"
+          - !Sub ${pOrg}_${pDomain}_${pDeploymentInstance}_analytics
 
   rAnalyticsGlueDataCatalogSsm:
     Type: AWS::SSM::Parameter
@@ -546,7 +542,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rAnalyticsGlueDataCatalog/${pDeploymentInstance}
       Type: String
       Value: !Ref rAnalyticsGlueDataCatalog
-      Description: !Sub "${pDatasetName} analytics metadata catalog"
+      Description: !Sub "${pDeploymentInstance} analytics metadata catalog"
 
   # rAnalyticsGlueDataCatalogLakeFormationTag:
   #   Type: AWS::LakeFormation::TagAssociation
@@ -559,15 +555,15 @@ Resources:
   #       - CatalogId: !Ref AWS::AccountId
   #         TagKey: "sdlf:dataset"
   #         TagValues:
-  #           - !Ref pDatasetName
+  #           - !Ref pDeploymentInstance
 
   rAnalyticsGlueCrawler:
     Type: AWS::Glue::Crawler
     Properties:
       Role: !GetAtt rDatalakeCrawlerRole.Arn
-      CrawlerSecurityConfiguration: !Sub sdlf-${pDatasetName}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
+      CrawlerSecurityConfiguration: !Sub sdlf-${pDeploymentInstance}-glue-security-config # unfortunately AWS::Glue::SecurityConfiguration doesn't provide any return value
       DatabaseName: !Ref rAnalyticsGlueDataCatalog
-      Name: !Sub sdlf-${pDatasetName}-analytics-crawler
+      Name: !Sub sdlf-${pDeploymentInstance}-analytics-crawler
       Targets:
         S3Targets:
           - Path: !If [FetchFromStorageSsm, !Sub "s3://{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/${pS3Prefix}", !Sub "s3://${pAnalyticsBucket}/${pS3Prefix}"]
@@ -602,7 +598,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rAnalyticsGlueCrawler/${pDeploymentInstance}
       Type: String
       Value: !Ref rAnalyticsGlueCrawler
-      Description: !Sub "${pDatasetName} Analytics Glue crawler"
+      Description: !Sub "${pDeploymentInstance} Analytics Glue crawler"
 
   # rLakeFormationTagTablesPermissions: # allows sdlf pipelines to grant permissions on tables associated with this lf-tag
   #   Type: AWS::LakeFormation::PrincipalPermissions
@@ -611,7 +607,7 @@ Resources:
   #       DataLakePrincipalIdentifier: !If
   #         - CicdRoleProvided
   #         - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${pCicdRole}
-  #         - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pDatasetName}
+  #         - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-cicd-team-${pDeploymentInstance}
   #     Resource:
   #       LFTagPolicy:
   #         CatalogId: !Ref AWS::AccountId
@@ -619,7 +615,7 @@ Resources:
   #         Expression:
   #           - TagKey: !Ref rLakeFormationTag
   #             TagValues:
-  #               - !Ref pDatasetName
+  #               - !Ref pDeploymentInstance
   #     Permissions:
   #       - ALL
   #     PermissionsWithGrantOption:
@@ -630,7 +626,7 @@ Resources:
   rEventBus:
     Type: AWS::Events::EventBus
     Properties:
-        Name: !Sub sdlf-${pDatasetName}
+        Name: !Sub sdlf-${pDeploymentInstance}
 
   rEventBusSsm:
     Type: AWS::SSM::Parameter
@@ -638,12 +634,12 @@ Resources:
       Name: !Sub /sdlf/dataset/rEventBus/${pDeploymentInstance}
       Type: String
       Value: !Ref rEventBus
-      Description: !Sub Name of the ${pDatasetName} event bus
+      Description: !Sub Name of the ${pDeploymentInstance} event bus
 
   rScheduleGroup:
     Type: AWS::Scheduler::ScheduleGroup
     Properties:
-      Name: !Sub sdlf-${pDatasetName}
+      Name: !Sub sdlf-${pDeploymentInstance}
 
   rScheduleGroupSsm:
     Type: AWS::SSM::Parameter
@@ -651,7 +647,7 @@ Resources:
       Name: !Sub /sdlf/dataset/rScheduleGroup/${pDeploymentInstance}
       Type: String
       Value: !Ref rScheduleGroup
-      Description: !Sub Name of the ${pDatasetName} schedule group
+      Description: !Sub Name of the ${pDeploymentInstance} schedule group
 
   rForwardEventBusTriggerRole:
     Type: AWS::IAM::Role
@@ -700,7 +696,7 @@ Resources:
               Condition applied to restrict access, and the KMS keys do not exist at this stage
               The other actions with "*" are all ones that only support the all resources wildcard
     Properties:
-      Path: !Sub /sdlf/${pDatasetName}/ # keep this path for the dataset's permissions boundary policy only
+      Path: !Sub /sdlf/${pDeploymentInstance}/ # keep this path for the dataset's permissions boundary policy only
       Description: Team Permissions Boundary IAM policy. Add/remove permissions based on company policy and associate it to federated role
       PolicyDocument:
         Version: "2012-10-17"
@@ -777,17 +773,17 @@ Resources:
               - sqs:ReceiveMessage
               - sqs:SendMessage
             Resource:
-              - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-*
           - Effect: Allow
             Action:
               - states:StartExecution
             Resource:
-              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pDeploymentInstance}-*
           - Effect: Allow
             Action:
               - iam:PassRole
             Resource:
-              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pDatasetName}/sdlf-*
+              - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/sdlf-${pDeploymentInstance}/sdlf-*
             Condition:
               StringEquals:
                 "iam:PassedToService":
@@ -810,18 +806,18 @@ Resources:
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
               - !If
                 - FetchFromStorageSsm
-                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDatasetName}_*"
-                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pDatasetName}_*
+                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDeploymentInstance}_*"
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${pOrg}_${pDomain}_${pDeploymentInstance}_*
               - !If
                 - FetchFromStorageSsm
-                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDatasetName}_*"
-                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pDatasetName}_*
+                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}_{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}_${pDeploymentInstance}_*"
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/${pOrg}_${pDomain}_${pDeploymentInstance}_*
               - !If
                 - FetchFromStorageSsm
-                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}-{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}-${pDatasetName}_*"
-                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pDatasetName}-*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pDatasetName}-*
-              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pDatasetName}-*
+                - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/{{resolve:ssm:/sdlf/storage/rOrganization/${pStorageDeploymentInstance}}}-{{resolve:ssm:/sdlf/storage/rDomain/${pStorageDeploymentInstance}}}-${pDeploymentInstance}_*"
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${pOrg}-${pDomain}-${pDeploymentInstance}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pDeploymentInstance}-*
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/sdlf-${pDeploymentInstance}-*
               - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:dataQualityRuleset/* # glue:StartDataQualityRuleRecommendationRun requires dataQualityRuleset/*
           - Effect: Allow
             Action:
@@ -835,9 +831,9 @@ Resources:
               - logs:PutLogEvents
               - logs:AssociateKmsKey
             Resource:
-              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pDatasetName}-*
-              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pDatasetName}-*
-              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/jobs/sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pDeploymentInstance}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/sdlf-${pDeploymentInstance}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/jobs/sdlf-${pDeploymentInstance}-*
           - Sid: AllowCloudFormationReadOnlyAccess
             Effect: Allow
             Action:
@@ -846,12 +842,12 @@ Resources:
               - cloudformation:DescribeStackResource
               - cloudformation:DescribeStackResources
             Resource:
-              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack:sdlf-${pDatasetName}:*
+              - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack:sdlf-${pDeploymentInstance}:*
           - Effect: Allow
             Action:
               - lambda:InvokeFunction
             Resource:
-              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pDatasetName}-*
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pDeploymentInstance}-*
           - Effect: Allow
             Action:
               - events:PutTargets
@@ -897,7 +893,7 @@ Resources:
                 - Glue:GetConnection
               Resource:
                 - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog
-                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pDatasetName}-glue-conn-*
+                - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/sdlf-${pDeploymentInstance}-glue-conn-*
             - !Ref "AWS::NoValue"
 
   rIamManagedPolicySsm:
