@@ -64,10 +64,6 @@ Parameters:
     Description: Analytics bucket
     Type: String
     Default: "" # if not provided, pStorageDeploymentInstance must be specified
-  pDataset:
-    Description: The name of the dataset (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,14}"
   pStageEnabled:
     Description: Whether the stage is enabled or not
     Type: String
@@ -146,7 +142,7 @@ Globals:
       - "{{resolve:ssm:/SDLF/Lambda/LatestDatalakeLibraryLayer}}"
     Environment:
       Variables:
-        DATASET: !Ref pDataset
+        S3_PREFIX: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}", !Ref pBucketPrefix]
         DEPLOYMENT_INSTANCE: !Ref pDeploymentInstance
         STORAGE_DEPLOYMENT_INSTANCE: !Ref pStorageDeploymentInstance
         DATASET_DEPLOYMENT_INSTANCE: !Ref pDatasetDeploymentInstance
@@ -170,7 +166,6 @@ Resources:
       pInfraKmsKey: !Ref pInfraKmsKey
       pEventBus: !Ref pEventBus
       pScheduleGroup: !Ref pScheduleGroup
-      pDataset: !Ref pDataset
       pStageEnabled: !Ref pStageEnabled
       pTriggerType: !Ref pTriggerType
       pSchedule: !Ref pSchedule
@@ -181,7 +176,7 @@ Resources:
   rLambdaCommonPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -191,7 +186,7 @@ Resources:
               - logs:CreateLogStream
               - logs:PutLogEvents
             Resource:
-              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pDataset}-${pDeploymentInstance}-*
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sdlf-${pDeploymentInstance}-*
           - Effect: Allow
             Action:
               - ssm:GetParameter
@@ -227,7 +222,7 @@ Resources:
   rRoleLambdaExecutionProcessingStep:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -243,7 +238,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-process
+        - PolicyName: !Sub sdlf-${pDeploymentInstance}-process
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -259,15 +254,15 @@ Resources:
                 Action:
                   - s3:GetObject
                 Resource:
-                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rRawBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pRawBucket}/${pDataset}/*"]
-                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*"]
-                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDataset}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rRawBucket/${pStorageDeploymentInstance}}}/{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}/*", !Sub "arn:${AWS::Partition}:s3:::${pRawBucket}/${pBucketPrefix}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pBucketPrefix}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pBucketPrefix}/*"]
               - Effect: Allow
                 Action:
                   - s3:PutObject
                 Resource:
-                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pDataset}/*"]
-                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/${pDataset}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pDataset}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rStageBucket/${pStorageDeploymentInstance}}}/{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}/*", !Sub "arn:${AWS::Partition}:s3:::${pStageBucket}/${pBucketPrefix}/*"]
+                  - !If [FetchFromStorageSsm, !Sub "arn:${AWS::Partition}:s3:::{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/${pStorageDeploymentInstance}}}/{{resolve:ssm:/sdlf/dataset/rS3Prefix/${pDatasetDeploymentInstance}}}/*", !Sub "arn:${AWS::Partition}:s3:::${pAnalyticsBucket}/${pBucketPrefix}/*"]
               - Effect: Allow
                 Action:
                   - kms:DescribeKey
@@ -285,7 +280,7 @@ Resources:
   rRoleLambdaExecutionRoutingStep:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -301,7 +296,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-routing
+        - PolicyName: !Sub sdlf-${pDeploymentInstance}-routing
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -321,8 +316,8 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
                 Resource:
-                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDataset}-${pDeploymentInstance}-queue-*
-                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDataset}-${pDeploymentInstance}-dlq-*
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-queue.fifo
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-dlq.fifo
 
   rLambdaRoutingStep:
     Type: AWS::Serverless::Function
@@ -333,7 +328,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/routing/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-routing
+      FunctionName: !Sub sdlf-${pDeploymentInstance}-routing
       Description: Checks if items are to be processed and route them to state machine
       Environment:
         Variables:
@@ -357,7 +352,7 @@ Resources:
       Name: !Sub /sdlf/pipeline/rLambdaRoutingStep/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rLambdaRoutingStep.Arn
-      Description: !Sub "ARN of the ${pDataset} ${pDeploymentInstance} Routing Lambda" # TODO
+      Description: !Sub "ARN of the ${pDeploymentInstance} Routing Lambda" # TODO
 
   rLambdaRedriveStep:
     Type: AWS::Serverless::Function
@@ -368,7 +363,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/redrive/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-redrive
+      FunctionName: !Sub sdlf-${pDeploymentInstance}-redrive
       Description: Redrives Failed messages to the routing queue
       MemorySize: 192
       Timeout: 300
@@ -392,7 +387,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/process-object/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-process
+      FunctionName: !Sub sdlf-${pDeploymentInstance}-process
       Description: Processing pipeline
       MemorySize: 1536
       Timeout: 600
@@ -411,7 +406,7 @@ Resources:
   rRoleLambdaExecutionMetadataStep:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -436,7 +431,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/postupdate-metadata/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-postupdate
+      FunctionName: !Sub sdlf-${pDeploymentInstance}-postupdate
       Description: Post-Update the metadata in the DynamoDB Catalog table
       MemorySize: 192
       Timeout: 300
@@ -455,7 +450,7 @@ Resources:
   rRoleLambdaExecutionErrorStep:
     Type: AWS::IAM::Role
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       ManagedPolicyArns:
         - !Ref rLambdaCommonPolicy
@@ -471,7 +466,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-error
+        - PolicyName: !Sub sdlf-${pDeploymentInstance}-error
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -486,7 +481,7 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:SendMessage
                 Resource:
-                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDataset}-${pDeploymentInstance}-dlq-*
+                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-dlq.fifo
 
   rLambdaErrorStep:
     Type: AWS::Serverless::Function
@@ -497,7 +492,7 @@ Resources:
             reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
     Properties:
       CodeUri: ./lambda/error/src
-      FunctionName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-error
+      FunctionName: !Sub sdlf-${pDeploymentInstance}-error
       Description: Fallback lambda to handle messages which failed processing
       MemorySize: 192
       Timeout: 300
@@ -521,7 +516,7 @@ Resources:
           - id: W11
             reason: The actions with "*" are all ones that do not have resource limitations associated with them
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -535,14 +530,14 @@ Resources:
               StringEquals:
                 "aws:SourceAccount": !Sub ${AWS::AccountId}
       Policies:
-        - PolicyName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-sm
+        - PolicyName: !Sub sdlf-${pDeploymentInstance}-sm
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pDataset}-* # TODO explicit ARNs
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:sdlf-${pDeploymentInstance}-* # TODO explicit ARNs
               - Effect: Allow
                 Action:
                   - xray:PutTraceSegments # W11 exception
@@ -571,7 +566,7 @@ Resources:
   rStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub sdlf-${pDataset}-${pDeploymentInstance}-sm
+      Name: !Sub sdlf-${pDeploymentInstance}-sm
       DefinitionUri: ./state-machine/stage-lambda.asl.json
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
@@ -587,7 +582,7 @@ Resources:
       Name: !Sub /sdlf/pipeline/rStateMachine/${pDeploymentInstance}
       Type: String
       Value: !Ref rStateMachine
-      Description: !Sub "ARN of the ${pDataset} ${pDeploymentInstance} State Machine" # TODO
+      Description: !Sub "ARN of the ${pDeploymentInstance} State Machine" # TODO
 
 Outputs:
   oPipelineReference:

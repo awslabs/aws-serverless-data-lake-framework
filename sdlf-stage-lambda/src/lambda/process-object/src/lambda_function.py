@@ -10,9 +10,8 @@ from datalake_library.sdlf import (
 )
 
 logger = init_logger(__name__)
-dataset = os.environ["DATASET"]
-pipeline = os.environ["PIPELINE"]
-pipeline_stage = os.environ["PIPELINE_STAGE"]
+s3_prefix = os.environ["S3_PREFIX"]
+deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
 storage_deployment_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 
 
@@ -53,7 +52,7 @@ def transform_object(bucket, key):
 
     # Uploading file to Stage bucket at appropriate path
     # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
-    s3_path = f"{dataset}/{pipeline}/{pipeline_stage}/{PurePath(output_path).name}"
+    s3_path = f"{s3_prefix}/{deployment_instance}/{PurePath(output_path).name}"
     # IMPORTANT: Notice "stage_bucket" not "bucket"
     kms_key = KMSConfiguration(instance=storage_deployment_instance).data_kms_key
     s3_interface.upload_object(output_path, stage_bucket, s3_path, kms_key=kms_key)
