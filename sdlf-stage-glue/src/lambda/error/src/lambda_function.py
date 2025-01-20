@@ -6,9 +6,6 @@ from datalake_library.interfaces.sqs_interface import SQSInterface
 from datalake_library.sdlf import SQSConfiguration
 
 logger = init_logger(__name__)
-dataset = os.environ["DATASET"]
-pipeline = os.environ["PIPELINE"]
-pipeline_stage = os.environ["PIPELINE_STAGE"]
 deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
 
 

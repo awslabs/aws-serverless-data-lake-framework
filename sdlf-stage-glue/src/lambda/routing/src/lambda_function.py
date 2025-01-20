@@ -12,12 +12,8 @@ from datalake_library.sdlf import (
 )
 
 logger = init_logger(__name__)
-dataset = os.environ["DATASET"]
-pipeline = os.environ["PIPELINE"]
-pipeline_stage = os.environ["PIPELINE_STAGE"]
 deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
-peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
-manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
+dataset_deployment_instance = peh_table_instance = manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 
 
 def serializer(obj):
@@ -31,8 +27,8 @@ def serializer(obj):
 
 def pipeline_start(pipeline_execution, event):
     peh_id = pipeline_execution.start_pipeline_execution(
-        pipeline_name=f"{pipeline}-{pipeline_stage}",
-        dataset_name=f"{dataset}",
+        pipeline_name=deployment_instance,
+        dataset_name=dataset_deployment_instance,
         comment=event,  # TODO test maximum size
     )
     logger.info(f"peh_id: {peh_id}")
@@ -53,14 +49,14 @@ def get_source_records(event):
         logger.info("Stage trigger: event-schedule")
         min_items_to_process = 1
         max_items_to_process = 100
-        logger.info(f"Pipeline is {pipeline}, stage is {pipeline_stage}")
+        logger.info(f"Pipeline is {deployment_instance}")
         logger.info(
             f"Pipeline stage configuration: min_items_to_process {min_items_to_process}, max_items_to_process {max_items_to_process}"
         )
 
         sqs_config = SQSConfiguration(instance=deployment_instance)
         queue_interface = SQSInterface(sqs_config.stage_queue)
-        logger.info(f"Querying {dataset} {pipeline}-{pipeline_stage} objects waiting for processing")
+        logger.info(f"Querying {deployment_instance} objects waiting for processing")
         messages = queue_interface.receive_min_max_messages(min_items_to_process, max_items_to_process)
         logger.info(f"{len(messages)} Objects ready for processing")
 
@@ -115,7 +111,7 @@ def lambda_handler(event, context):
                 state_config.stage_state_machine, json.dumps(records, default=serializer)
             )
             pipeline_execution.update_pipeline_execution(
-                status=f"{pipeline}-{pipeline_stage} Transform Processing", component="Transform"
+                status=f"{deployment_instance} Transform Processing", component="Transform"
             )
         else:
             logger.info("Nothing to process, exiting pipeline")
@@ -126,6 +122,6 @@ def lambda_handler(event, context):
         component = context.function_name.split("-")[-2].title()
         pipeline_execution.end_pipeline_execution_failed(
             component=component,
-            issue_comment=f"{pipeline}-{pipeline_stage} {component} Error: {repr(e)}",
+            issue_comment=f"{deployment_instance} {component} Error: {repr(e)}",
         )
         raise e

@@ -4,9 +4,6 @@ from datalake_library.commons import init_logger
 from datalake_library.sdlf import PipelineExecutionHistoryAPI
 
 logger = init_logger(__name__)
-dataset = os.environ["DATASET"]
-pipeline = os.environ["PIPELINE"]
-pipeline_stage = os.environ["PIPELINE_STAGE"]
 deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
 peh_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
 manifests_table_instance = os.environ["DATASET_DEPLOYMENT_INSTANCE"]
@@ -42,7 +39,7 @@ def lambda_handler(event, context):
 
         if not partial_failure:
             pipeline_execution.update_pipeline_execution(
-                status=f"{pipeline}-{pipeline_stage} {component} Processing", component=component
+                status=f"{deployment_instance} {component} Processing", component=component
             )
             pipeline_execution.end_pipeline_execution_success()
         else:
@@ -51,6 +48,6 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error("Fatal error", exc_info=True)
         pipeline_execution.end_pipeline_execution_failed(
-            component=component, issue_comment=f"{pipeline}-{pipeline_stage} {component} Error: {repr(e)}"
+            component=component, issue_comment=f"{deployment_instance} {component} Error: {repr(e)}"
         )
         raise e
