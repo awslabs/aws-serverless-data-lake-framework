@@ -27,10 +27,6 @@ Parameters:
     Description: EventBridge schedule group for the dataset
     Type: String
     Default: "" # if not provided, pDatasetDeploymentInstance must be specified
-  pDataset:
-    Description: The name of the dataset (all lowercase, no symbols or spaces)
-    Type: String
-    AllowedPattern: "[a-z0-9]{2,14}"
   pStageEnabled:
     Description: Whether the stage is enabled or not
     Type: String
@@ -69,7 +65,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-dlq.fifo
+      QueueName: !Sub sdlf-${pDeploymentInstance}-dlq.fifo
       FifoQueue: True
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 60
@@ -82,7 +78,7 @@ Resources:
       Name: !Sub /sdlf/pipeline/rDeadLetterQueueRoutingStep/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rDeadLetterQueueRoutingStep.QueueName
-      Description: !Sub "Name of the ${pDataset} ${pDeploymentInstance} DLQ"
+      Description: !Sub "Name of the ${pDeploymentInstance} DLQ"
 
   rQueueRoutingStep:
     Type: AWS::SQS::Queue
@@ -90,7 +86,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      QueueName: !Sub sdlf-${pDataset}-${pDeploymentInstance}-queue.fifo
+      QueueName: !Sub sdlf-${pDeploymentInstance}-queue.fifo
       FifoQueue: True
       ContentBasedDeduplication: True
       RedrivePolicy:
@@ -107,13 +103,13 @@ Resources:
       Name: !Sub /sdlf/pipeline/rQueueRoutingStep/${pDeploymentInstance}
       Type: String
       Value: !GetAtt rQueueRoutingStep.QueueName
-      Description: !Sub "Name of the ${pDataset} ${pDeploymentInstance} Queue"
+      Description: !Sub "Name of the ${pDeploymentInstance} Queue"
 
   rStageRule:
     Type: AWS::Events::Rule
     Condition: HasSourceEvents
     Properties:
-      Name: !Sub sdlf-${pDataset}-${pDeploymentInstance}-rule
+      Name: !Sub sdlf-${pDeploymentInstance}-rule
       Description: !Sub Send events to ${pDeploymentInstance} queue
       EventPattern: !Ref pEventPattern
       EventBusName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rEventBus/${pDatasetDeploymentInstance}}}", !Ref pEventBus]
@@ -122,10 +118,10 @@ Resources:
         - ENABLED
         - DISABLED
       Targets:
-        - Id: !Sub sdlf-${pDataset}-${pDeploymentInstance}-rule
+        - Id: !Sub sdlf-${pDeploymentInstance}-rule
           Arn: !GetAtt rQueueRoutingStep.Arn
           SqsParameters:
-            MessageGroupId: !Sub ${pDataset}-${pDeploymentInstance}
+            MessageGroupId: !Ref pDeploymentInstance
           InputPath: "$.detail"
 
   rQueuePolicyEventsStageRule:
@@ -160,7 +156,7 @@ Resources:
     Type: AWS::IAM::Role
     Condition: ScheduleBased
     Properties:
-      Path: !Sub /sdlf-${pDataset}/
+      Path: !Sub /sdlf-${pDeploymentInstance}/
       # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pTeamName}/TeamPermissionsBoundary}}" TODO
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -195,7 +191,7 @@ Resources:
       Description: !Sub Trigger ${pDeploymentInstance} Routing Lambda on a specified schedule
       GroupName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rScheduleGroup/${pDatasetDeploymentInstance}}}", !Ref pScheduleGroup]
       KmsKeyArn: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
-      Name: !Sub sdlf-${pDataset}-${pDeploymentInstance}-schedule-rule
+      Name: !Sub sdlf-${pDeploymentInstance}-schedule-rule
       ScheduleExpression: !Ref pSchedule
       FlexibleTimeWindow:
         Mode: "OFF"
@@ -212,13 +208,13 @@ Resources:
             {
               "FunctionName": "${pLambdaRoutingStep}",
               "InvocationType": "Event",
-              "Payload": "{\n \"dataset\": \"${pDataset}\",\n \"pipeline_stage\": \"${pDeploymentInstance}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"event_pattern\": \"true\"\n }"
+              "Payload": "{\n \"dataset\": \"${pDatasetDeploymentInstance}\",\n \"pipeline_stage\": \"${pDeploymentInstance}\",\n \"trigger_type\": \"${pTriggerType}\",\n \"event_pattern\": \"true\"\n }"
             }
           - !Sub >-
             {
               "FunctionName": "${pLambdaRoutingStep}",
               "InvocationType": "Event",
-              "Payload": "{\n \"dataset\": \"${pDataset}\",\n \"pipeline_stage\": \"${pDeploymentInstance}\",\n \"trigger_type\": \"${pTriggerType}\"\n }"
+              "Payload": "{\n \"dataset\": \"${pDatasetDeploymentInstance}\",\n \"pipeline_stage\": \"${pDeploymentInstance}\",\n \"trigger_type\": \"${pTriggerType}\"\n }"
             }
 
 Outputs:
