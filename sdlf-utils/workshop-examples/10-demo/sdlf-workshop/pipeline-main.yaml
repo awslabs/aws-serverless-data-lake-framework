@@ -10,6 +10,7 @@ Resources:
     rMainA:
         Type: awslabs::sdlf::stagelambda::MODULE
         Properties:
+            pPipelineReference: !Ref pPipelineReference
             pDeploymentInstance: mainA
             pStorageDeploymentInstance: dev
             pDatasetDeploymentInstance: dev
@@ -32,6 +33,7 @@ Resources:
     rMainB:
         Type: awslabs::sdlf::stageglue::MODULE
         Properties:
+            pPipelineReference: !Ref pPipelineReference
             pDeploymentInstance: mainB
             pStorageDeploymentInstance: dev
             pDatasetDeploymentInstance: dev
