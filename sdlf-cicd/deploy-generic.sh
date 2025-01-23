@@ -152,6 +152,7 @@ aws cloudformation deploy \
     --parameter-overrides \
         pCodebuildBootstrap="$DEPLOY_CODEBUILD_BOOTSTRAP" \
         pCodeBuildSuffix="$1" \
+        pTemplatePrefixes="foundations dataset pipeline team" \
     --tags Framework=sdlf \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
     ${REGION:+--region "$REGION"} \
