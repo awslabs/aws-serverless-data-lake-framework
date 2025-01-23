@@ -10,10 +10,7 @@ Resources:
     rMainA:
         Type: awslabs::sdlf::stagelambda::MODULE
         Properties:
-            pStageName: A
-            pPipeline: main
-            pDataset: legislators
-            pDeploymentInstance: maina
+            pDeploymentInstance: mainA
             pStorageDeploymentInstance: dev
             pDatasetDeploymentInstance: dev
             pTriggerType: event
@@ -35,13 +32,10 @@ Resources:
     rMainB:
         Type: awslabs::sdlf::stageglue::MODULE
         Properties:
-            pStageName: B
-            pPipeline: main
-            pDataset: legislators
-            pDeploymentInstance: mainb
+            pDeploymentInstance: mainB
             pStorageDeploymentInstance: dev
             pDatasetDeploymentInstance: dev
-            pGlueJobName: sdlf-legislators-glue-job
+            pGlueJobName: sdlf-mainB-glue-job
             pGlueNumberOfWorkers: 10
             pGlueWorkerType: G.1X
             pTriggerType: schedule
@@ -54,7 +48,7 @@ Resources:
                         "name": ["{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}"]
                     },
                     "object": {
-                        "key": [{ "prefix": "legislators/main/A/" }]
+                        "key": [{ "prefix": "legislators/mainA/" }]
                     }
                 }
                 }
@@ -65,6 +59,6 @@ Resources:
                 "--job-bookmark-option": "job-bookmark-enable",
                 "--enable-metrics": "",
                 "--enable-auto-scaling": "true",
-                "--SOURCE_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}/legislators/main/A",
-                "--OUTPUT_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/dev}}/legislators/main/B"
+                "--SOURCE_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rStageBucket/dev}}/legislators/mainA",
+                "--OUTPUT_LOCATION": !Sub "s3://{{resolve:ssm:/sdlf/storage/rAnalyticsBucket/dev}}/legislators/mainB"
               }
