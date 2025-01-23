@@ -14,6 +14,9 @@ Parameters:
     Description: Suffix appended to the CodeBuild project name
     Type: String
     AllowedPattern: '[A-Za-z0-9\-_]{1,139}'
+  pTemplatePrefixes:
+    Description: Prefixes of CloudFormation template files (in YAML)
+    Type: String
 
 Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
@@ -309,6 +312,9 @@ Resources:
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
             Value: !Ref rArtifactsBucket
+          - Name: TEMPLATE_PREFIXES
+            Type: PLAINTEXT
+            Value: !Ref pTemplatePrefixes
       ServiceRole: !GetAtt rDatalakeCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
@@ -332,62 +338,23 @@ Resources:
                 - |-
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
                     USER_ROLE_NAME=$(aws sts get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev | cut -d'/' -f 2-)
-                    for foundations_template in foundations-*.yaml
+
+                    for template_prefix in $TEMPLATE_PREFIXES
                     do
-                      foundations_template_basename=$(basename "$foundations_template" .yaml)
-                      sed -i "s|pCicdRole: Admin|pCicdRole: $USER_ROLE_NAME|g" "$foundations_template"
-                      cat "$foundations_template"
-                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$foundations_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$foundations_template_basename.yaml"
+                      for template in "$template_prefix"-*.yaml
+                      do
+                        sed -i "s|pCicdRole: Admin|pCicdRole: $USER_ROLE_NAME|g" "$template"
+                        template_basename=$(basename "$template" .yaml)
+                        aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$template_basename.yaml"
 
-                      STACK_NAME="sdlf-$foundations_template_basename"
-                      aws cloudformation deploy \
-                          --stack-name "$STACK_NAME" \
-                          --template-file "packaged-$foundations_template_basename.yaml" \
-                          --tags Framework=sdlf \
-                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-                          --region "$AWS_REGION" || exit 1
-                    done
-
-                    for dataset_template in dataset-*.yaml
-                    do
-                      dataset_template_basename=$(basename "$dataset_template" .yaml)
-                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$dataset_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$dataset_template_basename.yaml"
-
-                      STACK_NAME="sdlf-$dataset_template_basename"
-                      aws cloudformation deploy \
-                          --stack-name "$STACK_NAME" \
-                          --template-file "packaged-$dataset_template_basename.yaml" \
-                          --tags Framework=sdlf \
-                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-                          --region "$AWS_REGION" || exit 1
-                    done
-
-                    for pipeline_template in pipeline-*.yaml
-                    do
-                      pipeline_template_basename=$(basename "$pipeline_template" .yaml)
-                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$pipeline_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$pipeline_template_basename.yaml"
-
-                      STACK_NAME="sdlf-$pipeline_template_basename"
-                      aws cloudformation deploy \
-                          --stack-name "$STACK_NAME" \
-                          --template-file "packaged-$pipeline_template_basename.yaml" \
-                          --tags Framework=sdlf \
-                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-                          --region "$AWS_REGION" || exit 1
-                    done
-
-                    for team_template in team-*.yaml
-                    do
-                      team_template_basename=$(basename "$team_template" .yaml)
-                      aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$team_template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$team_template_basename.yaml"
-
-                      STACK_NAME="sdlf-$team_template_basename"
-                      aws cloudformation deploy \
-                          --stack-name "$STACK_NAME" \
-                          --template-file "packaged-$team_template_basename.yaml" \
-                          --tags Framework=sdlf \
-                          --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
-                          --region "$AWS_REGION" || exit 1
+                        STACK_NAME="sdlf-$template_basename"
+                        aws cloudformation deploy \
+                            --stack-name "$STACK_NAME" \
+                            --template-file "packaged-$template_basename.yaml" \
+                            --tags Framework=sdlf \
+                            --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
+                            --region "$AWS_REGION" || exit 1
+                      done
                     done
           artifacts:
             files:
