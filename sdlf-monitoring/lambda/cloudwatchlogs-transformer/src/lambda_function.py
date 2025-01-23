@@ -97,7 +97,7 @@ def lambda_handler(event, context):
 
         try:
             put_records(stream_name, records_to_reingest, 0, 20)
-            logger.info(f'Reingested {len(records_to_reingest)} records out of {len(event["records"])}')
+            logger.info(f"Reingested {len(records_to_reingest)} records out of {len(event['records'])}")
         except Exception as err:
             logger.info(f"Failed to reingest records. {str(err)}")
             raise err

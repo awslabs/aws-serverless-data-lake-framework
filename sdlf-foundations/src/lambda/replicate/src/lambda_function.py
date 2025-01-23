@@ -49,7 +49,7 @@ def build_table_item(team, dataset, table):
     table_item["team"] = {"S": team}
     table_item["dataset"] = {"S": dataset}
     table_item["table"] = {"S": table["Name"]}
-    table_item["name"] = {"S": f"{team}-{dataset}-{table["Name"]}"}
+    table_item["name"] = {"S": f"{team}-{dataset}-{table['Name']}"}
     table_item["glue_table"] = {"S": table["Name"]}
     table_item["glue_database"] = {"S": table["DatabaseName"]}
     table_item["status"] = {"S": "ACTIVE"}

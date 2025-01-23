@@ -388,7 +388,7 @@ class _TableBatchWriter:
             if self._extract_pkey_values(item, overwrite_by_pkeys) == pkey_values_new:
                 self._items_buffer.remove(item)
                 self._logger.debug(
-                    "With overwrite_by_pkeys enabled, skipping " "request:%s",
+                    "With overwrite_by_pkeys enabled, skipping request:%s",
                     item,
                 )
 
