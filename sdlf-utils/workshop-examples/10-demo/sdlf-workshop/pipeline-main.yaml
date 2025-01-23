@@ -15,7 +15,7 @@ Resources:
             pStorageDeploymentInstance: dev
             pDatasetDeploymentInstance: dev
             pTriggerType: event
-            pEventPattern: !Sub >-
+            pEventPattern: >-
                 {
                 "source": ["aws.s3"],
                 "detail-type": ["Object Created"],
@@ -41,7 +41,7 @@ Resources:
             pGlueNumberOfWorkers: 10
             pGlueWorkerType: G.1X
             pTriggerType: schedule
-            pEventPattern: !Sub >-
+            pEventPattern: >-
                 {
                 "source": ["aws.s3"],
                 "detail-type": ["Object Created"],
