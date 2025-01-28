@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
 from boto3.dynamodb.types import TypeSerializer
+from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from ..commons import deserialize_dynamodb_item, init_logger, serialize_dynamodb_item
@@ -25,7 +26,8 @@ class DynamoInterface:
     def __init__(self, configuration, log_level=None, dynamodb_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        self.dynamodb_client = dynamodb_client or boto3.client("dynamodb")
+        session_config = Config(user_agent="awssdlf/2.9.0")
+        self.dynamodb_client = dynamodb_client or boto3.client("dynamodb", config=session_config)
 
         self._config = configuration
 

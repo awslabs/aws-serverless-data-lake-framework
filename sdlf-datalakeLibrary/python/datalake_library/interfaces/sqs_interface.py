@@ -3,6 +3,7 @@ import os
 import uuid
 
 import boto3
+from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from ..commons import init_logger
@@ -13,7 +14,8 @@ class SQSInterface:
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
         sqs_endpoint_url = "https://sqs." + os.getenv("AWS_REGION") + ".amazonaws.com"
-        self._sqs_client = sqs_client or boto3.client("sqs", endpoint_url=sqs_endpoint_url)
+        session_config = Config(user_agent="awssdlf/2.9.0")
+        self._sqs_client = sqs_client or boto3.client("sqs", endpoint_url=sqs_endpoint_url, config=session_config)
 
         self._message_queue = self._sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
 
