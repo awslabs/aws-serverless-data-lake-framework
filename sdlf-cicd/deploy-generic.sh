@@ -10,7 +10,7 @@ die() {
     exit 1
 }
 
-version () { echo "awssdlf/2.8.0"; }
+version () { echo "awssdlf/2.9.0"; }
 
 usage () { echo "
 Serverless Data Lake Framework (SDLF) is a collection of infrastructure-as-code artifacts to deploy data architectures on AWS.

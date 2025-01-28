@@ -3,6 +3,7 @@ import os
 from datetime import date, datetime
 
 import boto3
+from botocore.client import Config
 
 from ..commons import init_logger
 
@@ -12,7 +13,10 @@ class StatesInterface:
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
         stepfunctions_endpoint_url = "https://states." + os.getenv("AWS_REGION") + ".amazonaws.com"
-        self._states_client = states_client or boto3.client("stepfunctions", endpoint_url=stepfunctions_endpoint_url)
+        session_config = Config(user_agent="awssdlf/2.9.0")
+        self._states_client = states_client or boto3.client(
+            "stepfunctions", endpoint_url=stepfunctions_endpoint_url, config=session_config
+        )
 
     @staticmethod
     def json_serial(obj):
