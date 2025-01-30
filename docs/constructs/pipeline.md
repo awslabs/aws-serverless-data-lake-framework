@@ -13,7 +13,7 @@ Each pipeline is divided into stages (i.e. StageA, StageB...), which map to AWS 
 
 Each Step Functions is comprised of one or more steps relating to operations in the orchestration process (e.g. Starting an Analytical Job, Running a crawler...).
 
-![SDLF Architecture](../_static/sdlf-architecture.png)
+![SDLF Architecture](../_static/sdlf-pipeline-full.png)
 
 An example architecture for a SDLF pipeline is detailed in the diagram above. The entire process is event-driven.
 
