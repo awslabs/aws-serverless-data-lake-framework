@@ -212,7 +212,7 @@ Resources:
                   python3 -m venv .venv
                   source .venv/bin/activate
                   pip3 install --upgrade pip setuptools
-                  pip3 install seed-farmer
+                  pip3 install "seed-farmer~=5.0.2"
                 - |-
                   echo "project: sdlf" > seedfarmer.yaml
                   seedfarmer version
