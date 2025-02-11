@@ -10,15 +10,14 @@ deploy:
             python3 -m venv ~/.venv
             . ~/.venv/bin/activate
             pip install --upgrade pip setuptools
-            pip install aws-codeseeder~=1.1.0 seed-farmer==5.0.0
+            pip install aws-codeseeder~=1.1.0 seed-farmer==5.0.2
         - |-
             CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
             ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-$SEEDFARMER_PROJECT_NAME'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
 
             deps=(
-              "https://raw.githubusercontent.com/aws/serverless-application-model/develop/bin/sam-translate.py"
               "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip"
-              "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/main/sdlf-cicd/template-generic-cfn-module.yaml"
+              "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/crossaccount/sdlf-cicd/template-generic-cfn-module.yaml"
             )
             for u in "${deps[@]}"; do
               aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
@@ -49,46 +48,27 @@ deploy:
 
             : "${SEEDFARMER_PARAMETER_LIBRARY_ORG:=awslabs}" "${SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK:=sdlf}" "${SEEDFARMER_PARAMETER_LIBRARY_MODULE:=$MODULE}"
             cd src || exit
-            sam package --template-file ./glue.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
-            python3 ../sam-translate.py --template-file=template.yaml --output-template=translated-template.json
-
+            # sam package doesn't play well with resolve: in TemplateURL fields
             SSM_ENDPOINT="https://ssm.$AWS_REGION.amazonaws.com"
+            pipeline_template_url=$(aws ssm --endpoint-url "$SSM_ENDPOINT" get-parameter --name "/sdlf/pipeline/main" --query "Parameter.Value" --output text)
+            sed -i "s|resolve:ssm:/sdlf/pipeline/main|$pipeline_template_url|g" ./glue.yaml
+            sam package --template-file ./glue.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
             TEMPLATE_BASE_FILE_PATH="modules/$SEEDFARMER_PARAMETER_LIBRARY_ORG/$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK/$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
-            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "$TEMPLATE_BASE_FILE_PATH/translated-template.json" --body translated-template.json
-            TEMPLATE_URL="https://$ARTIFACTS_BUCKET.s3.$AWS_REGION.amazonaws.com/$TEMPLATE_BASE_FILE_PATH/translated-template.json"
+            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "$TEMPLATE_BASE_FILE_PATH/template.yaml" --body template.yaml
+
+            TEMPLATE_URL="https://$ARTIFACTS_BUCKET.s3.$AWS_REGION.amazonaws.com/$TEMPLATE_BASE_FILE_PATH/template.yaml"
             aws cloudformation --endpoint-url "$CFN_ENDPOINT" validate-template --template-url "$TEMPLATE_URL"
-
-            mkdir module
-            cd module || exit
-            cfn init --artifact-type MODULE --type-name "$SEEDFARMER_PARAMETER_LIBRARY_ORG::$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK::$SEEDFARMER_PARAMETER_LIBRARY_MODULE::MODULE" && rm fragments/sample.json
-            cp -i -a ../translated-template.json fragments/
-            cfn generate
-            zip -q -r "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" .rpdk-config fragments/ schema.json
-
-            NEW_MODULE="$(sha256sum "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip" | cut -c1-12)"
-            aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "$TEMPLATE_BASE_FILE_PATH-$NEW_MODULE.zip" --body "../$SEEDFARMER_PARAMETER_LIBRARY_MODULE.zip"
-
-            if CURRENT_MODULE=$(aws ssm --endpoint-url "$SSM_ENDPOINT" get-parameter --name "/SDLF/CFN/$SEEDFARMER_PARAMETER_LIBRARY_ORG-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE-MODULE" --query "Parameter.Value" --output text); then
-              echo "Current module hash: $CURRENT_MODULE / New module hash: $NEW_MODULE"
-              if [ "$NEW_MODULE" == "$CURRENT_MODULE" ]; then
-                echo "No change since last build, exiting module creation."
-                exit 0
-              fi
-            fi
 
             STACK_NAME="sdlf-cfn-module-$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK-$SEEDFARMER_PARAMETER_LIBRARY_MODULE"
             aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
               --stack-name "$STACK_NAME" \
-              --template-file ../../template-generic-cfn-module.yaml \
+              --template-file ../template-generic-cfn-module.yaml \
               --parameter-overrides \
-                  pArtifactsBucket="$ARTIFACTS_BUCKET" \
-                  pLibraryOrg="$SEEDFARMER_PARAMETER_LIBRARY_ORG" \
-                  pLibraryFramework="$SEEDFARMER_PARAMETER_LIBRARY_FRAMEWORK" \
-                  pLibraryModule="$SEEDFARMER_PARAMETER_LIBRARY_MODULE" \
-                  pModuleGitRef="$NEW_MODULE" \
+                  pModuleName="$SEEDFARMER_PARAMETER_LIBRARY_MODULE" \
+                  pModuleGitRef="main" \
+                  pModuleS3Url="$TEMPLATE_URL" \
               --tags Framework=sdlf || exit 1
             echo "done"
-            cd .. && rm -Rf module
           fi
         - |-
           if [ "$SEEDFARMER_PARAMETER_DEPLOYMENT_TYPE" = "cdk-construct" ]; then

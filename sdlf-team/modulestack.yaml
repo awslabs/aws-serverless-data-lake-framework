@@ -74,7 +74,7 @@ Resources:
               - ssm:RemoveTagsFromResource
               - ssm:DeleteParameter
             Resource:
-              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/CFN/*
+              - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sdlf/*
           - Effect: Allow
             Action:
               - codeartifact:PublishPackageVersion

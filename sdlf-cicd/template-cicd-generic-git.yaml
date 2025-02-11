@@ -198,7 +198,7 @@ Resources:
       ServiceRole: !GetAtt rSdlfBootstrapCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.2
           phases:
             install:
@@ -213,7 +213,7 @@ Resources:
               commands:
                 - |-
                   # section to remove and replace with CodeBuild source configuration
-                  git clone https://github.com/awslabs/aws-serverless-data-lake-framework.git
+                  git clone --single-branch --branch main https://github.com/awslabs/aws-serverless-data-lake-framework.git
                   cd aws-serverless-data-lake-framework/
                 - |-
                   python3 -m venv .venv
@@ -225,14 +225,19 @@ Resources:
                   seedfarmer version
                 - |-
                   STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                  temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
-                  AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
-                  AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
-                  AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
-                  export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                  if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
+                  then
+                    AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
+                    AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
+                    AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
+                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                  else
+                    echo "Unable to assume role sdlf-cicd-codebuild-bootstrap in target account $TARGET_ACCOUNT"
+                    exit 1
+                  fi
 
                   export PROJECT=sdlf
-                  export USER_ARN=$(aws sts get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev)
+                  export USER_ARN=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev)
 
                   seedfarmer bootstrap toolchain \
                   --project "$PROJECT" \
@@ -241,7 +246,7 @@ Resources:
                   --as-target
                 - |-
                   cp sdlf-cicd/manifest-*.yaml .
-                  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+                  AWS_ACCOUNT_ID=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query "Account" --output text)
                   sed -i -e "s/111111111111/$AWS_ACCOUNT_ID/g" -e "s/eu-west-1/$AWS_REGION/g" manifest-sdlf.yaml
                   seedfarmer apply manifest-sdlf.yaml
           artifacts:
@@ -338,7 +343,7 @@ Resources:
       ServiceRole: !GetAtt rDatalakeCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.2
           phases:
             install:
@@ -357,27 +362,32 @@ Resources:
                     cd aws-serverless-data-lake-framework/sdlf-utils/workshop-examples/10-demo/sdlf-workshop/
                 - |-
                     STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                    temp_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
-                    AWS_ACCESS_KEY_ID=$(echo "$temp_role" | jq .Credentials.AccessKeyId | xargs)
-                    AWS_SECRET_ACCESS_KEY=$(echo "$temp_role" | jq .Credentials.SecretAccessKey | xargs)
-                    AWS_SESSION_TOKEN=$(echo "$temp_role" | jq .Credentials.SessionToken | xargs)
-                    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                    if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
+                    then
+                      AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
+                      AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
+                      AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
+                      export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+                    else
+                      echo "Unable to assume role sdlf-cicd-codebuild-bootstrap in target account $TARGET_ACCOUNT"
+                      exit 1
+                    fi
 
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
-                    USER_ROLE_NAME=$(aws sts get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev | cut -d'/' -f 2-)
+                    USER_ROLE_NAME=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev | cut -d'/' -f 2-)
 
                     for template_prefix in $TEMPLATE_PREFIXES
                     do
                       for template in "$template_prefix"-*.yaml
                       do
+                        [ -e "$template" ] || break # null check
                         sed -i "s|pCicdRole: Admin|pCicdRole: $USER_ROLE_NAME|g" "$template"
                         template_basename=$(basename "$template" .yaml)
-                        aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" package --template "$template" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix codebuild --output-template-file "packaged-$template_basename.yaml"
 
                         STACK_NAME="sdlf-$template_basename"
-                        aws cloudformation deploy \
+                        aws cloudformation --endpoint-url "$CLOUDFORMATION_ENDPOINT_URL" deploy \
                             --stack-name "$STACK_NAME" \
-                            --template-file "packaged-$template_basename.yaml" \
+                            --template-file "$template" \
                             --tags Framework=sdlf \
                             --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
                             --region "$AWS_REGION" || exit 1

@@ -158,19 +158,21 @@ Globals:
 
 Resources:
   rPipelineInterface:
-    Type: awslabs::sdlf::pipeline::MODULE
+    Type: AWS::CloudFormation::Stack
     Properties:
-      pPipelineReference: !Ref pPipelineReference
-      pDeploymentInstance: !Ref pDeploymentInstance
-      pDatasetDeploymentInstance: !Ref pDatasetDeploymentInstance
-      pInfraKmsKey: !Ref pInfraKmsKey
-      pEventBus: !Ref pEventBus
-      pScheduleGroup: !Ref pScheduleGroup
-      pStageEnabled: !Ref pStageEnabled
-      pTriggerType: !Ref pTriggerType
-      pSchedule: !Ref pSchedule
-      pEventPattern: !Ref pEventPattern
-      pLambdaRoutingStep: !GetAtt rLambdaRoutingStep.Arn
+      TemplateURL: "resolve:ssm:/sdlf/pipeline/main"
+      Parameters:
+        pPipelineReference: !Ref pPipelineReference
+        pDeploymentInstance: !Ref pDeploymentInstance
+        pDatasetDeploymentInstance: !Ref pDatasetDeploymentInstance
+        pInfraKmsKey: !Ref pInfraKmsKey
+        pEventBus: !Ref pEventBus
+        pScheduleGroup: !Ref pScheduleGroup
+        pStageEnabled: !Ref pStageEnabled
+        pTriggerType: !Ref pTriggerType
+        pSchedule: !Ref pSchedule
+        pEventPattern: !Ref pEventPattern
+        pLambdaRoutingStep: !GetAtt rLambdaRoutingStep.Arn
 
   ######## IAM #########
   rLambdaCommonPolicy:

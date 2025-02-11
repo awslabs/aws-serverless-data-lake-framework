@@ -1,16 +1,18 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
 Description: Example datasets
 
 Parameters:
-    pPipelineReference:
-        Type: String
-        Default: none
+  pPipelineReference:
+    Type: String
+    Default: none
 
 Resources:
-    rLegislators:
-        Type: awslabs::sdlf::dataset::MODULE
-        Properties:
-            pPipelineReference: !Ref pPipelineReference
-            pS3Prefix: legislators
-            pDeploymentInstance: dev
-            pStorageDeploymentInstance: dev
+  rLegislators:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "{{resolve:ssm:/sdlf/dataset/main}}"
+      Parameters:
+        pPipelineReference: !Ref pPipelineReference
+        pS3Prefix: legislators
+        pDeploymentInstance: dev
+        pStorageDeploymentInstance: dev

@@ -2,39 +2,21 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Deploy a CloudFormation module
 
 Parameters:
-  pArtifactsBucket:
-    Description: The artifacts bucket used by CodeBuild and CodePipeline
-    Type: String
-  pLibraryOrg:
-    Description: Name of the org (all lowercase, no symbols or spaces)
-    Type: String
-  pLibraryFramework:
-    Description: Name of the framework (all lowercase, no symbols or spaces)
-    Type: String
-  pLibraryModule:
+  pModuleName:
     Description: Name of the module
     Type: String
   pModuleGitRef:
     Description: Git reference (commit id) with the sources of this module version
     Type: String
+  pModuleS3Url:
+    Description: S3 URL (https) to the module template
+    Type: String
 
 Resources:
-  rCloudFormationModule:
-      Type: AWS::CloudFormation::ModuleVersion
-      Properties:
-        ModuleName: !Sub "${pLibraryOrg}::${pLibraryFramework}::${pLibraryModule}::MODULE"
-        ModulePackage: !Sub "s3://${pArtifactsBucket}/modules/${pLibraryOrg}/${pLibraryFramework}/${pLibraryModule}-${pModuleGitRef}.zip"
-
-  rCloudFormationModuleDefaultVersion:
-    Type: AWS::CloudFormation::ModuleDefaultVersion
-    Properties:
-      Arn: !Ref rCloudFormationModule
-
   rCloudFormationModuleSsm:
     Type: AWS::SSM::Parameter
-    DependsOn: rCloudFormationModuleDefaultVersion
     Properties:
-      Name: !Sub /SDLF/CFN/${pLibraryOrg}-${pLibraryFramework}-${pLibraryModule}-MODULE
+      Name: !Sub /sdlf/${pModuleName}/${pModuleGitRef}
       Type: String
-      Value: !Ref pModuleGitRef
-      Description: Git reference (commit id) with the sources of this module version
+      Value: !Ref pModuleS3Url
+      Description: S3 URL (https) to the module template of this module version
