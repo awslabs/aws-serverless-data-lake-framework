@@ -1,0 +1,66 @@
+version: 0.2
+
+# env:
+#   variables:
+#     DEPLOYMENT_TYPE: "/usr/lib/jvm/java-8-openjdk-amd64"
+#   parameter-store:
+#     # deployment-type possible values: cfn-module, cdk-construct
+#     # cfn-module creates a CloudFormation Registry module out of template.yaml
+#     # cdk-construct publishes a pip library out of {template}.py on CodeArtifact
+#     DEPLOYMENT_TYPE: "/SDLF/cicd/DeploymentType" # /$UNIQUE_ID/ prefix?
+#     ARTIFACTS_BUCKET: "/SDLF/cicd/ArtifactsBucket"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - |-
+          python3 -m venv ~/.venv
+          . ~/.venv/bin/activate
+          pip install --upgrade pip setuptools
+          pip uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
+          ./sam-installation/install && sam --version
+          pip install "cfn-lint<1" cloudformation-cli
+          npm install -g aws-cdk@2.159.1
+      - |-
+          CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
+          ARTIFACTS_BUCKET=$(aws cloudformation --endpoint-url "$CFN_ENDPOINT" describe-stacks --query "Stacks[?StackName=='aws-codeseeder-sdlf'][].Outputs[?OutputKey=='Bucket'].OutputValue" --output text)
+
+          deps=(
+            "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip"
+            "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/crossaccount/sdlf-cicd/template-generic-cfn-module.yaml"
+          )
+          for u in "${deps[@]}"; do
+            aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
+              curl -L -O "$u"
+              aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
+            }
+          done
+  build:
+    commands:
+      - |-
+        cd src || exit
+        sam package --template-file ./foundations.yaml --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml
+        TEMPLATE_BASE_FILE_PATH="modules/sdlf/foundations"
+        aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "$TEMPLATE_BASE_FILE_PATH/template.yaml" --body template.yaml
+
+        TEMPLATE_URL="https://$ARTIFACTS_BUCKET.s3.$AWS_REGION.amazonaws.com/$TEMPLATE_BASE_FILE_PATH/template.yaml"
+        aws cloudformation --endpoint-url "$CFN_ENDPOINT" validate-template --template-url "$TEMPLATE_URL"
+
+        STACK_NAME="sdlf-cfn-module-foundations"
+        aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
+          --stack-name "$STACK_NAME" \
+          --template-file ../template-generic-cfn-module.yaml \
+          --parameter-overrides \
+              pModuleName="foundations" \
+              pModuleGitRef="main" \
+              pModuleS3Url="$TEMPLATE_URL" \
+          --tags Framework=sdlf || exit 1
+        echo "done"
+  post_build:
+    commands:
+      - echo "Deploy successful"
+# cache:
+#   paths:
+#     - '/root/.m2/**/*'
