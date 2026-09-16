@@ -1,0 +1,99 @@
+{
+  "Comment": "An example of the Amazon States Language using a choice state.",
+  "StartAt": "Pick Test",
+  "States": {
+    "Pick Test": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:::function:pickTest",
+      "Next": "Choice State"
+    },
+    "Next Test": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:::function:nextTest",
+      "Next": "Pick Test"
+    },
+    "Choice State": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.job",
+          "StringEquals": "glue",
+          "Next": "Glue Step Function"
+        },
+        {
+          "Variable": "$.job",
+          "StringEquals": "emr",
+          "Next": "EMR Step Function"
+        },
+        {
+          "Variable": "$.job",
+          "StringEquals": "redshift",
+          "Next": "Redshift Step Function"
+        },
+        {
+          "Variable": "$.job",
+          "StringEquals": "athena",
+          "Next": "Athena Step Function"
+        },
+        {
+          "Variable": "$.job",
+          "StringEquals": "skip",
+          "Next": "Next Test"
+        }
+      ],
+      "Default": "Default State"
+    },
+    "Glue Step Function": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "JobName.$": "$.TaskExecution",
+          "TaskValidation.$": "$.TaskValidation"
+        },
+        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestingGlueJob"
+      },
+      "ResultPath": "$.output",
+      "Next": "Next Test"
+    },
+    "Athena Step Function": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:::function:finishtest",
+      "Parameters": {
+        "JobName.$": "$.TaskExecution"
+      },
+      "ResultPath": "$.output",
+      "Next": "Next Test"
+    },
+    "EMR Step Function": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "ClusterId.$": "$.TaskExecution"
+        },
+        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestingEMRJob"
+      },
+      "ResultPath": "$.output",
+      "Next": "Next Test"
+    },
+    "Redshift Step Function": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "JobName.$": "$.TaskExecution",
+          "TaskValidation.$": "$.TaskValidation",
+          "secret.$": "$.TaskExecution",
+          "params.$": "$.params"
+        },
+        "StateMachineArn": "arn:aws:states:us-west-2:983401557995:stateMachine:TestDataLakeRedshift"
+      },
+      "ResultPath": "$.output",
+      "Next": "Next Test"
+    },
+    "Default State": {
+      "Type": "Succeed"
+    }
+  }
+}

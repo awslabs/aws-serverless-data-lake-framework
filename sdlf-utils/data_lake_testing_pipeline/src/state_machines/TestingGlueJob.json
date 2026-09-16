@@ -1,0 +1,53 @@
+{
+  "Comment": "A generic template to execute a Lambda function that executes a glue/redshift/emr job",
+  "StartAt": "TriggerGlueJob",
+  "States": {
+    "TriggerGlueJob": {
+      "Type": "Task",
+      "Resource":"arn:aws:states:::glue:startJobRun.sync",
+         "Parameters":{  
+            "JobName.$":"$.JobName"
+         },
+      "Next": "ValidateTask",
+      "ResultPath": null
+    },
+    "ValidateTask": {
+      "Type": "Task",
+      "Resource":"arn:aws:states:::lambda:invoke",
+         "Parameters":{  
+            "FunctionName.$":"$.TaskValidation"
+         },
+      "Next": "StatusCheck"
+    },
+    "StatusCheck": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.Payload.status",
+          "StringEquals": "FAILED",
+          "Next": "FailedNotification"
+        },
+        {
+          "Variable": "$.Payload.status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "Complete"
+        }
+      ],
+      "Default": "FailedNotification"
+    },
+    "FailedNotification": {
+     "Type": "Task",
+     "Resource": "arn:aws:states:::sns:publish",
+     "Parameters": {
+       "TopicArn.$": "$.input.sns_topic_arn",
+       "Message": "Data Lake Job failed. Check AWS Console for details"
+     },
+     "Next": "Failed"
+    },
+    "Complete": {
+      "Type": "Succeed"
+    },    "Failed": {
+      "Type": "Succeed"
+    }
+  }
+}
